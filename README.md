@@ -16,14 +16,14 @@ O **Flycast Auto-Updater** é uma ferramenta inteligente e automatizada desenvol
   * `Dev`: Versão de desenvolvimento / builds diárias da nuvem (via S3 Buckets e commits do GitHub).
 * **Auto-Cópia Inteligente:** O script/executável gerencia sua própria cópia para o diretório de destino do emulador.
 * **Atalhos Automatizados:** Criação opcional de atalhos na Área de Trabalho com o ícone oficial customizado de atualização.
-* **Sistema de Auditoria por Logs:** Mantém um histórico incremental de execuções (`flycast_updater.log`) registrando data, hora e a versão exata do script (`[v1.0]`).
+* **Sistema de Auditoria por Logs:** Mantém um histórico incremental de execuções (`flycast_updater.log`) registrando data, hora e a versão exata do script.
 * **Menu de Ajuda Integrado:** Suporte a parâmetros de linha de comando (`-help`, `-h`, `--help`).
 
 ---
 
 ## 🚀 Como Usar
 
-Basta baixar a versão mais pronta para uso na aba [Releases](https://github.com/dsantanna/flycast_updater/releases) (`FlycastUpdater.exe`) e executá-la. Na primeira execução, o programa solicitará que você escolha a branch desejada e se deseja criar um atalho na Área de Trabalho.
+Basta baixar a versão mais atual para uso na aba [Releases](https://github.com/dsantanna/flycast_updater/releases) (`FlycastUpdater.exe`) e executá-la. Na primeira execução, o programa solicitará que você escolha a branch desejada e se deseja criar um atalho na Área de Trabalho.
 
 ### ⚙️ Parâmetros de Linha de Comando (CLI)
 
