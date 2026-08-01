@@ -8,6 +8,14 @@ O **Flycast Auto-Updater** é uma ferramenta inteligente e automatizada desenvol
 
 ---
 
+## ⚠️ Avisos Importantes (Disclaimer)
+
+* **Isenção de Autoria:** O **Flycast Auto-Updater** não é de autoria dos criadores do emulador. Este projeto é apenas um script utilitário que automatiza o processo de download e atualização. **Todos os créditos, direitos autorais e méritos do Flycast pertencem exclusivamente aos seus desenvolvedores e mantenedores oficiais.**
+* **Ausência de BIOS e ROMs:** **Nenhum arquivo de BIOS, firmware ou ROM/ISO de jogos** é fornecido, hospedado ou distribuído através deste repositório. 
+* **Uso Legal:** Para utilizar o emulador com o Flycast, o usuário deve possuir os arquivos de BIOS extraídos de seu próprio hardware e ter os **jogos originais** legalmente adquiridos.
+
+---
+
 ## 🌟 Principais Recursos
 
 * **Suporte Multilíngue Automático:** O inicializador detecta o idioma do sistema operacional Windows e executa a versão ideal (Português do Brasil ou Inglês - US).
