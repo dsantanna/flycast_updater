@@ -58,4 +58,61 @@ Você pode executar o atualizador via terminal passando argumentos opcionais:
 
 Exemplo:
 ```cmd
-FlycastUpdater.exe -dev
+FlycastUpdater.exe -dev -path <caminho_completo>
+```
+# 🌀 Flycast Updater (v1.0)
+
+The **Flycast Updater** is a smart, automated tool developed to manage the download, installation, and continuous updating of the **Flycast** emulator (Sega Dreamcast / Naomi / Atomiswave) on Windows.
+
+---
+
+## ⚠️ Important Notices (Disclaimer)
+
+* **Authorship Disclaimer:** The **Flycast Updater** is not authored by the creators of the emulator. This project is merely a utility script that automates the download and update process. **All credits, copyrights, and merits of Flycast belong exclusively to its official developers and maintainers.**
+* **Absence of BIOS and ROMs:** **No BIOS, firmware, or game ROM/ISO files** are provided, hosted, or distributed through this repository. 
+* **Legal Use:** To use the Flycast emulator, the user must own the BIOS files extracted from their own hardware and have legally acquired **original games**.
+
+---
+
+## 🌟 Key Features
+
+* **Automatic Multilingual Support:** The launcher detects the Windows operating system language and runs the ideal version (Brazilian Portuguese or US English).
+* **Two Supported Branches:** 
+  * `Master`: Official stable version (via GitHub Releases).
+  * `Dev`: Development version / daily cloud builds (via S3 Buckets and GitHub commits).
+* **Smart Self-Copy:** The script/executable manages its own copy to the emulator's destination directory.
+* **Automated Shortcuts:** Optional creation of Desktop shortcuts with the official custom update icon.
+* **Log Audit System:** Maintains an incremental execution history (`flycast_updater.log`) recording the date, time, and exact version of the script.
+* **Integrated Help Menu:** Support for command-line parameters (`-help`, `-h`, `--help`).
+
+---
+
+## 🚀 How to Use
+
+For the vast majority of users, simply download the ready-to-use version:
+1. Go to the [Releases](https://github.com/dsantanna/flycast_updater/releases) tab.
+2. Download the **`FlycastUpdater.exe`** file.
+3. Run it in the folder where you want to keep the emulator. On the first run, the program will ask you to choose the desired branch and whether you want to create a Desktop shortcut.
+
+---
+
+## 🛡️ Troubleshooting (FAQ)
+
+* **Windows Defender / SmartScreen blocked the executable upon opening:**
+  * Since the `.exe` file was independently compiled via PyInstaller (and does not have a paid commercial digital signature), Windows may display a warning window (*"Windows protected your PC"*). 
+  * **How to fix:** Simply click on **"More info"** and then on the **"Run anyway"** button. The program is completely safe and open source.
+
+---
+
+## ⚙️ Command-Line Parameters (CLI)
+
+You can run the updater via the terminal by passing optional arguments:
+
+* `-help`, `-h`, `--help` : Displays the help menu and exits.
+* `-dev` : Forces the configuration and download of the daily version (Dev).
+* `-master` : Forces the configuration and download of the stable version (Master).
+* `-path <directory>` *(PT version only)* : Sets a custom installation directory.
+
+Example:
+```cmd
+FlycastUpdater.exe -dev -path <full_path>
