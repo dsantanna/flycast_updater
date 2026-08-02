@@ -1,0 +1,11 @@
+# Logs e arquivos de auditoria
+*.log
+
+# Pastas de compilação do PyInstaller
+build/
+dist/
+*.spec
+
+# Cache do Python
+__pycache__/
+*.py[cod]

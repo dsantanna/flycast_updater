@@ -21,8 +21,8 @@ if __name__ == "__main__":
     # Como o import carrega as variáveis globais, nós o colocamos DENTRO do if.
     # Assim, apenas a versão correta do script é lida e executada.
     if is_portuguese():
-        import update_flycast
+        import Windows.update_flycast as update_flycast
         update_flycast.main()
     else:
-        import flycast_update_en_us
+        import Windows.flycast_update_en_us as flycast_update_en_us
         flycast_update_en_us.main()
