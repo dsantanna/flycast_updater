@@ -125,10 +125,10 @@ def main():
     # 1. Injetamos as escolhas do usuário nas variáveis do seu script original
     update_flycast.TAG = branch
     update_flycast.INSTALL_DIR = install_path
-    update_flycast.CREATE_SHORTCUT = create_shortcut # Caso seu script use essa variável para o ícone
+    # update_flycast.CREATE_SHORTCUT = create_shortcut # (Descomente se o update_flycast.py usar isso)
     
     # 2. Recalculamos as variáveis que dependiam da TAG e do INSTALL_DIR no update_flycast.py
-    import os
+    # Removemos o "import os" daqui, pois ele já está no topo do arquivo!
     update_flycast.API_URL = f"https://api.github.com/repos/flyinghead/flycast/releases/tags/{branch}"
     update_flycast.VERSION_FILE = os.path.join(install_path, "version.txt")
 
