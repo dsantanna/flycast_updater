@@ -96,17 +96,16 @@ def main():
         branch = config["branch"]
         print(f"[*] Carregado do config.json -> Branch: {branch.capitalize()}")
     else:
-        # Se não tem CLI nem config, vai pro menu
         branch, create_shortcut, install_path = menu_interativo()
         salvar_configuracao(branch, create_shortcut, install_path)
-        config = carregar_configuracao() # Recarrega para unificar o fluxo
+        config = carregar_configuracao()
 
-    # Captura caminho se foi passado por CLI
+    # Captura caminho e atalho
     install_path = config.get("install_path", os.getcwd())
     if "-path" in args:
         idx = args.index("-path")
         if len(args) > idx + 1:
-            install_path = args[idx + 1]
+            install_path = os.path.abspath(args[idx + 1])
 
     create_shortcut = config.get("create_shortcut", False)
 
@@ -116,27 +115,28 @@ def main():
     print(f" - Criar Atalho: {'Sim' if create_shortcut else 'Não'}\n")
 
     # ==============================================================
-    # CONEXÃO COM O MOTOR DE ATUALIZAÇÃO
+    # CONEXÃO COM O MOTOR DE ATUALIZAÇÃO (update_flycast.py)
     # ==============================================================
     import update_flycast
     
-    print("[*] Conectando ao motor de download...")
-
-    # 1. Injetamos as escolhas do usuário nas variáveis do seu script original
-    update_flycast.TAG = branch
+    # Configuramos as variáveis globais do motor original de forma limpa
     update_flycast.INSTALL_DIR = install_path
-    # update_flycast.CREATE_SHORTCUT = create_shortcut # (Descomente se o update_flycast.py usar isso)
+    update_flycast.SHOULD_CREATE_SHORTCUT = create_shortcut
     
-    # 2. Recalculamos as variáveis que dependiam da TAG e do INSTALL_DIR no update_flycast.py
-    # Removemos o "import os" daqui, pois ele já está no topo do arquivo!
-    update_flycast.API_URL = f"https://api.github.com/repos/flyinghead/flycast/releases/tags/{branch}"
+    # Recriamos a lista de argumentos falsa para simular que o launcher
+    # chamou o script original passando os parâmetros corretos direto na linha de comando.
+    # Isso impede que o update_flycast.py abra o menu interativo antigo!
+    args_simulados = [f"-{branch}", "-path", install_path]
+    update_flycast.args_lower = [arg.lower() for arg in args_simulados]
+    
+    # Atualiza variáveis de caminho internas do motor
     update_flycast.VERSION_FILE = os.path.join(install_path, "version.txt")
+    update_flycast.CONFIG_FILE = os.path.join(install_path, "branch_config.txt")
+    update_flycast.LOG_FILE = os.path.join(install_path, "flycast_updater.log")
 
-    # 3. Disparamos a função principal que faz o download e a extração
+    # Dispara a lógica principal do motor de download
     update_flycast.main()
     # ==============================================================
-    
-    print("[✓] Processo finalizado!")
 
 if __name__ == "__main__":
     try:
