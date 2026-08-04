@@ -21,7 +21,7 @@ import tempfile
 import datetime       
 
 # --- VARIÁVEIS GLOBAIS E DIRETÓRIOS ---
-SCRIPT_VERSION = "1.0"
+SCRIPT_VERSION = "1.1"
 INSTALL_DIR = os.getcwd()
 SHOULD_CREATE_SHORTCUT = False 
 
@@ -238,6 +238,32 @@ def launch_emulator():
         print(f"\n{msg}")
         log_event(msg)
 
+def verificar_bios_local(install_dir):
+    """Verifica de forma passiva a presença dos arquivos de BIOS do Dreamcast.
+    Nota: O script realiza apenas uma inspeção local e educacional. 
+    Nenhum arquivo proprietário é distribuído ou baixado.
+    """
+    # O Flycast procura tipicamente por dc_boot.bin (BIOS) e dc_flash.bin (Flash)
+    arquivos_bios = ["dc_boot.bin", "dc_flash.bin"]
+    arquivos_faltantes = []
+    
+    for arquivo in arquivos_bios:
+        # Verifica tanto na raiz do instalador quanto dentro de uma pasta 'data' (se houver)
+        caminho_raiz = os.path.join(install_dir, arquivo)
+        caminho_data = os.path.join(install_dir, "data", arquivo)
+        
+        if not (os.path.exists(caminho_raiz) or os.path.exists(caminho_data)):
+            arquivos_faltantes.append(arquivo)
+            
+    if arquivos_faltantes:
+        aviso = f"Aviso de BIOS: Arquivos não detectados ({', '.join(arquivos_faltantes)}). Lembre-se de inserir os dumps legais das suas mídias originais para iniciar os jogos."
+        print(f"\n[!] {aviso}")
+        log_event(aviso)
+    else:
+        sucesso = "Verificação de BIOS: Arquivos essenciais detectados com sucesso na pasta de destino."
+        print(f"\n[✓] {sucesso}")
+        log_event(sucesso)
+
 def main():
     log_event("--- Script iniciado ---")
     branch_choice = get_user_preference()
@@ -336,6 +362,8 @@ def main():
 
     with open(VERSION_FILE, "w") as f:
         f.write(remote_version)
+       
+    verificar_bios_local(INSTALL_DIR)
 
     print(f"Sucesso! O Flycast ({branch_choice.upper()}) foi atualizado corretamente.")
     log_event(f"Atualização concluída com sucesso. Flycast atualizado para a versão {remote_version[:10]}.")
