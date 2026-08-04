@@ -199,7 +199,7 @@ def main():
 
     create_shortcut = config.get("create_shortcut", False)
 
-   print("\n🚀 Iniciando a atualização com os seguintes parâmetros:")
+    print("\n🚀 Iniciando a atualização com os seguintes parâmetros:")
     print(f" - Branch: {branch}")
     print(f" - Destino: {install_path}")
     print(f" - Criar Atalho: {'Sim' if create_shortcut else 'Não'}\n")
