@@ -1,4 +1,5 @@
-# 🌀 Flycast Updater (v1.0) - Windows
+# 🌀 Flycast Updater (v1.1) - Windows
+
 
 [![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/dsantanna/flycast_updater)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://github.com/dsantanna/flycast_updater)
@@ -8,6 +9,15 @@
 O **Flycast Updater** é uma ferramenta inteligente e automatizada desenvolvida para gerenciar o download, a instalação e a atualização contínua do emulador **Flycast** (Sega Dreamcast / Naomi / Atomiswave) no Windows.
 
 ---
+## 🚀 Funcionalidades Principais (v1.1)
+
+- **Arquitetura Inteligente (Launcher + Motor):** Separação clara entre o cérebro de controle (`launcher.py`) e o motor de download (`update_flycast.py`).
+- **Auto-Atualização do Launcher:** Verifica automaticamente na API do GitHub se há uma nova versão do próprio atualizador, baixando e aplicando atualizações de forma transparente.
+- **Barra de Progresso Visual em Tempo Real:** Monitoramento do download via blocos de bytes, exibindo a porcentagem exata e o volume transferido em megabytes (`MB`).
+- **Trilha de Auditoria Unificada (`flycast_updater.log`):** Sistema de logs detalhado e incremental, rotulado rigorosamente com a versão ativa e carimbos de data/hora de cada ação realizada.
+- **Verificação Passiva de BIOS:** Inspeção local e estritamente educacional para alertar o usuário caso os arquivos fundamentais de sistema (`dc_boot.bin`, `dc_flash.bin`) estejam ausentes, mantendo total conformidade legal (sem distribuição de arquivos proprietários).
+- **Persistência de Preferências (`config.json`):** Salva automaticamente as escolhas de branch, caminho de instalação e criação de atalhos, evitando perguntas repetitivas em execuções futuras.
+- **Geração Automatizada de Atalhos:** Criação de atalhos personalizados na Área de Trabalho do Windows apontando para o binário do Flycast com o ícone oficial do emulador.
 
 ## ⚠️ Avisos Importantes (Disclaimer)
 
@@ -54,13 +64,20 @@ Você pode executar o atualizador via terminal passando argumentos opcionais:
 * `-help`, `-h`, `--help` : Exibe o menu de ajuda e encerra.
 * `-dev` : Força a configuração e o download da versão diária (Dev).
 * `-master` : Força a configuração e o download da versão estável (Master).
+* `-reset` : Ignora o arquivo `config.json` salvo e exibe o menu interativo de reconfiguração inicial.
 * `-path <diretriz>` *(Apenas versão PT)* : Define um diretório de instalação personalizado.
 
 Exemplo:
 ```cmd
 FlycastUpdater.exe -dev -path <caminho_completo>
 ```
-# 🌀 Flycast Updater (v1.0)
+## 🛠️ Tecnologias Utilizadas
+
+- **Python 3.x** (Linguagem principal)
+- **PyInstaller** (Compilação para executável standalone `.exe`)
+- **GitHub Actions** (CI/CD para build e release automatizadas)
+
+# 🌀 Flycast Updater Linux (v1.0)
 
 The **Flycast Updater** is a smart, automated tool developed to manage the download, installation, and continuous updating of the **Flycast** emulator (Sega Dreamcast / Naomi / Atomiswave) on Windows.
 

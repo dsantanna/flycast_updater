@@ -1,0 +1,21 @@
+========================================
+       FLYCAST UPDATER - CHANGELOG
+========================================
+
+Versão 1.1 (Agosto de 2026)
+----------------------------------------
+- **Novo Launcher (`launcher.py`):** Implementada nova camada de controle inteligente para gerenciar o ciclo de vida da aplicação.
+- **Auto-Update do Atualizador:** Adicionada rotina de checagem na API do GitHub (`releases/latest`) para atualizar o próprio executável (`.exe`) via script auxiliar de substituição (`.bat`).
+- **Barra de Progresso Visual:** Substituição do download estático por leitura em blocos (`chunks`) de 8 KB com exibição de barra de progresso em tempo real, porcentagem e megabytes baixados.
+- **Auditoria de Logs Padronizada:** Sincronização de tags de versão (`[v1.1]`) e registro obrigatório dos parâmetros definidos pelo usuário no arquivo `flycast_updater.log`.
+- **Monkeypatching Dinâmico:** Injeção em tempo de execução para manter a compatibilidade com o motor antigo sem gerar arquivos de configuração obsoletos.
+- **Verificação Passiva de BIOS:** Implementação de checagem local opcional e educacional para alertar sobre a ausência dos dumps de BIOS necessários para iniciar os jogos, com total respeito aos direitos autorais.
+- **Persistência e CLI Avançada:** Integração robusta com `config.json` e suporte expandido a argumentos de linha de comando (`-dev`, `-master`, `-path`, `-reset`).
+
+Versão 1.0 (Versão Inicial)
+----------------------------------------
+- Lançamento do motor base de atualização (`update_flycast.py`).
+- Suporte a download de releases estáveis da API do GitHub (Master) e varredura de commits em servidores S3 (Dev).
+- Sistema básico de log incremental.
+- Criação de atalhos na Área de Trabalho utilizando VBScript integrado.
+- Tratamento de exceções de rede e compactação ZIP.
