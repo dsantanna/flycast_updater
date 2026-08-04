@@ -5,6 +5,7 @@ import subprocess
 import time
 import urllib.request
 from urllib.error import URLError
+import datetime
 
 # ==========================================
 # Flycast Updater - Launcher v1.1
@@ -48,9 +49,22 @@ def salvar_configuracao(branch, create_shortcut, install_path):
 # Substitua com o seu repositório exato caso esteja diferente
 REPO_UPDATER = "dsantanna/flycast_updater"
 
-def verificar_atualizacao_updater():
+def gravar_log(mensagem, install_path):
+    """Grava os eventos do Launcher no mesmo arquivo de log do motor."""
+    log_file = os.path.join(install_path, "flycast_updater.log")
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] [v{VERSION}] {mensagem}\n")
+    except:
+        pass
+
+def verificar_atualizacao_updater(install_path):
     """Verifica se há uma nova versão do FlycastUpdater lançada no GitHub."""
-    print("[*] Verificando se há atualizações para o Flycast Updater...")
+    msg_inicio = "Verificando se há atualizações para o próprio Flycast Updater..."
+    print(f"[*] {msg_inicio}")
+    gravar_log(msg_inicio, install_path)
+    
     api_url = f"https://api.github.com/repos/{REPO_UPDATER}/releases/latest"
     
     try:
@@ -61,51 +75,60 @@ def verificar_atualizacao_updater():
         versao_remota = dados.get("tag_name", "").replace("v", "")
         
         if versao_remota and versao_remota > VERSION:
-            print(f"\n[!] Nova versão do Updater encontrada: v{versao_remota}")
+            msg_nova = f"Nova versão do Updater encontrada: v{versao_remota}. Iniciando auto-atualização."
+            print(f"\n[!] {msg_nova}")
+            gravar_log(msg_nova, install_path)
             
-            # Procura o arquivo .exe nos assets da release
             for asset in dados.get("assets", []):
                 if asset["name"].endswith(".exe"):
-                    aplicar_auto_atualizacao(asset["browser_download_url"])
-                    return # Encerra a função pois o programa será reiniciado
+                    aplicar_auto_atualizacao(asset["browser_download_url"], install_path)
+                    return 
                     
-        print("[✓] O Flycast Updater já está na versão mais recente.\n")
+        msg_ok = "O Flycast Updater já está na versão mais recente."
+        print(f"[✓] {msg_ok}\n")
+        gravar_log(msg_ok, install_path)
         
     except Exception as e:
-        print(f"[-] Aviso: Não foi possível checar atualização do Updater: {e}\n")
+        msg_erro = f"Aviso: Não foi possível checar atualização do Updater: {e}"
+        print(f"[-] {msg_erro}\n")
+        gravar_log(msg_erro, install_path)
 
-def aplicar_auto_atualizacao(url_download):
+def aplicar_auto_atualizacao(url_download, install_path):
     """Baixa o novo .exe e cria um script .bat para substituí-lo."""
-    print("[*] Baixando a nova versão do atualizador. Aguarde...")
+    msg_down = "Baixando a nova versão do atualizador. Aguarde..."
+    print(f"[*] {msg_down}")
+    gravar_log(msg_down, install_path)
+    
     exe_atual = sys.executable
     dir_atual = os.path.dirname(exe_atual)
     exe_novo = os.path.join(dir_atual, "FlycastUpdater_novo.exe")
     script_bat = os.path.join(dir_atual, "atualiza_updater.bat")
     
     try:
-        # Baixa o novo executável
         urllib.request.urlretrieve(url_download, exe_novo)
         
-        # Cria o script BAT "Fantasma"
         nome_exe = os.path.basename(exe_atual)
         conteudo_bat = f"""@echo off
-                        timeout /t 2 /nobreak > NUL
-                        del "{nome_exe}"
-                        ren "FlycastUpdater_novo.exe" "{nome_exe}"
-                        start "" "{nome_exe}"
-                        del "%~f0"
-                    """
+timeout /t 2 /nobreak > NUL
+del "{nome_exe}"
+ren "FlycastUpdater_novo.exe" "{nome_exe}"
+start "" "{nome_exe}"
+del "%~f0"
+"""
         with open(script_bat, "w") as f:
             f.write(conteudo_bat)
             
-        print("[✓] Download concluído! Reiniciando o Updater para aplicar...")
+        msg_sucesso = "Download do novo Updater concluído! Reiniciando para aplicar..."
+        print(f"[✓] {msg_sucesso}")
+        gravar_log(msg_sucesso, install_path)
         
-        # Executa o BAT e encerra o Python/Exe atual IMEDIATAMENTE
         subprocess.Popen(script_bat, shell=True)
         sys.exit(0)
         
     except Exception as e:
-        print(f"[-] Erro ao tentar atualizar o script: {e}\n")
+        msg_erro_down = f"Erro ao tentar atualizar o script: {e}"
+        print(f"[-] {msg_erro_down}\n")
+        gravar_log(msg_erro_down, install_path)
         if os.path.exists(exe_novo):
             os.remove(exe_novo)
 
@@ -134,10 +157,7 @@ def menu_interativo():
 
 def main():
     exibir_cabecalho()
-
-    if getattr(sys, 'frozen', False): # Só procura update se for um .exe compilado
-        verificar_atualizacao_updater()
-    
+            
     args = sys.argv[1:]
     
     # Menu de Ajuda
@@ -185,6 +205,13 @@ def main():
     print(f" - Criar Atalho: {'Sim' if create_shortcut else 'Não'}\n")
 
     # ==============================================================
+    # NOVA POSIÇÃO CORRETA DO AUTO-UPDATE
+    # Agora a variável install_path existe e está preenchida corretamente!
+    # ==============================================================
+    if getattr(sys, 'frozen', False):
+        verificar_atualizacao_updater(install_path)
+
+    # ==============================================================
     # CONEXÃO COM O MOTOR DE ATUALIZAÇÃO (update_flycast.py)
     # ==============================================================
     import update_flycast
@@ -193,9 +220,7 @@ def main():
     update_flycast.INSTALL_DIR = install_path
     update_flycast.SHOULD_CREATE_SHORTCUT = create_shortcut
     
-    # Recriamos a lista de argumentos falsa para simular que o launcher
-    # chamou o script original passando os parâmetros corretos direto na linha de comando.
-    # Isso impede que o update_flycast.py abra o menu interativo antigo!
+    # Recriamos a lista de argumentos falsa
     args_simulados = [f"-{branch}", "-path", install_path]
     update_flycast.args_lower = [arg.lower() for arg in args_simulados]
     
