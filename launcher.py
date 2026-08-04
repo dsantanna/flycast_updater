@@ -2,6 +2,9 @@ import os
 import sys
 import json
 import subprocess
+import time
+import urllib.request
+from urllib.error import URLError
 
 # ==========================================
 # Flycast Updater - Launcher v1.1
@@ -42,6 +45,70 @@ def salvar_configuracao(branch, create_shortcut, install_path):
     except Exception as e:
         print(f"[Erro] Falha ao salvar configuração: {e}")
 
+# Substitua com o seu repositório exato caso esteja diferente
+REPO_UPDATER = "dsantanna/flycast_updater"
+
+def verificar_atualizacao_updater():
+    """Verifica se há uma nova versão do FlycastUpdater lançada no GitHub."""
+    print("[*] Verificando se há atualizações para o Flycast Updater...")
+    api_url = f"https://api.github.com/repos/{REPO_UPDATER}/releases/latest"
+    
+    try:
+        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            dados = json.loads(response.read().decode())
+            
+        versao_remota = dados.get("tag_name", "").replace("v", "")
+        
+        if versao_remota and versao_remota > VERSION:
+            print(f"\n[!] Nova versão do Updater encontrada: v{versao_remota}")
+            
+            # Procura o arquivo .exe nos assets da release
+            for asset in dados.get("assets", []):
+                if asset["name"].endswith(".exe"):
+                    aplicar_auto_atualizacao(asset["browser_download_url"])
+                    return # Encerra a função pois o programa será reiniciado
+                    
+        print("[✓] O Flycast Updater já está na versão mais recente.\n")
+        
+    except Exception as e:
+        print(f"[-] Aviso: Não foi possível checar atualização do Updater: {e}\n")
+
+def aplicar_auto_atualizacao(url_download):
+    """Baixa o novo .exe e cria um script .bat para substituí-lo."""
+    print("[*] Baixando a nova versão do atualizador. Aguarde...")
+    exe_atual = sys.executable
+    dir_atual = os.path.dirname(exe_atual)
+    exe_novo = os.path.join(dir_atual, "FlycastUpdater_novo.exe")
+    script_bat = os.path.join(dir_atual, "atualiza_updater.bat")
+    
+    try:
+        # Baixa o novo executável
+        urllib.request.urlretrieve(url_download, exe_novo)
+        
+        # Cria o script BAT "Fantasma"
+        nome_exe = os.path.basename(exe_atual)
+        conteudo_bat = f"""@echo off
+                        timeout /t 2 /nobreak > NUL
+                        del "{nome_exe}"
+                        ren "FlycastUpdater_novo.exe" "{nome_exe}"
+                        start "" "{nome_exe}"
+                        del "%~f0"
+                    """
+        with open(script_bat, "w") as f:
+            f.write(conteudo_bat)
+            
+        print("[✓] Download concluído! Reiniciando o Updater para aplicar...")
+        
+        # Executa o BAT e encerra o Python/Exe atual IMEDIATAMENTE
+        subprocess.Popen(script_bat, shell=True)
+        sys.exit(0)
+        
+    except Exception as e:
+        print(f"[-] Erro ao tentar atualizar o script: {e}\n")
+        if os.path.exists(exe_novo):
+            os.remove(exe_novo)
+
 def menu_interativo():
     """Exibe o menu para o usuário escolher as opções na primeira execução."""
     print("\n--- Configuração Inicial ---")
@@ -67,6 +134,9 @@ def menu_interativo():
 
 def main():
     exibir_cabecalho()
+
+    if getattr(sys, 'frozen', False): # Só procura update se for um .exe compilado
+        verificar_atualizacao_updater()
     
     args = sys.argv[1:]
     
