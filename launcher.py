@@ -199,14 +199,16 @@ def main():
 
     create_shortcut = config.get("create_shortcut", False)
 
-    print("\n🚀 Iniciando a atualização com os seguintes parâmetros:")
+   print("\n🚀 Iniciando a atualização com os seguintes parâmetros:")
     print(f" - Branch: {branch}")
     print(f" - Destino: {install_path}")
     print(f" - Criar Atalho: {'Sim' if create_shortcut else 'Não'}\n")
 
+    # CORREÇÃO 1: Gravando as escolhas vitais do usuário no arquivo de log!
+    gravar_log(f"Parâmetros definidos -> Branch: {branch.upper()} | Destino: {install_path} | Atalho: {create_shortcut}", install_path)
+
     # ==============================================================
-    # NOVA POSIÇÃO CORRETA DO AUTO-UPDATE
-    # Agora a variável install_path existe e está preenchida corretamente!
+    # POSIÇÃO CORRETA DO AUTO-UPDATE
     # ==============================================================
     if getattr(sys, 'frozen', False):
         verificar_atualizacao_updater(install_path)
@@ -216,18 +218,20 @@ def main():
     # ==============================================================
     import update_flycast
     
-    # Configuramos as variáveis globais do motor original de forma limpa
+    # CORREÇÃO 2: Exorcizando o Fantasma! Sincronizamos a versão do motor.
+    update_flycast.SCRIPT_VERSION = VERSION
+    
+    # Configura as variáveis globais de caminho e atalho
     update_flycast.INSTALL_DIR = install_path
     update_flycast.SHOULD_CREATE_SHORTCUT = create_shortcut
-    
-    # Recriamos a lista de argumentos falsa
-    args_simulados = [f"-{branch}", "-path", install_path]
-    update_flycast.args_lower = [arg.lower() for arg in args_simulados]
-    
-    # Atualiza variáveis de caminho internas do motor
     update_flycast.VERSION_FILE = os.path.join(install_path, "version.txt")
-    update_flycast.CONFIG_FILE = os.path.join(install_path, "branch_config.txt")
     update_flycast.LOG_FILE = os.path.join(install_path, "flycast_updater.log")
+
+    # CORREÇÃO 3: O Golpe de Mestre (Monkeypatching)
+    # Substituímos a função falastrona do motor antigo por uma função anônima (lambda) 
+    # invisível que apenas entrega a branch. Isso limpa a mentira do log e remove a 
+    # necessidade de criar argumentos falsos!
+    update_flycast.get_user_preference = lambda: branch
 
     # Dispara a lógica principal do motor de download
     update_flycast.main()
