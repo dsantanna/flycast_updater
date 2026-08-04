@@ -280,10 +280,45 @@ def main():
     try:
         req = urllib.request.Request(download_url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req) as response, open(download_path, 'wb') as out_file:
-            out_file.write(response.read())
+            
+            # Descobre o tamanho total do arquivo
+            tamanho_total = response.getheader('Content-Length')
+            
+            if tamanho_total is None:
+                # Se o servidor não informar o tamanho, baixa do jeito antigo
+                out_file.write(response.read())
+            else:
+                tamanho_total = int(tamanho_total)
+                tamanho_baixado = 0
+                tamanho_bloco = 8192 # Baixa de 8 em 8 KB
+                
+                print("") # Pula uma linha para a barra ficar isolada
+                while True:
+                    bloco = response.read(tamanho_bloco)
+                    if not bloco:
+                        break
+                    tamanho_baixado += len(bloco)
+                    out_file.write(bloco)
+                    
+                    # Calcula o progresso
+                    porcentagem = int(tamanho_baixado * 100 / tamanho_total)
+                    tamanho_barra = 40
+                    preenchido = int(tamanho_barra * tamanho_baixado // tamanho_total)
+                    barra = '█' * preenchido + '-' * (tamanho_barra - preenchido)
+                    
+                    # Converte para MB para exibição
+                    mb_baixado = tamanho_baixado / (1024 * 1024)
+                    mb_total = tamanho_total / (1024 * 1024)
+                    
+                    # O '\r' faz o cursor voltar ao início da linha, sobrescrevendo a anterior
+                    sys.stdout.write(f'\r[*] Progresso: |{barra}| {porcentagem}% ({mb_baixado:.1f} MB / {mb_total:.1f} MB)')
+                    sys.stdout.flush()
+                
+                print("\n") # Pula uma linha ao terminar para não grudar no próximo texto
+
     except Exception as e:
         msg_erro = f"Erro durante o download: {e}"
-        print(msg_erro)
+        print(f"\n{msg_erro}")
         log_event(msg_erro)
         return
 
