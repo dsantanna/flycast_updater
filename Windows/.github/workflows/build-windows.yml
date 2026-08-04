@@ -1,0 +1,42 @@
+name: Build Windows Executable
+
+# Quando essa automação vai rodar? Sempre que você fizer um push na branch main
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build FlycastUpdater (Windows)
+    runs-on: windows-latest # Pede pro GitHub ligar uma máquina Windows virtual
+
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar o Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Versão estável do Python
+
+      - name: Instalar dependências e PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          # Se você tiver um arquivo requirements.txt, descomente a linha abaixo:
+          # pip install -r requirements.txt
+
+      - name: Compilar o executável com PyInstaller
+        # Aqui ele compila em um único arquivo, sem abrir janela de terminal (noconsole é opcional)
+        run: |
+          pyinstaller --onefile --name FlycastUpdater launcher.py
+
+      - name: Disponibilizar o arquivo .exe gerado
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlycastUpdater-Windows
+          path: dist/FlycastUpdater.exe
