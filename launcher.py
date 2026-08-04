@@ -116,9 +116,24 @@ def main():
     print(f" - Criar Atalho: {'Sim' if create_shortcut else 'Não'}\n")
 
     # ==============================================================
-    # AQUI VOCÊ CHAMA O SEU MOTOR DE ATUALIZAÇÃO (O script de download)
-    # Exemplo: import update_flycast_windows
-    # update_flycast_windows.iniciar_atualizacao(branch, install_path)
+    # CONEXÃO COM O MOTOR DE ATUALIZAÇÃO
+    # ==============================================================
+    import update_flycast
+    
+    print("[*] Conectando ao motor de download...")
+
+    # 1. Injetamos as escolhas do usuário nas variáveis do seu script original
+    update_flycast.TAG = branch
+    update_flycast.INSTALL_DIR = install_path
+    update_flycast.CREATE_SHORTCUT = create_shortcut # Caso seu script use essa variável para o ícone
+    
+    # 2. Recalculamos as variáveis que dependiam da TAG e do INSTALL_DIR no update_flycast.py
+    import os
+    update_flycast.API_URL = f"https://api.github.com/repos/flyinghead/flycast/releases/tags/{branch}"
+    update_flycast.VERSION_FILE = os.path.join(install_path, "version.txt")
+
+    # 3. Disparamos a função principal que faz o download e a extração
+    update_flycast.main()
     # ==============================================================
     
     print("[✓] Processo finalizado!")
