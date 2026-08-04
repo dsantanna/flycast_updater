@@ -1,8 +1,9 @@
+# UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
     filevers=(1, 1, 0, 0),
     prodvers=(1, 1, 0, 0),
-    mask=0x3F,
+    mask=0x3f,
     flags=0x0,
     OS=0x40004,
     fileType=0x1,
@@ -13,19 +14,17 @@ VSVersionInfo(
     StringFileInfo(
       [
       StringTable(
-        '041604b0',
-        [
-          StringStruct('FileDescription', 'Flycast Auto-Updater'),
-          StringStruct('FileVersion', '1.1.0.0'),
-          StringStruct('InternalName', 'FlycastUpdater'),
-          StringStruct('LegalCopyright', 'Daniel de Souza Sant\'Anna'),
-          StringStruct('OriginalFilename', 'FlycastUpdater.exe'),
-          StringStruct('ProductName', 'Flycast Auto-Updater'),
-          StringStruct('ProductVersion', '1.1.0.0')
-        ]
-      )
+        '040904B0',
+        [StringStruct('CompanyName', 'DaniboySan'),
+         StringStruct('FileDescription', 'Flycast Updater - Launcher'),
+         StringStruct('FileVersion', '1.1.0.0'),
+         StringStruct('InternalName', 'FlycastUpdater'),
+         StringStruct('LegalCopyright', 'Copyright (C) 2026 DaniboySan'),
+         StringStruct('OriginalFilename', 'FlycastUpdater.exe'),
+         StringStruct('ProductName', 'Flycast Updater'),
+         StringStruct('ProductVersion', '1.1.0.0')])
       ]
-    ),
-    VarFileInfo([VarStruct('Translation', [1046, 1200])])
+    ), 
+    VarFileInfo([VarStruct('Translation', [1033, 1204])])
   ]
 )

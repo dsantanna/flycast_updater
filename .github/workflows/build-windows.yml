@@ -33,10 +33,11 @@ jobs:
       - name: Compilar o executável com PyInstaller
         # Aqui ele compila em um único arquivo, sem abrir janela de terminal (noconsole é opcional)
         run: |
-          pyinstaller --onefile --name FlycastUpdater --icon=flycast_updater.ico launcher.py
+          pyinstaller --onefile --name FlycastUpdater --icon=flycast_updater.ico --version-file version_info.txt launcher.py
 
       - name: Disponibilizar o arquivo .exe gerado
         uses: actions/upload-artifact@v4
         with:
           name: FlycastUpdater-Windows
           path: dist/FlycastUpdater.exe
+      
