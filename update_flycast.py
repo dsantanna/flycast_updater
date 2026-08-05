@@ -1,7 +1,7 @@
 """
 Flycast Auto-Updater Script
 ---------------------------
-Versão: 1.0
+Versão: 1.1
 Autor: Daniel de Souza Sant'Anna (com auxílio do Gemini)
 
 Este script automatiza o download e a atualização do emulador Flycast.
@@ -21,11 +21,17 @@ import tempfile
 import datetime       
 
 # --- VARIÁVEIS GLOBAIS E DIRETÓRIOS ---
-SCRIPT_VERSION = "1.1"
+SCRIPT_VERSION = "1.2"
 INSTALL_DIR = os.getcwd()
 SHOULD_CREATE_SHORTCUT = False 
+SHOULD_CREATE_STARTUP = False
 
 args_lower = [arg.lower() for arg in sys.argv]
+
+# --- MODO SILENCIOSO ---
+if '-silent' in args_lower:
+    sys.stdout = open(os.devnull, 'w')
+    sys.stderr = open(os.devnull, 'w')
 
 # --- MENU DE AJUDA ---
 if any(h in args_lower for h in ['-help', '--help', '-h', 'help']):
@@ -35,6 +41,8 @@ if any(h in args_lower for h in ['-help', '--help', '-h', 'help']):
     print("  -help, --help, -h  Exibe este menu de ajuda e encerra o script.")
     print("  -dev               Força a configuração e o download da versão DEV (Build diária).")
     print("  -master            Força a configuração e o download da versão MASTER (Estável).")
+    print("  -silent            Executa o atualizador em segundo plano sem exibir o terminal.")
+    print("  -rollback          Restaura o último backup funcional do emulador.")
     print("  -path, -caminho    <diretorio>")
     print("                     Define um diretório de instalação personalizado.")
     print("                     Exemplo: python update_flycast.py -path \"D:\\Emuladores\\Flycast\"\n")
@@ -144,6 +152,20 @@ def get_user_preference():
             break
         elif resp_shortcut == 'N':
             log_event("Opção do usuário: Criação de atalho recusada.")
+            break
+        else:
+            print("Por favor, digite 'S' para Sim ou 'N' para Não.")
+    print("\nDeseja que o atualizador rode em Modo Silencioso (em segundo plano)")
+    print("toda vez que você ligar o computador (pasta de Inicialização do Windows)?")
+    while True:
+        resp_startup = input("Executar ao iniciar o PC? (S/N): ").strip().upper()
+        if resp_startup == 'S':
+            global SHOULD_CREATE_STARTUP
+            SHOULD_CREATE_STARTUP = True
+            log_event("Opção do usuário: Criação de atalho de inicialização (Silent) solicitada.")
+            break
+        elif resp_startup == 'N':
+            log_event("Opção do usuário: Criação de atalho de inicialização recusada.")
             break
         else:
             print("Por favor, digite 'S' para Sim ou 'N' para Não.")
@@ -264,8 +286,79 @@ def verificar_bios_local(install_dir):
         print(f"\n[✓] {sucesso}")
         log_event(sucesso)
 
+def create_startup_shortcut(branch_choice):
+    try:
+        python_exe = sys.executable
+        
+        vbs_content = f"""
+            Set oWS = WScript.CreateObject("WScript.Shell")
+            sStartup = oWS.SpecialFolders("Startup")
+            Set oLink = oWS.CreateShortcut(sStartup & "\\FlycastUpdater_Silent.lnk")
+            oLink.TargetPath = "{python_exe}"
+            oLink.Arguments = Chr(34) & "{dest_script_path}" & Chr(34) & " -{branch_choice} -silent -path " & Chr(34) & "{INSTALL_DIR}" & Chr(34)
+            oLink.WorkingDirectory = "{INSTALL_DIR}"
+            oLink.WindowStyle = 7 
+            oLink.Save
+        """
+        vbs_path = os.path.join(tempfile.gettempdir(), "create_startup_shortcut.vbs")
+        with open(vbs_path, "w", encoding="utf-8") as f:
+            f.write(vbs_content)
+            
+        subprocess.run(['cscript.exe', '//Nologo', vbs_path], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        if os.path.exists(vbs_path):
+            os.remove(vbs_path)
+            
+        print(f"\n[+] Atalho silencioso criado com sucesso na Inicialização do Windows!")
+        log_event("Atalho de inicialização (Silent) gerado com sucesso.")
+    except Exception as e:
+        print(f"\n[-] Aviso: Não foi possível gerar o atalho de inicialização. Erro: {e}")
+        log_event(f"Erro ao gerar atalho de inicialização: {e}")
+
+def criar_backup(install_dir):
+    """Cria um arquivo ZIP com a versão atual antes de aplicar uma atualização."""
+    backup_path = os.path.join(install_dir, "flycast_backup.zip")
+    print("\n[*] Criando backup de segurança da versão atual...")
+    try:
+        with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk(install_dir):
+                for file in files:
+                    ext = os.path.splitext(file)[1].lower()
+                    # Ignora roms, logs, zips de atualização e o próprio backup
+                    if file not in ["flycast_backup.zip", "flycast_update.zip", "flycast_updater.log"] and ext not in ['.chd', '.gdi', '.cdi', '.iso']:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, install_dir)
+                        zipf.write(file_path, arcname)
+        log_event("Backup automático criado com sucesso antes da atualização.")
+    except Exception as e:
+        print(f"[-] Aviso: Erro ao criar backup: {e}")
+        log_event(f"Falha ao criar backup: {e}")
+
+def restaurar_backup():
+    """Restaura o emulador a partir do último backup funcional."""
+    backup_path = os.path.join(INSTALL_DIR, "flycast_backup.zip")
+    if not os.path.exists(backup_path):
+        msg = "Nenhum arquivo de backup (flycast_backup.zip) foi encontrado para restaurar."
+        print(f"\n[-] {msg}")
+        log_event(f"Tentativa de rollback falhou: {msg}")
+        return
+
+    print(f"\n[*] Iniciando Rollback: Restaurando a versão anterior a partir do backup...")
+    try:
+        with zipfile.ZipFile(backup_path, 'r') as zip_ref:
+            zip_ref.extractall(INSTALL_DIR)
+        print("[+] Rollback concluído! A versão anterior foi restaurada com sucesso.")
+        log_event("Rollback executado com sucesso. Versão anterior restaurada.")
+    except Exception as e:
+        print(f"[-] Erro crítico durante o rollback: {e}")
+        log_event(f"Erro durante o rollback: {e}")
+
 def main():
     log_event("--- Script iniciado ---")
+    # Se o usuário acionou o Rollback, executa e encerra o script.
+    if '-rollback' in args_lower:
+        restaurar_backup()
+        return
     branch_choice = get_user_preference()
     
     download_url = None
@@ -295,6 +388,9 @@ def main():
         
         if SHOULD_CREATE_SHORTCUT:
             create_desktop_shortcut(branch_choice)
+            
+        if SHOULD_CREATE_STARTUP:
+            create_startup_shortcut(branch_choice)
             
         launch_emulator()
         return
@@ -349,6 +445,8 @@ def main():
         return
 
     print("Download concluído. Extraindo arquivos e substituindo a versão antiga...")
+    # --- NOVO: Cria o backup da versão atual ANTES de extrair a nova ---
+    criar_backup(INSTALL_DIR)
     try:
         with zipfile.ZipFile(download_path, 'r') as zip_ref:
             zip_ref.extractall(INSTALL_DIR)
@@ -370,6 +468,9 @@ def main():
     
     if SHOULD_CREATE_SHORTCUT:
         create_desktop_shortcut(branch_choice)
+
+    if SHOULD_CREATE_STARTUP:
+        create_startup_shortcut(branch_choice)
         
     launch_emulator()
 
