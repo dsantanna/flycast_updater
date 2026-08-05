@@ -13,11 +13,11 @@ except ImportError:
     cloud_saves = None
 
 # ==========================================
-# Flycast Updater - Launcher v2.0 (GUI & CLI)
+# Flycast Updater - Launcher v2.1 (GUI & CLI)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
 
-VERSION = "2.0"
+VERSION = "2.1"
 CONFIG_FILE = "config.json"
 REPO_UPDATER = "dsantanna/flycast_updater"
 
@@ -49,7 +49,6 @@ def salvar_configuracao(branch, create_shortcut, create_startup, install_path, c
         pass
 
 def aplicar_auto_atualizacao(url_download, install_path, modo_gui=False, app_gui=None):
-    """Baixa o novo .exe e cria o .bat para substituí-lo."""
     exe_atual = sys.executable
     dir_atual = os.path.dirname(exe_atual)
     exe_novo = os.path.join(dir_atual, "FlycastUpdater_novo.exe")
@@ -61,7 +60,6 @@ def aplicar_auto_atualizacao(url_download, install_path, modo_gui=False, app_gui
     try:
         urllib.request.urlretrieve(url_download, exe_novo)
         nome_exe = os.path.basename(exe_atual)
-        # O (goto) 2>nul resolve o erro de "arquivo em lotes" fantasma
         conteudo_bat = f"""@echo off\ntimeout /t 2 /nobreak > NUL\ndel "{nome_exe}"\nren "FlycastUpdater_novo.exe" "{nome_exe}"\nstart "" "{nome_exe}"\n(goto) 2>nul & del "%~f0"\n"""
         with open(script_bat, "w") as f:
             f.write(conteudo_bat)
@@ -102,23 +100,30 @@ class ConsoleRedirector:
         
         if "[*] Progresso:" in texto:
             try:
-                # Extrai a porcentagem e os megabytes
                 pct_str = texto.split("%")[0].split(" ")[-1]
                 pct_float = float(pct_str) / 100.0
                 tamanhos = texto.split("(")[1].replace(")", "")
                 
-                # Preenche a barra gráfica
                 self.app.after(0, self.app.progressbar.set, pct_float)
-                
-                # 🦔 EASTER EGG NA INTERFACE 🦔
-                # Coloca o Sonic no texto de status acima da barra!
                 self.app.after(0, self.app.label_status.configure, {
                     "text": f"🦔 Velocidade Sônica! Baixando... {pct_str}% ({tamanhos})",
                     "text_color": "cyan"
                 })
             except Exception: pass
+        elif "[!]" in texto or "Aviso de BIOS" in texto:
+            # Alerta claro para falta de BIOS ou avisos importantes
+            self.app.after(0, self.app.label_status.configure, {
+                "text": f"⚠️ {texto}",
+                "text_color": "#FF8C00" # Laranja de alerta
+            })
+        elif "Backup" in texto or "sincronização" in texto.lower() or "[✓]" in texto:
+            # Feedback claro sobre operações de backup local ou nuvem
+            self.app.after(0, self.app.label_status.configure, {
+                "text": f"💾 {texto}",
+                "text_color": "#00FF7F" # Verde esmeralda para sucesso/backup
+            })
         else:
-            self.app.after(0, self.app.label_status.configure, {"text": texto})
+            self.app.after(0, self.app.label_status.configure, {"text": texto, "text_color": "cyan"})
             
     def flush(self): pass
 
@@ -185,10 +190,9 @@ def iniciar_gui():
             try:
                 install_path = self.config_atual.get("install_path", os.getcwd())
                 
-                # Checa auto-update do Launcher primeiro!
                 if getattr(sys, 'frozen', False):
                     atualizou = verificar_atualizacao_updater(install_path, modo_gui=True, app_gui=self)
-                    if atualizou: return # O script vai se matar e reiniciar, paramos por aqui.
+                    if atualizou: return 
 
                 branch_escolhida = self.combo_branch.get().lower()
                 criar_desktop = self.switch_desktop.get() == 1
@@ -219,7 +223,9 @@ def iniciar_gui():
                 self.after(0, self.label_status.configure, {"text": f"Erro crítico: {e}", "text_color": "red"})
             finally:
                 sys.stdout = terminal_original
-                self.after(0, self.btn_atualizar.configure, {"state": "normal", "text": "ATUALIZAÇÃO CONCLUÍDA"})
+                self.after(0, self.btn_atualizar.configure, {"state": "normal", "text": "PRONTO!"})
+                # Fecha a interface gráfica automaticamente após 2 segundos para dar tempo de ler o status final
+                self.after(2000, self.destroy)
 
     app = FlycastUpdaterApp()
     app.mainloop()
@@ -253,7 +259,6 @@ def iniciar_cli(args):
     update_flycast.VERSION_FILE = os.path.join(install_path, "version.txt")
     update_flycast.LOG_FILE = os.path.join(install_path, "flycast_updater.log")
     
-    # Mantém a branch salva se não houver override na CLI
     branch = config.get("branch", "dev")
     if "-master" in args: branch = "master"
     if "-dev" in args: branch = "dev"
@@ -266,12 +271,9 @@ def iniciar_cli(args):
 # ==========================================
 if __name__ == "__main__":
     args_lower = [arg.lower() for arg in sys.argv[1:]]
-    
-    # Gatilhos que forçam o aplicativo a rodar em Modo Terminal Invisível/CLI
     gatilhos_cli = ['-nogui', '-silent', '-rollback', '-backup', '-dev', '-master', '-help', '-h']
     
     if any(g in args_lower for g in gatilhos_cli):
         iniciar_cli(args_lower)
     else:
-        # Sem gatilhos, abre a interface gráfica lindíssima!
         iniciar_gui()
