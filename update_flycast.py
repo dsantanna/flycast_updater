@@ -279,9 +279,23 @@ def main():
                     if not bloco: break
                     tamanho_baixado += len(bloco)
                     out_file.write(bloco)
+                    # Calcula o progresso
                     porcentagem = int(tamanho_baixado * 100 / tamanho_total)
-                    preenchido = int(40 * tamanho_baixado // tamanho_total)
-                    sys.stdout.write(f'\r[*] Progresso: |{"█" * preenchido + "-" * (40 - preenchido)}| {porcentagem}%')
+                    tamanho_barra = 40
+                    preenchido = int(tamanho_barra * tamanho_baixado // tamanho_total)
+                    
+                    # 🦔 EASTER EGG DO SONIC 🦔
+                    if preenchido == tamanho_barra:
+                        barra = '█' * tamanho_barra # Quando chega em 100%
+                    else:
+                        # O Sonic corre na ponta da barra!
+                        barra = '█' * preenchido + '🦔' + '-' * (tamanho_barra - preenchido - 1)
+                    
+                    # Retornando com os megabytes para a GUI interceptar
+                    mb_baixado = tamanho_baixado / (1024 * 1024)
+                    mb_total = tamanho_total / (1024 * 1024)
+                    
+                    sys.stdout.write(f'\r[*] Progresso: |{barra}| {porcentagem}% ({mb_baixado:.1f}MB / {mb_total:.1f}MB)')
                     sys.stdout.flush()
                 print("\n")
     except Exception as e:
