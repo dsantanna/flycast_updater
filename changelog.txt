@@ -2,6 +2,14 @@
        FLYCAST UPDATER - CHANGELOG
 ========================================
 
+Versão 1.2 (Cloud Save Edition)
+----------------------------------------
+- **Integração de Cloud Saves:** Novo módulo (`cloud_saves.py`) para detecção passiva e backup automatizado de arquivos de progresso (VMU e SRAM) utilizando instâncias locais do Google Drive e OneDrive.
+- **Sistema de Rollback:** Implementada criação automática de "cápsulas do tempo" (backup estrutural do emulador) antes de sobreposições de atualização. Adicionado o parâmetro `-rollback` para reversão de falhas.
+- **Modo Silencioso (Background):** Suporte nativo para supressão da janela do terminal (`-silent`), permitindo atualizações de forma transparente e integração à Inicialização do Windows (Startup).
+- **Sincronização Cérebro/Motor:** O Launcher (`launcher.py`) foi atualizado para gerenciar os novos parâmetros CLI, embutir a escolha do provedor de nuvem no `config.json` e repassar os fluxos ao motor secundário.
+- **Extensão da CLI:** Adição dos argumentos `-silent`, `-rollback`, `-backup`, `-gdrive` e `-onedrive`.
+
 Versão 1.1 (Agosto de 2026)
 ----------------------------------------
 - **Novo Launcher (`launcher.py`):** Implementada nova camada de controle inteligente para gerenciar o ciclo de vida da aplicação.

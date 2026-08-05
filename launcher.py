@@ -14,11 +14,11 @@ except ImportError:
     cloud_saves = None
 
 # ==========================================
-# Flycast Updater - Launcher v1.3 (Cloud Saves)
+# Flycast Updater - Launcher v1.2 (Cloud Saves)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
 
-VERSION = "1.3"
+VERSION = "1.2"
 CONFIG_FILE = "config.json"
 
 def exibir_cabecalho():
