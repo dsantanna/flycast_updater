@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+
+# PyInstaller
+*.spec
+
+# Arquivos de Execução, Logs e Dados Locais do App
+config.json
+*.log
+*.zip
+*.bat
+*.exe
+
+# IDEs e Arquivos do Sistema Operacional
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

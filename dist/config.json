@@ -1,8 +1,8 @@
 {
     "branch": "dev",
-    "create_shortcut": true,
+    "create_shortcut": false,
     "create_startup": false,
-    "install_path": "D:/Emuladores/Emuladores/Sega/Dreamcast/flycast",
-    "cloud_provider": "onedrive",
-    "cloud_path": "C:\\Users\\Daniel\\OneDrive"
+    "install_path": "C:\\Users\\Daniel\\Documents\\flycast_updater\\dist",
+    "cloud_provider": null,
+    "cloud_path": null
 }

@@ -15,11 +15,11 @@ except ImportError:
     cloud_saves = None
 
 # ==========================================
-# Flycast Updater - Launcher v2.0 (GUI & CLI)
+# Flycast Updater - Launcher v3.0 (Emerald Coast Edition)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
 
-VERSION = "2.0"
+VERSION = "3.0"
 CONFIG_FILE = "config.json"
 REPO_UPDATER = "dsantanna/flycast_updater"
 
@@ -167,7 +167,7 @@ def iniciar_gui():
     class FlycastUpdaterApp(ctk.CTk):
         def __init__(self):
             super().__init__()
-            self.title(f"🌀 Flycast Updater - v{VERSION}")
+            self.title(f"🌀 Flycast Updater - v{VERSION} (Emerald Coast)")
             self.geometry("620x780") 
             self.resizable(False, False)
             self.config_atual = carregar_configuracao()
@@ -291,7 +291,7 @@ def iniciar_gui():
             self.progressbar.set(0)
             self.label_status = ctk.CTkLabel(self, text="Aguardando...", text_color="cyan")
 
-            # --- NOVO SEMÁFORO DO EMULADOR ---
+            # --- SEMÁFORO DO EMULADOR ---
             self.lbl_emulador_status = ctk.CTkLabel(self, text="Emulador: Aguardando...", font=ctk.CTkFont(size=14, weight="bold"))
             self.lbl_emulador_status.pack(pady=(5, 10))
 
@@ -416,7 +416,7 @@ def iniciar_gui():
         def abrir_janela_ajuda(self):
             win_ajuda = ctk.CTkToplevel(self)
             win_ajuda.title("Manual do Flycast Updater")
-            win_ajuda.geometry("550x480")
+            win_ajuda.geometry("550x520") # Altura expandida para acomodar a nota da v3.0
             win_ajuda.attributes("-topmost", True)
             
             texto_ajuda = (
@@ -432,6 +432,10 @@ def iniciar_gui():
                 "Escolha o Google Drive ou OneDrive (o ícone ficará cinza se não estiverem\n"
                 "instalados no seu Windows). O atualizador fará o backup automático\n"
                 "do seu progresso prevenindo que você perca seus saves.\n\n"
+                "🌴 SOBRE A VERSÃO 3.0 (Emerald Coast Edition):\n"
+                "Homenagem à clássica primeira fase de Sonic Adventure! Esta versão\n"
+                "marca a evolução do utilitário para um gerenciador completo, trazendo\n"
+                "suporte a configurações fáceis e ao RetroAchievements (Modo Hardcore).\n\n"
                 "🖧 USO PELO TERMINAL (PowerShell/CMD):\n"
                 "Para usuários avançados, rode o executável com os parâmetros:\n"
                 "  -nogui        : Roda no terminal de texto sem abrir janela visual.\n"
