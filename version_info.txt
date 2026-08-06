@@ -1,30 +1,29 @@
-# UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 2, 0, 0),
-    prodvers=(1, 2, 0, 0),
-    mask=0x3f,
-    flags=0x0,
-    OS=0x40004,
-    fileType=0x1,
-    subtype=0x0,
-    date=(0, 0)
+    filevers=(2, 0, 0, 0), #[cite: 3]
+    prodvers=(2, 0, 0, 0), #[cite: 3]
+    mask=0x3f, #[cite: 3]
+    flags=0x0, #[cite: 3]
+    OS=0x40004, #[cite: 3]
+    fileType=0x1, #[cite: 3]
+    subtype=0x0, #[cite: 3]
+    date=(0, 0) #[cite: 3]
     ),
   kids=[
     StringFileInfo(
       [
       StringTable(
-        '040904B0',
-        [StringStruct('CompanyName', 'DaniboySan'),
-         StringStruct('FileDescription', 'Flycast Updater - Launcher'),
-         StringStruct('FileVersion', '1.1.0.0'),
-         StringStruct('InternalName', 'FlycastUpdater'),
-         StringStruct('LegalCopyright', 'Copyright (C) 2026 DaniboySan'),
-         StringStruct('OriginalFilename', 'FlycastUpdater.exe'),
-         StringStruct('ProductName', 'Flycast Updater'),
-         StringStruct('ProductVersion', '1.1.0.0')])
+        '040904B0', #[cite: 3]
+        [StringStruct('CompanyName', 'DaniboySan'), #[cite: 3]
+         StringStruct('FileDescription', 'Flycast Updater - Launcher'), #[cite: 3]
+         StringStruct('FileVersion', '2.0.0.0'), #[cite: 3]
+         StringStruct('InternalName', 'FlycastUpdater'), #[cite: 3]
+         StringStruct('LegalCopyright', 'Copyright (C) 2026 DaniboySan'), #[cite: 3]
+         StringStruct('OriginalFilename', 'FlycastUpdater.exe'), #[cite: 3]
+         StringStruct('ProductName', 'Flycast Updater'), #[cite: 3]
+         StringStruct('ProductVersion', '2.0.0.0')]) #[cite: 3]
       ]
     ), 
-    VarFileInfo([VarStruct('Translation', [1033, 1204])])
+    VarFileInfo([VarStruct('Translation', [1033, 1204])]) #[cite: 3]
   ]
 )

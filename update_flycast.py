@@ -1,8 +1,8 @@
 """
-Flycast Auto-Updater Script
+Flycast Auto-Updater Script - MOTOR
 ---------------------------
-Versão: 1.3 (Cloud Saves)
-Autor: Daniel de Souza Sant'Anna (com auxílio do Gemini)
+Versão: 2.0 (Versão Gold Master)
+Autor: Daniel de Souza Sant'Anna & Geminix
 """
 
 import os
@@ -21,58 +21,41 @@ try:
 except ImportError:
     cloud_saves = None
 
-# --- VARIÁVEIS GLOBAIS E DIRETÓRIOS ---
-SCRIPT_VERSION = "1.3"
+# --- VARIÁVEIS GLOBAIS INJETADAS PELO LAUNCHER ---
+SCRIPT_VERSION = "2.0"
 INSTALL_DIR = os.getcwd()
 SHOULD_CREATE_SHORTCUT = False 
 SHOULD_CREATE_STARTUP = False
 CLOUD_PROVIDER = None
 CLOUD_PATH = None
-
-args_lower = [arg.lower() for arg in sys.argv]
-
-if '-silent' in args_lower:
-    sys.stdout = open(os.devnull, 'w')
-    sys.stderr = open(os.devnull, 'w')
-
-if any(h in args_lower for h in ['-help', '--help', '-h', 'help']):
-    sys.exit(0)
-
-for param in ['-path', '-caminho']:
-    if param in args_lower:
-        idx = args_lower.index(param)
-        if len(sys.argv) > idx + 1:
-            INSTALL_DIR = os.path.abspath(sys.argv[idx + 1])
-            break
-
-if not os.path.exists(INSTALL_DIR):
-    os.makedirs(INSTALL_DIR)
-
-LOG_FILE = os.path.join(INSTALL_DIR, "flycast_updater.log")
+VERSION_FILE = ""
+LOG_FILE = ""
+args_lower = []
 
 def log_event(message):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] [v{SCRIPT_VERSION}] {message}\n")
-    except Exception as e:
-        print(f"Aviso: Falha ao escrever no log: {e}")
-
-if getattr(sys, 'frozen', False):
-    current_script_path = sys.executable
-else:
-    current_script_path = os.path.abspath(__file__)
-
-dest_script_path = os.path.join(INSTALL_DIR, os.path.basename(current_script_path))
-
-if current_script_path != dest_script_path:
-    try:
-        shutil.copy2(current_script_path, dest_script_path)
     except Exception:
         pass
 
-VERSION_FILE = os.path.join(INSTALL_DIR, "version.txt")
-CONFIG_FILE = os.path.join(INSTALL_DIR, "branch_config.txt")
+def get_dest_script_path():
+    if getattr(sys, 'frozen', False):
+        current_script_path = sys.executable
+    else:
+        current_script_path = os.path.abspath(sys.argv[0])
+
+    dest_script_path = os.path.join(INSTALL_DIR, os.path.basename(current_script_path))
+
+    if os.path.abspath(current_script_path) != os.path.abspath(dest_script_path):
+        try:
+            shutil.copy2(current_script_path, dest_script_path)
+            log_event(f"Atualizador copiado para o diretório de destino: {dest_script_path}")
+        except Exception as e:
+            log_event(f"Aviso: Não foi possível copiar o executável: {e}")
+            
+    return dest_script_path
 
 S3_BUCKETS = [
     "https://flycast-builds.s3.fr-par.scw.cloud",
@@ -80,18 +63,25 @@ S3_BUCKETS = [
 ]
 
 def get_user_preference():
-    return 'master' # Controlado pelo Launcher via Monkeypatching
+    return 'master' 
 
-def create_desktop_shortcut(branch_choice):
+def create_desktop_shortcut(branch_choice, dest_script_path):
     try:
-        python_exe = sys.executable
         flycast_exe = os.path.join(INSTALL_DIR, "flycast.exe")
+        
+        if getattr(sys, 'frozen', False):
+            target = dest_script_path
+            args_vbs = f'"-{branch_choice} -path " & Chr(34) & "{INSTALL_DIR}" & Chr(34)'
+        else:
+            target = sys.executable
+            args_vbs = f'Chr(34) & "{dest_script_path}" & Chr(34) & " -{branch_choice} -path " & Chr(34) & "{INSTALL_DIR}" & Chr(34)'
+            
         vbs_content = f"""
 Set oWS = WScript.CreateObject("WScript.Shell")
 sDesktop = oWS.SpecialFolders("Desktop")
 Set oLink = oWS.CreateShortcut(sDesktop & "\\Flycast ({branch_choice.capitalize()}).lnk")
-oLink.TargetPath = "{python_exe}"
-oLink.Arguments = Chr(34) & "{dest_script_path}" & Chr(34) & " -{branch_choice} -path " & Chr(34) & "{INSTALL_DIR}" & Chr(34)
+oLink.TargetPath = "{target}"
+oLink.Arguments = {args_vbs}
 oLink.WorkingDirectory = "{INSTALL_DIR}"
 oLink.IconLocation = "{flycast_exe}, 0"
 oLink.Save
@@ -101,8 +91,35 @@ oLink.Save
             f.write(vbs_content)
         subprocess.run(['cscript.exe', '//Nologo', vbs_path], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if os.path.exists(vbs_path): os.remove(vbs_path)
-        print(f"\n[+] Atalho 'Flycast' criado com sucesso!")
-    except Exception as e:
+        print(f"\n[+] Atalho 'Flycast' apontado para a instalação com sucesso!")
+    except Exception:
+        pass
+
+def create_startup_shortcut(branch_choice, dest_script_path):
+    try:
+        if getattr(sys, 'frozen', False):
+            target = dest_script_path
+            args_vbs = f'"-{branch_choice} -silent -path " & Chr(34) & "{INSTALL_DIR}" & Chr(34)'
+        else:
+            target = sys.executable
+            args_vbs = f'Chr(34) & "{dest_script_path}" & Chr(34) & " -{branch_choice} -silent -path " & Chr(34) & "{INSTALL_DIR}" & Chr(34)'
+            
+        vbs_content = f"""
+            Set oWS = WScript.CreateObject("WScript.Shell")
+            sStartup = oWS.SpecialFolders("Startup")
+            Set oLink = oWS.CreateShortcut(sStartup & "\\FlycastUpdater_Silent.lnk")
+            oLink.TargetPath = "{target}"
+            oLink.Arguments = {args_vbs}
+            oLink.WorkingDirectory = "{INSTALL_DIR}"
+            oLink.WindowStyle = 7 
+            oLink.Save
+        """
+        vbs_path = os.path.join(tempfile.gettempdir(), "create_startup_shortcut.vbs")
+        with open(vbs_path, "w", encoding="utf-8") as f:
+            f.write(vbs_content)
+        subprocess.run(['cscript.exe', '//Nologo', vbs_path], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if os.path.exists(vbs_path): os.remove(vbs_path)
+    except Exception:
         pass
 
 def get_stable_release():
@@ -160,27 +177,6 @@ def verificar_bios_local(install_dir):
     else:
         print(f"\n[✓] Verificação de BIOS: OK.")
 
-def create_startup_shortcut(branch_choice):
-    try:
-        python_exe = sys.executable
-        vbs_content = f"""
-            Set oWS = WScript.CreateObject("WScript.Shell")
-            sStartup = oWS.SpecialFolders("Startup")
-            Set oLink = oWS.CreateShortcut(sStartup & "\\FlycastUpdater_Silent.lnk")
-            oLink.TargetPath = "{python_exe}"
-            oLink.Arguments = Chr(34) & "{dest_script_path}" & Chr(34) & " -{branch_choice} -silent -path " & Chr(34) & "{INSTALL_DIR}" & Chr(34)
-            oLink.WorkingDirectory = "{INSTALL_DIR}"
-            oLink.WindowStyle = 7 
-            oLink.Save
-        """
-        vbs_path = os.path.join(tempfile.gettempdir(), "create_startup_shortcut.vbs")
-        with open(vbs_path, "w", encoding="utf-8") as f:
-            f.write(vbs_content)
-        subprocess.run(['cscript.exe', '//Nologo', vbs_path], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if os.path.exists(vbs_path): os.remove(vbs_path)
-    except Exception:
-        pass
-
 def criar_backup(install_dir):
     backup_path = os.path.join(install_dir, "flycast_backup.zip")
     print("\n[*] Criando backup de segurança da versão atual...")
@@ -206,31 +202,37 @@ def restaurar_backup():
     try:
         with zipfile.ZipFile(backup_path, 'r') as zip_ref:
             zip_ref.extractall(INSTALL_DIR)
-        print("[+] Rollback concluído!")
+        print("[+] Rollback concluído! Versão restaurada.")
         log_event("Rollback executado com sucesso.")
     except Exception as e:
         print(f"[-] Erro crítico durante rollback: {e}")
 
 def acionar_backup_nuvem():
-    """Gatilho para acionar a rotina de Cloud Saves se estiver configurada."""
     if cloud_saves and CLOUD_PROVIDER and CLOUD_PATH:
-        print(f"\n[*] Iniciando sincronização de saves com {CLOUD_PROVIDER.capitalize()}...")
+        print(f"\n[*] Verificando Saves para sincronização ({CLOUD_PROVIDER.capitalize()})...")
+        log_event(f"Iniciando rotina de Sincronização em Nuvem ({CLOUD_PROVIDER.capitalize()}).")
+        
         sucesso, mensagem = cloud_saves.realizar_backup(INSTALL_DIR, CLOUD_PROVIDER, CLOUD_PATH)
+        
         if sucesso:
-            print(f"[✓] {mensagem}")
-            log_event(mensagem)
+            if any(palavra in mensagem.lower() for palavra in ["nenhum", "nada", "atualizado", "não encontrados"]):
+                print(f"[✓] Sincronização: {mensagem}")
+                log_event(f"Cloud Save (Status): Arquivos verificados. Nada novo para enviar ({mensagem}).")
+            else:
+                print(f"[✓] Sincronização Concluída: {mensagem}")
+                log_event(f"Cloud Save (Sucesso): Arquivos enviados/sincronizados -> {mensagem}.")
         else:
-            print(f"[-] {mensagem}")
-            log_event(f"Aviso no Cloud Save: {mensagem}")
+            print(f"[-] Erro de Sincronização: {mensagem}")
+            log_event(f"Cloud Save (Falha/Aviso): {mensagem}")
 
 def main():
     log_event("--- Script iniciado ---")
+    dest_script_path = get_dest_script_path()
     
     if '-rollback' in args_lower:
         restaurar_backup()
         return
 
-    # Se o usuário acionou APENAS o backup manual
     if '-backup' in args_lower:
         if cloud_saves and CLOUD_PROVIDER:
             acionar_backup_nuvem()
@@ -239,7 +241,6 @@ def main():
         return
 
     branch_choice = get_user_preference()
-    
     download_url, remote_version = get_stable_release() if branch_choice == 'master' else get_dev_release()
         
     if not download_url:
@@ -254,10 +255,9 @@ def main():
 
     if local_version == remote_version:
         print(f"O Flycast ({branch_choice.upper()}) já está atualizado!")
-        if SHOULD_CREATE_SHORTCUT: create_desktop_shortcut(branch_choice)
-        if SHOULD_CREATE_STARTUP: create_startup_shortcut(branch_choice)
-        
-        acionar_backup_nuvem() # Faz backup dos saves mesmo se o emu não precisou atualizar
+        if SHOULD_CREATE_SHORTCUT: create_desktop_shortcut(branch_choice, dest_script_path)
+        if SHOULD_CREATE_STARTUP: create_startup_shortcut(branch_choice, dest_script_path)
+        acionar_backup_nuvem() 
         launch_emulator()
         return
 
@@ -279,19 +279,16 @@ def main():
                     if not bloco: break
                     tamanho_baixado += len(bloco)
                     out_file.write(bloco)
-                    # Calcula o progresso
+                    
                     porcentagem = int(tamanho_baixado * 100 / tamanho_total)
                     tamanho_barra = 40
                     preenchido = int(tamanho_barra * tamanho_baixado // tamanho_total)
                     
-                    # 🦔 EASTER EGG DO SONIC 🦔
                     if preenchido == tamanho_barra:
-                        barra = '█' * tamanho_barra # Quando chega em 100%
+                        barra = '█' * tamanho_barra
                     else:
-                        # O Sonic corre na ponta da barra!
                         barra = '█' * preenchido + '🦔' + '-' * (tamanho_barra - preenchido - 1)
                     
-                    # Retornando com os megabytes para a GUI interceptar
                     mb_baixado = tamanho_baixado / (1024 * 1024)
                     mb_total = tamanho_total / (1024 * 1024)
                     
@@ -316,10 +313,10 @@ def main():
     verificar_bios_local(INSTALL_DIR)
 
     print(f"Sucesso! Flycast atualizado.")
-    if SHOULD_CREATE_SHORTCUT: create_desktop_shortcut(branch_choice)
-    if SHOULD_CREATE_STARTUP: create_startup_shortcut(branch_choice)
+    if SHOULD_CREATE_SHORTCUT: create_desktop_shortcut(branch_choice, dest_script_path)
+    if SHOULD_CREATE_STARTUP: create_startup_shortcut(branch_choice, dest_script_path)
     
-    acionar_backup_nuvem() # Faz o backup dos saves após atualizar
+    acionar_backup_nuvem()
     launch_emulator()
 
 if __name__ == "__main__":

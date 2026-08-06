@@ -2,28 +2,39 @@
        FLYCAST UPDATER - CHANGELOG
 ========================================
 
+Versão 2.0 (Gold Master - GUI Edition)
+----------------------------------------
+- **Nova Interface Gráfica (GUI):** Desenvolvida com CustomTkinter, trazendo um design moderno, tema escuro e responsividade.
+- **Mutações de Ação Inteligentes:** O botão principal agora altera dinamicamente seu texto (Instalar, Atualizar, Jogar) com base na verificação em tempo real (em background) entre a versão local e a da nuvem.
+- **Semáforo de Status do Emulador:** Novo indicador visual que mostra se o emulador está ausente, desatualizado (amarelo) ou pronto para jogar (verde).
+- **Semáforo de BIOS:** Verificação visual interativa em tempo real informando a presença e o local correto dos arquivos `dc_boot.bin` e `dc_flash.bin`.
+- **Validação Ativa de Nuvem:** Os Radio Buttons de Cloud Save (Google Drive / OneDrive) agora detectam a existência das pastas no PC; opções não instaladas são desabilitadas automaticamente com avisos em Tooltips.
+- **Tooltips Informativos:** Adição de balões de dicas flutuantes explicativos ao passar o mouse sobre os elementos e botões.
+- **Console Híbrido:** Unificação do modo visual e do modo de linha de comando (`-nogui`), permitindo o uso do menu de ajuda nativo no terminal sem a exibição de janelas pretas indesejadas via duplo-clique no Windows Explorer.
+- **Menu de Ajuda GUI:** Botão interativo com o manual completo do aplicativo embarcado na interface.
+
 Versão 1.2 (Cloud Save Edition)
 ----------------------------------------
-- **Integração de Cloud Saves:** Novo módulo (`cloud_saves.py`) para detecção passiva e backup automatizado de arquivos de progresso (VMU e SRAM) utilizando instâncias locais do Google Drive e OneDrive.
-- **Sistema de Rollback:** Implementada criação automática de "cápsulas do tempo" (backup estrutural do emulador) antes de sobreposições de atualização. Adicionado o parâmetro `-rollback` para reversão de falhas.
-- **Modo Silencioso (Background):** Suporte nativo para supressão da janela do terminal (`-silent`), permitindo atualizações de forma transparente e integração à Inicialização do Windows (Startup).
-- **Sincronização Cérebro/Motor:** O Launcher (`launcher.py`) foi atualizado para gerenciar os novos parâmetros CLI, embutir a escolha do provedor de nuvem no `config.json` e repassar os fluxos ao motor secundário.
-- **Extensão da CLI:** Adição dos argumentos `-silent`, `-rollback`, `-backup`, `-gdrive` e `-onedrive`.
+- **Integração de Cloud Saves:** Novo módulo (`cloud_saves.py`) para detecção passiva e backup automatizado de arquivos de progresso (VMU e SRAM) utilizando instâncias locais do Google Drive e OneDrive.[cite: 1]
+- **Sistema de Rollback:** Implementada criação automática de "cápsulas do tempo" (backup estrutural do emulador) antes de sobreposições de atualização. Adicionado o parâmetro `-rollback` para reversão de falhas.[cite: 1]
+- **Modo Silencioso (Background):** Suporte nativo para supressão da janela do terminal (`-silent`), permitindo atualizações de forma transparente e integração à Inicialização do Windows (Startup).[cite: 1]
+- **Sincronização Cérebro/Motor:** O Launcher (`launcher.py`) foi atualizado para gerenciar os novos parâmetros CLI, embutir a escolha do provedor de nuvem no `config.json` e repassar os fluxos ao motor secundário.[cite: 1]
+- **Extensão da CLI:** Adição dos argumentos `-silent`, `-rollback`, `-backup`, `-gdrive` e `-onedrive`.[cite: 1]
 
 Versão 1.1 (Agosto de 2026)
 ----------------------------------------
-- **Novo Launcher (`launcher.py`):** Implementada nova camada de controle inteligente para gerenciar o ciclo de vida da aplicação.
-- **Auto-Update do Atualizador:** Adicionada rotina de checagem na API do GitHub (`releases/latest`) para atualizar o próprio executável (`.exe`) via script auxiliar de substituição (`.bat`).
-- **Barra de Progresso Visual:** Substituição do download estático por leitura em blocos (`chunks`) de 8 KB com exibição de barra de progresso em tempo real, porcentagem e megabytes baixados.
-- **Auditoria de Logs Padronizada:** Sincronização de tags de versão (`[v1.1]`) e registro obrigatório dos parâmetros definidos pelo usuário no arquivo `flycast_updater.log`.
-- **Monkeypatching Dinâmico:** Injeção em tempo de execução para manter a compatibilidade com o motor antigo sem gerar arquivos de configuração obsoletos.
-- **Verificação Passiva de BIOS:** Implementação de checagem local opcional e educacional para alertar sobre a ausência dos dumps de BIOS necessários para iniciar os jogos, com total respeito aos direitos autorais.
-- **Persistência e CLI Avançada:** Integração robusta com `config.json` e suporte expandido a argumentos de linha de comando (`-dev`, `-master`, `-path`, `-reset`).
+- **Novo Launcher (`launcher.py`):** Implementada nova camada de controle inteligente para gerenciar o ciclo de vida da aplicação.[cite: 1]
+- **Auto-Update do Atualizador:** Adicionada rotina de checagem na API do GitHub (`releases/latest`) para atualizar o próprio executável (`.exe`) via script auxiliar de substituição (`.bat`).[cite: 1]
+- **Barra de Progresso Visual:** Substituição do download estático por leitura em blocos (`chunks`) de 8 KB com exibição de barra de progresso em tempo real, porcentagem e megabytes baixados.[cite: 1]
+- **Auditoria de Logs Padronizada:** Sincronização de tags de versão (`[v1.1]`) e registro obrigatório dos parâmetros definidos pelo usuário no arquivo `flycast_updater.log`.[cite: 1]
+- **Monkeypatching Dinâmico:** Injeção em tempo de execução para manter a compatibilidade com o motor antigo sem gerar arquivos de configuração obsoletos.[cite: 1]
+- **Verificação Passiva de BIOS:** Implementação de checagem local opcional e educacional para alertar sobre a ausência dos dumps de BIOS necessários para iniciar os jogos, com total respeito aos direitos autorais.[cite: 1]
+- **Persistência e CLI Avançada:** Integração robusta com `config.json` e suporte expandido a argumentos de linha de comando (`-dev`, `-master`, `-path`, `-reset`).[cite: 1]
 
 Versão 1.0 (Versão Inicial)
 ----------------------------------------
-- Lançamento do motor base de atualização (`update_flycast.py`).
-- Suporte a download de releases estáveis da API do GitHub (Master) e varredura de commits em servidores S3 (Dev).
-- Sistema básico de log incremental.
-- Criação de atalhos na Área de Trabalho utilizando VBScript integrado.
-- Tratamento de exceções de rede e compactação ZIP.
+- Lançamento do motor base de atualização (`update_flycast.py`).[cite: 1]
+- Suporte a download de releases estáveis da API do GitHub (Master) e varredura de commits em servidores S3 (Dev).[cite: 1]
+- Sistema básico de log incremental.[cite: 1]
+- Criação de atalhos na Área de Trabalho utilizando VBScript integrado.[cite: 1]
+- Tratamento de exceções de rede e compactação ZIP.[cite: 1]
