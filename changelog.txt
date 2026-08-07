@@ -2,6 +2,17 @@
        FLYCAST UPDATER - CHANGELOG
 ========================================
 
+Versão 3.0 (Emerald Coast Edition)
+----------------------------------------
+- **Interface Gráfica Expandida (Hub Completo):** Adicionadas novas abas dedicadas a "Configurar Emulador", "Vídeo" e "Restaurar Saves", transformando o utilitário em um gerenciador total do ecossistema Flycast.
+- **Gerenciador de Saves na Nuvem (Restauração):** Interface gráfica inteligente que varre automaticamente a subpasta de backup na nuvem (Google Drive/OneDrive), lista os arquivos `.zip` em ordem cronológica (mais recente primeiro) e realiza a extração segura de volta para o emulador.
+- **Assistente de BIOS Inteligente:** Detecta automaticamente quando os arquivos de sistema (`dc_boot.bin`, `dc_flash.bin`) estão na raiz e oferece mover para a pasta correta (`data`) com um clique ou registrar o caminho personalizado no arquivo de configuração.
+- **Configuração Gráfica e de Vídeo Simplificada:** Nova aba para gerenciar a API Gráfica (OpenGL, Vulkan, DirectX 9, DirectX 11 com mapeamento exato de índices do emulador), Resolução Interna e switches de Tela Cheia, Escala Inteira, Interpolação Linear e V-Sync diretamente no `emu.cfg`.
+- **Tooltips Informativos de APIs:** Balões de dicas flutuantes explicativos ao passar o mouse sobre cada API gráfica, detalhando vantagens e cenários de uso recomendados.
+- **Olho Mágico (Toggle de Senha):** Adicionado botão interativo na aba de configurações para alternar entre mascarar (`*`) e exibir a senha ou Web API Key do RetroAchievements.
+- **Blindagem do Arquivo de Configuração:** Uso do `RawConfigParser(strict=False)` para leitura e escrita em modo bruto no `emu.cfg`, garantindo que chaves complexas e tokens contendo o caractere `%` não corrompam ou apaguem as preferências do usuário.
+- **Fechamento Automático Inteligente:** O aplicativo agora encerra suas atividades de forma limpa e automática após concluir com sucesso o lançamento do emulador.
+
 Versão 2.0 (Gold Master - GUI Edition)
 ----------------------------------------
 - **Nova Interface Gráfica (GUI):** Desenvolvida com CustomTkinter, trazendo um design moderno, tema escuro e responsividade.
@@ -37,4 +48,4 @@ Versão 1.0 (Versão Inicial)
 - Suporte a download de releases estáveis da API do GitHub (Master) e varredura de commits em servidores S3 (Dev).[cite: 1]
 - Sistema básico de log incremental.[cite: 1]
 - Criação de atalhos na Área de Trabalho utilizando VBScript integrado.[cite: 1]
-- Tratamento de exceções de rede e compactação ZIP.[cite: 1]
+- Tratamento de exceções de rede e compactação ZIP.[cite: 1][source: 3]

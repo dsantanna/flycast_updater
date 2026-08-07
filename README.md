@@ -1,11 +1,29 @@
-# 🌀 Flycast Updater (v2.0) - Windows
+# 🌀 Flycast Updater (v3.0) - Windows
 
-[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/dsantanna/flycast_updater)
+[![Version](https://img.shields.io/badge/version-3.0-blue.svg)](https://github.com/dsantanna/flycast_updater)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://github.com/dsantanna/flycast_updater)
 [![Language](https://img.shields.io/badge/language-Python%20%2F%2F%20Multilingual-green.svg)](https://github.com/dsantanna/flycast_updater)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 O **Flycast Updater** é uma ferramenta inteligente e automatizada desenvolvida para gerenciar o download, a instalação e a atualização contínua do emulador **Flycast** (Sega Dreamcast / Naomi / Atomiswave) no Windows.
+
+---
+## 🌴 Funcionalidades Principais (v3.0 - Emerald Coast Edition)
+
+- **Hub Completo de Configuração:** Interface gráfica expandida organizada em abas intuitivas (`Nuvem`, `Emulador`, `Vídeo`, `Saves`), centralizando toda a experiência de gerenciamento.
+- **Restaurador de Saves na Nuvem:** Nova aba dedicada a listar e extrair com um clique os arquivos `.zip` de backup armazenados na nuvem (Google Drive/OneDrive), ordenados do mais recente para o mais antigo.
+- **Assistente de BIOS Inteligente:** Detecta automaticamente arquivos de BIOS mal posicionados na raiz e oferece duas soluções automatizadas: movê-los para a pasta `data` ou registrar um caminho personalizado no `emu.cfg`.
+- **Aba de Vídeo e Gráficos Básicos:** Controle direto sobre a API Gráfica (OpenGL, Vulkan, DirectX 9, DirectX 11) com tooltips informativos de vantagens e desvantagens, Resolução Interna, Tela Cheia, Escala Inteira, Interpolação Linear e V-Sync.
+- **Olho Mágico (Toggle de Senha):** Botão interativo para ocultar ou revelar a senha ou Token do RetroAchievements durante a digitação.
+- **Interface Gráfica (GUI) Premium:** Desenvolvida em CustomTkinter, oferecendo uma experiência visual fluida, tema escuro nativo e Tooltips (dicas flutuantes) interativos.
+- **Semáforo Interativo de Status:** Verificação em tempo real e em background alertando se o emulador precisa ser instalado (Vermelho), atualizado (Amarelo) ou se já está pronto para jogar (Verde).
+- **Validação de Nuvem Inteligente:** Detecção dinâmica da instalação do Google Drive e OneDrive na máquina do usuário. O sistema desabilita botões caso os aplicativos de nuvem não sejam localizados localmente.
+- **Cloud Saves Passivo:** Backup automatizado de saves (VMU/SRAM) detectando e utilizando instâncias locais do Google Drive ou OneDrive, de forma totalmente segura (sem requerer senhas ou credenciais).
+- **Sistema de Rollback Inteligente:** Geração automática de "cápsulas do tempo" locais. O botão de reversão da interface reage à presença do backup (`flycast_backup.zip`) e se desabilita se não houver um ponto de restauração disponível.
+- **Modo Híbrido (CLI/GUI):** O aplicativo oculta perfeitamente a tela preta ao ser aberto via duplo-clique no Windows, mas retoma o controle nativo do terminal (incluindo o questionário interativo) quando acionado pelo comando `-nogui`.
+- **Trilha de Auditoria Unificada (`flycast_updater.log`):** Sistema de logs detalhado e incremental, rotulado rigorosamente com a versão ativa e parâmetros definidos pelo usuário.
+- **Persistência de Preferências (`config.json`):** Salva automaticamente as escolhas de branch, caminho de instalação, provedor de nuvem e criação de atalhos.
+- **Geração Automatizada de Atalhos:** Criação de atalhos personalizados na Área de Trabalho e de inicialização oculta apontando de maneira robusta para a pasta correta escolhida.
 
 ---
 ## 🚀 Funcionalidades Principais (v2.0 - Gold Master GUI Edition)
@@ -20,6 +38,22 @@ O **Flycast Updater** é uma ferramenta inteligente e automatizada desenvolvida 
 - **Verificação Passiva de BIOS:** Inspeção local e estritamente educacional para alertar o usuário através de um semáforo visual na interface (🟢/🟡/🔴) caso os arquivos de sistema (`dc_boot.bin`, `dc_flash.bin`) estejam incorretos ou ausentes.
 - **Persistência de Preferências (`config.json`):** Salva automaticamente as escolhas de branch, caminho de instalação, provedor de nuvem e criação de atalhos.
 - **Geração Automatizada de Atalhos:** Criação de atalhos personalizados na Área de Trabalho e de inicialização oculta apontando de maneira robusta para a pasta correta escolhida.
+
+---
+## 🚀 Funcionalidades Principais (v1.2 - Cloud Save Edition)
+
+- **Cloud Saves Passivo:** Backup automatizado de saves (VMU/SRAM) detectando e utilizando instâncias locais do Google Drive ou OneDrive, de forma totalmente segura (sem requerer senhas ou credenciais).
+- **Sistema de Rollback:** Geração automática de "cápsulas do tempo" locais antes de cada extração, permitindo reverter o emulador para a versão anterior caso uma build diária apresente instabilidade.
+- **Modo Silencioso (Background):** Capacidade de rodar o atualizador de forma invisível, com integração nativa à pasta de Inicialização (Startup) do Windows.
+- **Arquitetura Inteligente (Launcher + Motor):** Separação clara entre o cérebro de controle (`launcher.py`) e o motor de download (`update_flycast.py`), agora totalmente sincronizados.
+- **Auto-Atualização do Launcher:** Verifica automaticamente na API do GitHub se há uma nova versão do próprio atualizador, baixando e aplicando atualizações de forma transparente.
+- **Barra de Progresso Visual em Tempo Real:** Monitoramento do download via blocos de bytes, exibindo a porcentagem exata e o volume transferido em megabytes (`MB`).
+- **Trilha de Auditoria Unificada (`flycast_updater.log`):** Sistema de logs detalhado e incremental, rotulado rigorosamente com a versão ativa e parâmetros definidos pelo usuário.
+- **Verificação Passiva de BIOS:** Inspeção local e estritamente educacional para alertar o usuário caso os arquivos fundamentais de sistema (`dc_boot.bin`, `dc_flash.bin`) estejam ausentes.
+- **Persistência de Preferências (`config.json`):** Salva automaticamente as escolhas de branch, caminho de instalação, provedor de nuvem e criação de atalhos.
+- **Geração Automatizada de Atalhos:** Criação de atalhos personalizados na Área de Trabalho do Windows apontando para o binário do Flycast com o ícone oficial do emulador.
+
+---
 
 ## ⚠️ Avisos Importantes (Disclaimer)
 
@@ -74,172 +108,3 @@ Você pode executar o atualizador via terminal passando argumentos opcionais:
 Exemplo:
 ```cmd
 FlycastUpdater.exe -dev -silent -gdrive
-
-
-
-# 🌀 Flycast Updater (v1.2) - Windows
-
-O **Flycast Updater** é uma ferramenta inteligente e automatizada desenvolvida para gerenciar o download, a instalação e a atualização contínua do emulador **Flycast** (Sega Dreamcast / Naomi / Atomiswave) no Windows.
-
----
-## 🚀 Funcionalidades Principais (v1.2 - Cloud Save Edition)
-
-- **Cloud Saves Passivo:** Backup automatizado de saves (VMU/SRAM) detectando e utilizando instâncias locais do Google Drive ou OneDrive, de forma totalmente segura (sem requerer senhas ou credenciais).
-- **Sistema de Rollback:** Geração automática de "cápsulas do tempo" locais antes de cada extração, permitindo reverter o emulador para a versão anterior caso uma build diária apresente instabilidade.
-- **Modo Silencioso (Background):** Capacidade de rodar o atualizador de forma invisível, com integração nativa à pasta de Inicialização (Startup) do Windows.
-- **Arquitetura Inteligente (Launcher + Motor):** Separação clara entre o cérebro de controle (`launcher.py`) e o motor de download (`update_flycast.py`), agora totalmente sincronizados.
-- **Auto-Atualização do Launcher:** Verifica automaticamente na API do GitHub se há uma nova versão do próprio atualizador, baixando e aplicando atualizações de forma transparente.
-- **Barra de Progresso Visual em Tempo Real:** Monitoramento do download via blocos de bytes, exibindo a porcentagem exata e o volume transferido em megabytes (`MB`).
-- **Trilha de Auditoria Unificada (`flycast_updater.log`):** Sistema de logs detalhado e incremental, rotulado rigorosamente com a versão ativa e parâmetros definidos pelo usuário.
-- **Verificação Passiva de BIOS:** Inspeção local e estritamente educacional para alertar o usuário caso os arquivos fundamentais de sistema (`dc_boot.bin`, `dc_flash.bin`) estejam ausentes.
-- **Persistência de Preferências (`config.json`):** Salva automaticamente as escolhas de branch, caminho de instalação, provedor de nuvem e criação de atalhos.
-- **Geração Automatizada de Atalhos:** Criação de atalhos personalizados na Área de Trabalho do Windows apontando para o binário do Flycast com o ícone oficial do emulador.
-
-## ⚠️ Avisos Importantes (Disclaimer)
-
-* **Isenção de Autoria:** O **Flycast Updater** não é de autoria dos criadores do emulador. Este projeto é apenas um script utilitário que automatiza o processo de download e atualização. **Todos os créditos, direitos autorais e méritos do Flycast pertencem exclusivamente aos seus desenvolvedores e mantenedores oficiais.**
-* **Ausência de BIOS e ROMs:** **Nenhum arquivo de BIOS, firmware ou ROM/ISO de jogos** é fornecido, hospedado ou distribuído através deste repositório. 
-* **Uso Legal:** Para utilizar o emulador Flycast, o usuário deve possuir os arquivos de BIOS extraídos de seu próprio hardware e ter os **jogos originais** legalmente adquiridos.
-
----
-
-## 🌟 Principais Recursos
-
-* **Suporte Multilíngue Automático:** O inicializador detecta o idioma do sistema operacional Windows e executa a versão ideal (Português do Brasil ou Inglês - US).
-* **Duas Branches Suportadas:** 
-  * `Master`: Versão estável oficial (via GitHub Releases).
-  * `Dev`: Versão de desenvolvimento / builds diárias da nuvem (via S3 Buckets e commits do GitHub).
-* **Auto-Cópia Inteligente:** O script/executável gerencia sua própria cópia para o diretório de destino do emulador.
-* **Atalhos Automatizados:** Criação opcional de atalhos na Área de Trabalho com o ícone oficial customizado de atualização.
-* **Sistema de Auditoria por Logs:** Mantém um histórico incremental de execuções (`flycast_updater.log`) registrando data, hora e a versão exata do script.
-* **Menu de Ajuda Integrado:** Suporte a parâmetros de linha de comando (`-help`, `-h`, `--help`).
-
----
-
-## 🚀 Como Usar
-
-Para a grande maioria dos usuários, basta baixar a versão pronta para uso:
-1. Acesse a aba [Releases](https://github.com/dsantanna/flycast_updater/releases).
-2. Baixe o arquivo **`FlycastUpdater.exe`**.
-3. Execute-o na pasta onde deseja manter o emulador. Na primeira execução, o programa solicitará que você escolha a branch desejada, a nuvem para backup dos saves (se detectada) e as opções de atalho.
-
----
-
-## 🛡️ Solução de Problemas (FAQ)
-
-* **O Windows Defender / SmartScreen bloqueou o executável ao abrir:**
-  * Como o arquivo `.exe` foi compilado de forma independente via PyInstaller (e não possui uma assinatura digital comercial paga), o Windows pode exibir uma janela de aviso (*"O Windows protegeu o seu computador"*). 
-  * **Como resolver:** Basta clicar em **"Mais informações"** e, em seguida, no botão **"Executar assim mesmo"**. O programa é totalmente seguro e de código aberto.
-
----
-
-## ⚙️ Parâmetros de Linha de Comando (CLI)
-
-Você pode executar o atualizador via terminal passando argumentos opcionais:
-
-* `-help`, `-h`, `--help` : Exibe o menu de ajuda e encerra.
-* `-dev` : Força a configuração e o download da versão diária (Dev).
-* `-master` : Força a configuração e o download da versão estável (Master).
-* `-rollback` : Restaura o último backup funcional do emulador.
-* `-silent` : Executa o atualizador em segundo plano (invisível) sem exibir o terminal.
-* `-backup` : Executa apenas a rotina de backup dos saves na nuvem configurada e encerra.
-* `-gdrive` / `-onedrive` : Força e ativa o uso do Google Drive ou OneDrive para backup dos saves.
-* `-reset` : Ignora o arquivo `config.json` salvo e exibe o menu interativo de reconfiguração inicial.
-* `-path <diretriz>` *(Apenas versão PT)* : Define um diretório de instalação personalizado.
-
-Exemplo:
-```cmd
-FlycastUpdater.exe -dev -silent -gdrive
-```
-## 🛠️ Tecnologias Utilizadas
-
-- **Python 3.x** (Linguagem principal)
-- **PyInstaller** (Compilação para executável standalone `.exe`)
-- **GitHub Actions** (CI/CD para build e release automatizadas)
-
-# 🌀 Flycast Updater Linux (v1.0)
-
-The **Flycast Updater** is a smart, automated tool developed to manage the download, installation, and continuous updating of the **Flycast** emulator (Sega Dreamcast / Naomi / Atomiswave) on Windows.
-
----
-
-## ⚠️ Important Notices (Disclaimer)
-
-* **Authorship Disclaimer:** The **Flycast Updater** is not authored by the creators of the emulator. This project is merely a utility script that automates the download and update process. **All credits, copyrights, and merits of Flycast belong exclusively to its official developers and maintainers.**
-* **Absence of BIOS and ROMs:** **No BIOS, firmware, or game ROM/ISO files** are provided, hosted, or distributed through this repository. 
-* **Legal Use:** To use the Flycast emulator, the user must own the BIOS files extracted from their own hardware and have legally acquired **original games**.
-
----
-
-## 🌟 Key Features
-
-* **Automatic Multilingual Support:** The launcher detects the Windows operating system language and runs the ideal version (Brazilian Portuguese or US English).
-* **Two Supported Branches:** 
-  * `Master`: Official stable version (via GitHub Releases).
-  * `Dev`: Development version / daily cloud builds (via S3 Buckets and GitHub commits).
-* **Smart Self-Copy:** The script/executable manages its own copy to the emulator's destination directory.
-* **Automated Shortcuts:** Optional creation of Desktop shortcuts with the official custom update icon.
-* **Log Audit System:** Maintains an incremental execution history (`flycast_updater.log`) recording the date, time, and exact version of the script.
-* **Integrated Help Menu:** Support for command-line parameters (`-help`, `-h`, `--help`).
-
----
-
-## 🚀 How to Use
-
-For the vast majority of users, simply download the ready-to-use version:
-1. Go to the [Releases](https://github.com/dsantanna/flycast_updater/releases) tab.
-2. Download the **`FlycastUpdater.exe`** file.
-3. Run it in the folder where you want to keep the emulator. On the first run, the program will ask you to choose the desired branch and whether you want to create a Desktop shortcut.
-
----
-
-## 🛡️ Troubleshooting (FAQ)
-
-* **Windows Defender / SmartScreen blocked the executable upon opening:**
-  * Since the `.exe` file was independently compiled via PyInstaller (and does not have a paid commercial digital signature), Windows may display a warning window (*"Windows protected your PC"*). 
-  * **How to fix:** Simply click on **"More info"** and then on the **"Run anyway"** button. The program is completely safe and open source.
-
----
-
-## ⚙️ Command-Line Parameters (CLI)
-
-You can run the updater via the terminal by passing optional arguments:
-
-* `-help`, `-h`, `--help` : Displays the help menu and exits.
-* `-dev` : Forces the configuration and download of the daily version (Dev).
-* `-master` : Forces the configuration and download of the stable version (Master).
-* `-rollback` : Restores the last working emulator backup.
-* `-silent` : Runs the updater in background mode without a console window.
-* `-backup` : Manually trigger cloud backup for saves and exit.
-* `-path <directory>` *(PT version only)* : Sets a custom installation directory.
-
-Example:
-```cmd
-FlycastUpdater.exe -dev -path <full_path>
-```
-
-# Flycast Updater (Linux) - v1.0
-
-Ferramenta automatizada em Python para gerenciar, atualizar e iniciar o emulador **Flycast** no Linux (Ubuntu e derivados), com suporte completo às versões estáveis (**Master**) e de desenvolvimento diário (**Dev**).
-
----
-
-## 🚀 Funcionalidades
-
-* **Múltiplas Branches:** Suporte oficial à branch **Master** (Releases oficiais do GitHub) e à branch **Dev** (Builds diárias integradas à nuvem Scaleway).
-* **Formatos Flexíveis:** Compatibilidade com pacotes compactados tradicionais e formato **AppImage**.
-* **Atalhos Nativos:** Criação opcional de atalhos personalizados tanto na **Área de Trabalho** quanto no **Menu de Aplicativos** do Ubuntu, com suporte a ícones gráficos.
-* **Modo CLI Completo:** Permite a execução direta via linha de comando para automação ou uso em scripts.
-* **Diretório Personalizado:** Suporte para definir caminhos de instalação customizados.
-* **Sistema de Logs:** Registro automático de auditoria e status no arquivo `flycast_updater.log`.
-
----
-
-## 📂 Estrutura do Projeto
-
-```text
-.
-├── launcher_linux.py          # Inicializador interativo e gerenciador de atalhos
-├── update_flycast_linux.py    # Motor principal de verificação, download e extração
-└── flycast_updater.png        # Ícone gráfico oficial da aplicação
-```
