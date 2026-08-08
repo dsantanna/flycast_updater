@@ -20,11 +20,11 @@ except ImportError:
     cloud_saves = None
 
 # ==========================================
-# Flycast Updater - Launcher v3.0 (Emerald Coast Edition)
+# Flycast Updater - Launcher v3.1 (Emerald Coast Edition)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
 
-VERSION = "3.0"
+VERSION = "3.1"
 CONFIG_FILE = "config.json"
 REPO_UPDATER = "dsantanna/flycast_updater"
 
@@ -40,7 +40,7 @@ def carregar_configuracao():
             pass
     return {}
 
-def salvar_configuracao(branch, create_shortcut, create_startup, install_path, cloud_prov, cloud_path, setup_completed=False, setup_declined=False):
+def salvar_configuracao(branch, create_shortcut, create_startup, install_path, cloud_prov, cloud_path, setup_completed=False, setup_declined=False, nogui=False):
     config_data = {
         "branch": branch,
         "create_shortcut": create_shortcut,
@@ -49,7 +49,8 @@ def salvar_configuracao(branch, create_shortcut, create_startup, install_path, c
         "cloud_provider": cloud_prov,
         "cloud_path": cloud_path,
         "setup_completed": setup_completed,
-        "setup_declined": setup_declined
+        "setup_declined": setup_declined,
+        "nogui": nogui
     }
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -60,7 +61,7 @@ def salvar_configuracao(branch, create_shortcut, create_startup, install_path, c
 def obter_token_retroachievements(usuario, senha):
     url = f"https://retroachievements.org/dorequest.php?r=login&u={urllib.parse.quote(usuario)}&p={urllib.parse.quote(senha)}"
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'FlycastUpdater/3.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'FlycastUpdater/3.1'})
         with urllib.request.urlopen(req, timeout=5) as response:
             resposta = json.loads(response.read().decode('utf-8'))
             if resposta.get("Success"):
@@ -73,9 +74,6 @@ def atualizar_emu_cfg(install_path, roms_path=None, ra_enabled=None, ra_user=Non
                       vmu_individual=None, fetch_boxart=None, vga_cable=None, discord_presence=None,
                       show_osd_vmu=None, vmu_sound=None, bios_path=None,
                       vid_api=None, vid_res=None, vid_full=None, vid_int=None, vid_lin=None, vid_vsync=None):
-    """
-    Lê e atualiza o arquivo emu.cfg do Flycast utilizando o padrão correto de seções (INI).
-    """
     caminhos_possiveis = [
         os.path.join(install_path, "emu.cfg"),
         os.path.join(install_path, "data", "emu.cfg")
@@ -136,10 +134,10 @@ def atualizar_emu_cfg(install_path, roms_path=None, ra_enabled=None, ra_user=Non
     if bios_path is not None:
         config.set('config', 'Dreamcast.BiosPath', bios_path.replace("/", "\\"))
 
-    # Configurações de Vídeo (Mapeamento Exato do Flycast)
+    # Configurações de Vídeo
     if vid_api is not None:
         api_map = {"OpenGL": "0", "DirectX 9": "1", "DirectX 11": "2", "Vulkan": "4"}
-        config.set('config', 'pvr.rend', api_map.get(vid_api, "2"))
+        config.set('config', 'pvr.rend', api_map.get(vid_api, "4"))
     if vid_res is not None:
         config.set('config', 'rend.Resolution', vid_res)
     if vid_int is not None:
@@ -149,7 +147,7 @@ def atualizar_emu_cfg(install_path, roms_path=None, ra_enabled=None, ra_user=Non
     if vid_vsync is not None:
         config.set('config', 'rend.vsync', 'yes' if vid_vsync else 'no')
 
-    # Tela Cheia (Seção Window)
+    # Tela Cheia
     if vid_full is not None:
         config.set('window', 'fullscreen', 'yes' if vid_full else 'no')
 
@@ -183,7 +181,10 @@ def aplicar_auto_atualizacao(url_download, install_path, modo_gui=False, app_gui
             f.write(conteudo_bat)
             
         subprocess.Popen(script_bat, shell=True)
-        sys.exit(0)
+        if modo_gui and app_gui:
+            app_gui.after(0, app_gui.destroy)
+        time.sleep(0.5)
+        os._exit(0)  # Encerramento total e imediato para liberar o executável para o .bat
     except Exception:
         if os.path.exists(exe_novo):
             os.remove(exe_novo)
@@ -281,7 +282,7 @@ def iniciar_gui():
         def __init__(self):
             super().__init__()
             self.title(f"🌀 Flycast Updater - v{VERSION} (Emerald Coast)")
-            self.geometry("620x920") 
+            self.geometry("620x940") 
             self.resizable(False, False)
             self.config_atual = carregar_configuracao()
             self.token_ra_salvo = "" 
@@ -301,7 +302,7 @@ def iniciar_gui():
             self.btn_help.place(relx=1.0, rely=0.0, anchor="ne")
             ToolTip(self.btn_help, "Clique aqui para ler o manual completo de uso.")
 
-            # --- SISTEMA DE ABAS (v3.0 Emerald Coast) ---
+            # --- SISTEMA DE ABAS ---
             self.tabview = ctk.CTkTabview(self, width=580, height=660)
             self.tabview.pack(pady=5, padx=20, fill="both", expand=True)
             
@@ -391,6 +392,12 @@ def iniciar_gui():
             self.switch_startup = ctk.CTkSwitch(self.tab_atualizador, text="Iniciar com o Windows (Modo Silencioso)")
             self.switch_startup.pack(anchor="w", padx=10, pady=5)
             if self.config_atual.get("create_startup", False): self.switch_startup.select()
+
+            # --- NOVO SWITCH: DESABILITAR AMBIENTE GRÁFICO (-nogui) ---
+            self.switch_nogui = ctk.CTkSwitch(self.tab_atualizador, text="Desabilitar Ambiente Gráfico (-nogui)")
+            self.switch_nogui.pack(anchor="w", padx=10, pady=5)
+            ToolTip(self.switch_nogui, "Se ativado, o aplicativo abrirá diretamente em modo texto/CLI nas próximas vezes.")
+            if self.config_atual.get("nogui", False): self.switch_nogui.select()
 
             self.btn_reconfig = ctk.CTkButton(self.tab_atualizador, text="⚙️ Reconfigurar Emulador e ROMs", width=220, height=28, fg_color="#333", hover_color="#555", command=lambda: self.tabview.set("⚙️ Emulador"))
             self.btn_reconfig.pack(anchor="w", padx=10, pady=(5, 5))
@@ -604,8 +611,8 @@ def iniciar_gui():
             
             if not completo and not recusado:
                 resposta = mb.askyesno(
-                    "Flycast Updater - v3.0 (Emerald Coast)",
-                    "Bem-vindo à v3.0 (Emerald Coast Edition)!\n\n"
+                    "Flycast Updater - v3.1 (Emerald Coast)",
+                    "Bem-vindo à v3.1 (Emerald Coast Edition)!\n\n"
                     "Deseja ajuda para configurar rapidamente a pasta de ROMs e o RetroAchievements agora?",
                     parent=self
                 )
@@ -623,7 +630,8 @@ def iniciar_gui():
                     self.cloud_var.get() if self.cloud_var.get() != "nenhum" else None,
                     None,
                     setup_completed=self.config_atual.get("setup_completed", False),
-                    setup_declined=self.config_atual.get("setup_declined", False)
+                    setup_declined=self.config_atual.get("setup_declined", False),
+                    nogui=self.switch_nogui.get() == 1
                 )
 
         def resolver_bios_mal_posicionada(self, path):
@@ -874,7 +882,8 @@ def iniciar_gui():
                 self.cloud_var.get() if self.cloud_var.get() != "nenhum" else None,
                 None,
                 setup_completed=True,
-                setup_declined=self.config_atual.get("setup_declined", False)
+                setup_declined=self.config_atual.get("setup_declined", False),
+                nogui=self.switch_nogui.get() == 1
             )
 
             self.btn_salvar_config_emu.configure(text="💾 Salvar Configurações do Emulador")
@@ -910,6 +919,19 @@ def iniciar_gui():
                 vid_int=integer,
                 vid_lin=linear,
                 vid_vsync=vsync
+            )
+
+            # Salva também o estado atual do switch nogui para manter consistência
+            salvar_configuracao(
+                self.branch_var.get(),
+                self.switch_desktop.get() == 1,
+                self.switch_startup.get() == 1,
+                install_path,
+                self.cloud_var.get() if self.cloud_var.get() != "nenhum" else None,
+                None,
+                setup_completed=self.config_atual.get("setup_completed", False),
+                setup_declined=self.config_atual.get("setup_declined", False),
+                nogui=self.switch_nogui.get() == 1
             )
 
             if sucesso:
@@ -1060,13 +1082,13 @@ def iniciar_gui():
                 "🖥️ COMO USAR AS VERSÕES:\n"
                 "• Branch Master: Versão oficial de lançamento (estável).\n"
                 "• Branch Dev: Versão de desenvolvimento (atualizada diariamente).\n\n"
-                "💾 CLOUD SAVES & CONFIGURAÇÕES (v3.0):\n"
+                "💾 CLOUD SAVES & CONFIGURAÇÕES (v3.1):\n"
                 "• Escolha o Google Drive ou OneDrive para backup automático.\n"
                 "• Na aba 'Configurar Emulador', defina sua pasta de ROMs e ajuste\n"
                 "  suas credenciais do RetroAchievements com Modo Hardcore.\n\n"
-                "🌴 SOBRE A VERSÃO 3.0 (Emerald Coast Edition):\n"
+                "🌴 SOBRE A VERSÃO 3.1 (Emerald Coast Edition):\n"
                 "Homenagem à clássica primeira fase de Sonic Adventure! Esta versão\n"
-                "torna o utilitário um gerenciador completo do ecossistema Flycast.\n\n"
+                "traz o seletor para desativar o ambiente gráfico e rodar em modo texto (-nogui).\n\n"
                 "🖧 USO PELO TERMINAL (PowerShell/CMD):\n"
                 "Parâmetros: -nogui, -dev, -master, -rollback, -silent, -reset"
             )
@@ -1116,7 +1138,8 @@ def iniciar_gui():
 
                 salvar_configuracao(branch_escolhida, criar_desktop, criar_startup, install_path, cloud_prov, cloud_path, 
                                     setup_completed=self.config_atual.get("setup_completed", False),
-                                    setup_declined=self.config_atual.get("setup_declined", False))
+                                    setup_declined=self.config_atual.get("setup_declined", False),
+                                    nogui=self.switch_nogui.get() == 1)
 
                 import update_flycast
                 update_flycast.SCRIPT_VERSION = f"{VERSION} (GUI)"
@@ -1135,7 +1158,6 @@ def iniciar_gui():
                 
                 update_flycast.main()
                 
-                # Fechamento automático garantido após o sucesso da tarefa principal
                 self.after(2000, self.destroy)
             except SystemExit:
                 self.after(2000, self.destroy)
@@ -1267,6 +1289,11 @@ if __name__ == "__main__":
     args_lower = [arg.lower() for arg in sys.argv[1:]]
     gatilhos_cli = ['-nogui', '-silent', '-rollback', '-backup', '-dev', '-master', '-help', '-h', '--help', '-reset', '-gdrive', '-onedrive']
     
+    # Verifica se o usuário salvou a preferência para desativar a GUI no config.json
+    config = carregar_configuracao()
+    if config.get("nogui", False) and "-nogui" not in args_lower and "-reset" not in args_lower:
+        args_lower.append("-nogui")
+
     if any(g in args_lower for g in gatilhos_cli):
         iniciar_cli(args_lower)
     else:
