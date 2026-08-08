@@ -20,16 +20,16 @@ except ImportError:
     cloud_saves = None
 
 # ==========================================
-# Flycast Updater - Launcher v4.0 (Another Day Edition)
+# Flycast Updater - Launcher v4.1 (Another Day Edition)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
 
-VERSION = "4.0"
+VERSION = "4.1"
 CONFIG_FILE = "config.json"
 REPO_UPDATER = "dsantanna/flycast_updater"
 
 # ==========================================
-# DICIONÁRIO GLOBAL DE INTERNACIONALIZAÇÃO (i18n)
+# DICIONÁRIO GLOBAL DE INTERNACIONALIZAÇÃO (i18n) - v4.1 FULL
 # ==========================================
 TRANSLATIONS = {
     "pt": {
@@ -56,7 +56,8 @@ TRANSLATIONS = {
         "emu_status_checking": "Emulador: 🔵 Verificando versão na nuvem...", "emu_status_updated": "Emulador: 🟢 Atualizado", "emu_status_outdated": "Emulador: 🟡 Desatualizado", 
         "emu_status_offline": "Emulador: 🟡 Sem internet", "emu_status_missing": "Emulador: 🔴 Ausente", "emu_status_error": "Emulador: 🔴 Erro", 
         "bios_ok": "BIOS: 🟢 OK", "bios_custom": "BIOS: 🟢 OK (Custom)", "bios_wrong": "BIOS: 🟡 Local incorreto", "bios_missing": "BIOS: 🔴 Ausente", "bios_error": "BIOS: 🔴 Erro",
-        "msg_success": "Operação realizada com sucesso!", "msg_error": "Erro durante a operação.", "msg_restart": "Por favor, reinicie o aplicativo para aplicar o novo idioma.",
+        "msg_success": "Operação realizada com sucesso!", "msg_error": "Erro durante a operação.",
+        "msg_updater_update": "Uma nova versão do Flycast Updater foi detectada!\nO programa será atualizado junto com o emulador.",
         "tt_help": "Clique aqui para ler sobre o aplicativo e instruções.", "tt_bios": "Verifica os arquivos dc_boot.bin e dc_flash.bin.", "tt_path": "Este é o local onde o Flycast está (ou será) instalado.",
         "tt_master": "Estável. Atualiza apenas quando há lançamentos fechados.", "tt_dev": "Baixa as modificações diárias do criador.", "tt_nogui": "Abre o app em modo texto/CLI nas próximas vezes.",
         "tt_reconfig": "Abre a aba para alterar pastas de ROMs e credenciais.", "tt_opengl": "API clássica e madura. Ideal para PCs antigos.", "tt_vulkan": "API moderna. Altíssimo desempenho e baixo uso de CPU.", 
@@ -93,14 +94,15 @@ TRANSLATIONS = {
         "emu_status_checking": "Emulator: 🔵 Checking cloud version...", "emu_status_updated": "Emulator: 🟢 Up to date", "emu_status_outdated": "Emulator: 🟡 Outdated",
         "emu_status_offline": "Emulator: 🟡 Offline", "emu_status_missing": "Emulator: 🔴 Missing", "emu_status_error": "Emulator: 🔴 Error",
         "bios_ok": "BIOS: 🟢 OK", "bios_custom": "BIOS: 🟢 OK (Custom)", "bios_wrong": "BIOS: 🟡 Incorrect path", "bios_missing": "BIOS: 🔴 Missing", "bios_error": "BIOS: 🔴 Error",
-        "msg_success": "Operation completed successfully!", "msg_error": "Error during the operation.", "msg_restart": "Please restart the application to apply the new language.",
+        "msg_success": "Operation completed successfully!", "msg_error": "Error during the operation.",
+        "msg_updater_update": "A new version of Flycast Updater has been detected!\nThe program will be updated along with the emulator.",
         "tt_help": "Click here to read more about the app.", "tt_bios": "Checks for dc_boot.bin and dc_flash.bin.", "tt_path": "This is where Flycast is (or will be) installed.",
         "tt_master": "Stable. Updates only when there are official releases.", "tt_dev": "Downloads daily modifications from the creator.", "tt_nogui": "Opens directly in text/CLI mode next time.",
         "tt_reconfig": "Opens the tab to change ROM folders and credentials.", "tt_opengl": "Classic API. Very compatible.", "tt_vulkan": "Modern API. Extremely high performance.",
         "tt_dx9": "Windows legacy. For extremely old PCs.", "tt_dx11": "Great alternative to Vulkan on Windows.", "tt_custom_paths": "Allows setting separate folders for BIOS, Saves, and States.",
         "msg_bios_missing": "The following BIOS files are missing:\n- {files}\n\nDo you want to locate them on your computer (or select a .zip)?",
         "title_bios_missing": "Missing BIOS",
-        "msg_bios_partial": "File copied successfully.\n\nThe following file is still missing:\n- {missing}\n\nDo you want to locate it now?",
+        "msg_bios_partial": "File copied successfully.\n\nThe following file is still missing:\n- {missing}\n\nDeseja procurá-lo agora?",
         "title_bios_partial": "Incomplete BIOS",
         "msg_bios_zip_success": "BIOS successfully extracted and installed from ZIP!",
         "msg_bios_bin_success": "All BIOS files installed successfully!",
@@ -130,7 +132,8 @@ TRANSLATIONS = {
         "emu_status_checking": "Emulador: 🔵 Comprobando nube...", "emu_status_updated": "Emulador: 🟢 Actualizado", "emu_status_outdated": "Emulador: 🟡 Desactualizado",
         "emu_status_offline": "Emulador: 🟡 Sin internet", "emu_status_missing": "Emulador: 🔴 Falta Emulador", "emu_status_error": "Emulador: 🔴 Error",
         "bios_ok": "BIOS: 🟢 OK", "bios_custom": "BIOS: 🟢 OK (Custom)", "bios_wrong": "BIOS: 🟡 Ruta incorrecta", "bios_missing": "BIOS: 🔴 Falta BIOS", "bios_error": "BIOS: 🔴 Error",
-        "msg_success": "¡Operación completada con éxito!", "msg_error": "Error durante la operación.", "msg_restart": "Por favor, reinicia la aplicación.",
+        "msg_success": "¡Operación completada con éxito!", "msg_error": "Error durante la operación.",
+        "msg_updater_update": "¡Se ha detectado una nueva versión de Flycast Updater!\nEl programa se actualizará junto con el emulador.",
         "tt_help": "Haz clic aquí para leer sobre la aplicación.", "tt_bios": "Verifica los archivos de BIOS.", "tt_path": "Aquí se instalará Flycast.",
         "tt_master": "Estable. Solo lanzamientos oficiales.", "tt_dev": "Descarga builds diarios.", "tt_nogui": "Abre en modo consola (CLI).",
         "tt_reconfig": "Abre la pestaña de ROMs.", "tt_opengl": "API clásica. Ideal para PCs antiguos.", "tt_vulkan": "API moderna. Máximo rendimiento.",
@@ -141,39 +144,237 @@ TRANSLATIONS = {
         "title_bios_partial": "BIOS Incompleta",
         "msg_bios_zip_success": "¡BIOS extraída e instalada con éxito del archivo ZIP!",
         "msg_bios_bin_success": "¡Archivos de BIOS instalados con éxito!",
-        "msg_bios_unsupported": "Formato de archivo no soportado."
+        "msg_bios_unsupported": "Formato de archivo no suportado."
     },
     "fr": {
         "title_sub": "Gestionnaire de Mises à jour, Cloud et Config", "btn_help": "❔ À propos", "tab_cloud": "🚀 M. à jour", "tab_emu": "⚙️ Émulateur", "tab_vid": "🖥️ Vidéo", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
         "lbl_path": "Chemin d'installation:", "btn_browse": "Parcourir...", "lbl_branch": "Version de l'Émulateur:",
-        "lbl_cloud": "Synchronisation Cloud:", "rb_none": "Aucun", "sw_desk": "Créer un raccourci bureau", "sw_map": "Sauvegarder les contrôles",
-        "lbl_backup_limit": "Limite de Sauvegardes:", "limit_unlimited": "Illimité"
+        "rb_master_desc": "Versions officielles et stables.", "rb_dev_desc": "Builds cloud quotidiens.",
+        "lbl_cloud": "Synchronisation Cloud:", "rb_none": "Aucun", "sw_desk": "Créer un raccourci bureau",
+        "sw_start": "Démarrer avec Windows (Silencieux)", "sw_nogui": "Désactiver l'interface (-nogui)", "sw_map": "Sauvegarde des contrôles",
+        "lbl_backup_limit": "Limite de Sauvegardes:", "limit_unlimited": "Illimité",
+        "btn_reconfig": "⚙️ Reconfigurer Émulateur et ROMs", "lbl_roms": "Dossier de Jeux (ROMs):", "lbl_ra": "RetroAchievements:",
+        "sw_custom_paths": "Utiliser des chemins personnalisés", "lbl_bios_path": "Dossiers BIOS:", "lbl_vmu_path": "Dossier VMU:", "lbl_state_path": "Dossiers Save State:", "lbl_save_path": "Dossier Save de Jeu:",
+        "sw_ra": "Activer RetroAchievements", "lbl_user": "Utilisateur:", "lbl_pass": "Mot de passe / Token:", "sw_hard": "Mode Hardcore",
+        "lbl_qol": "Améliorations de qualité de vie:", "sw_vmu": "VMU par Jeu", "sw_box": "Télécharger Jaquettes",
+        "sw_vga": "Optimiser Graphiques (VGA)", "sw_disc": "Statut Discord", "sw_osd": "Afficher VMU à l'écran", "sw_vmu_snd": "Sons VMU",
+        "btn_save_emu": "💾 Enregistrer Configuration", "lbl_vid_title": "Paramètres Vidéo",
+        "lbl_vid_warn": "⚠️ Avertissement: Paramètres de base.", "lbl_api": "API Graphique:", "lbl_res": "Résolution Interne:",
+        "sw_full": "Plein écran", "sw_int": "Mise à l'échelle entière", "sw_lin": "Interpolation linéaire", "sw_vsync": "V-Sync",
+        "btn_save_vid": "💾 Enregistrer Vidéo", "lbl_saves_title": "Restaurer Sauvegardes Cloud", "lbl_saves_desc": "Sélectionnez un .zip de sauvegarde.",
+        "btn_search_saves": "🔄 Chercher", "combo_saves_def": "Cliquez pour chercher...", "btn_extract": "📥 Extraire",
+        "lbl_logs_title": "Journaux (Logs)", "btn_log_refresh": "🔄 Actualiser", "btn_log_copy": "📋 Copier", "btn_log_clear": "🗑️ Effacer",
+        "log_not_found": "Aucun log trouvé.", "btn_verify": "🚀 VÉRIFICATION...", "btn_rollback": "↩️ RETOUR",
+        "btn_play": "JOUER", "btn_update_act": "METTRE À JOUR", "btn_install_act": "INSTALLER", "btn_starting": "DÉMARRAGE...",
+        "btn_processing": "TRAITEMENT...", "btn_reverting": "RESTAURATION...", "emu_status_checking": "Émulateur: 🔵 Vérification...",
+        "emu_status_updated": "Émulateur: 🟢 À jour", "emu_status_outdated": "Émulateur: 🟡 Obsolète", "emu_status_offline": "Émulateur: 🟡 Hors ligne",
+        "emu_status_missing": "Émulateur: 🔴 Absent", "emu_status_error": "Émulateur: 🔴 Erreur", "bios_ok": "BIOS: 🟢 OK",
+        "bios_custom": "BIOS: 🟢 OK (Custom)", "bios_wrong": "BIOS: 🟡 Mauvais chemin", "bios_missing": "BIOS: 🔴 Manquant", "bios_error": "BIOS: 🔴 Erreur",
+        "msg_success": "Opération réussie !", "msg_error": "Erreur pendant l'opération.",
+        "msg_updater_update": "Une nouvelle version de Flycast Updater a été détectée !\nLe programme sera mis à jour en même temps que l'émulateur.",
+        "tt_help": "Aide", "tt_bios": "Vérifie les BIOS.", "tt_path": "Chemin d'installation", "tt_master": "Stable", "tt_dev": "Dev",
+        "tt_nogui": "Mode CLI", "tt_reconfig": "Reconfigurer", "tt_opengl": "OpenGL", "tt_vulkan": "Vulkan", "tt_dx9": "DX9", "tt_dx11": "DX11",
+        "tt_custom_paths": "Chemins personnalisés", "msg_bios_missing": "Fichiers BIOS manquants:\n- {files}", "title_bios_missing": "BIOS Manquant",
+        "msg_bios_partial": "Fichier copié. Manque:\n- {missing}", "title_bios_partial": "BIOS Incomplet", "msg_bios_zip_success": "BIOS extrait du ZIP !",
+        "msg_bios_bin_success": "BIOS installé !", "msg_bios_unsupported": "Format non supporté."
     },
     "de": {
         "title_sub": "Update-, Cloud- und Konfigurationsmanager", "btn_help": "❔ Über", "tab_cloud": "🚀 Update", "tab_emu": "⚙️ Emulator", "tab_vid": "🖥️ Video", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
-        "lbl_path": "Installationspfad:", "btn_browse": "Durchsuchen...", "lbl_branch": "Emulator Version:",
-        "lbl_cloud": "Cloud Save Synchronisation:", "rb_none": "Keine", "sw_map": "Controller-Backup",
-        "lbl_backup_limit": "Backup-Limit:", "limit_unlimited": "Unbegrenzt"
+        "lbl_path": "Installationspfad:", "btn_browse": "Durchsuchen...", "lbl_branch": "Emulator-Version:",
+        "rb_master_desc": "Offizielle stabile Versionen.", "rb_dev_desc": "Tägliche Cloud-Builds.",
+        "lbl_cloud": "Cloud-Save-Synchronisierung:", "rb_none": "Keine", "sw_desk": "Desktop-Verknüpfung erstellen",
+        "sw_start": "Mit Windows starten (Stumm)", "sw_nogui": "Grafische Oberfläche deaktivieren (-nogui)", "sw_map": "Controller-Backup",
+        "lbl_backup_limit": "Backup-Limit:", "limit_unlimited": "Unbegrenzt",
+        "btn_reconfig": "⚙️ Emulator & ROMs neu konfigurieren", "lbl_roms": "Spieleordner (ROMs):", "lbl_ra": "RetroAchievements:",
+        "sw_custom_paths": "Benutzerdefinierte Pfade", "lbl_bios_path": "BIOS-Ordner:", "lbl_vmu_path": "VMU-Ordner:", "lbl_state_path": "Save-State-Ordner:", "lbl_save_path": "Spielstand-Ordner:",
+        "sw_ra": "RetroAchievements aktivieren", "lbl_user": "Benutzername:", "lbl_pass": "Passwort / Token:", "sw_hard": "Hardcore-Modus",
+        "lbl_qol": "Qualitätsverbesserungen:", "sw_vmu": "VMU pro Spiel", "sw_box": "Cover automatisch laden",
+        "sw_vga": "Grafik optimieren (VGA)", "sw_disc": "Discord-Status", "sw_osd": "VMU auf Bildschirm anzeigen", "sw_vmu_snd": "VMU-Sounds aktivieren",
+        "btn_save_emu": "💾 Einstellungen speichern", "lbl_vid_title": "Video-Einstellungen",
+        "lbl_vid_warn": "⚠️ Warnung: Grundeinstellungen.", "lbl_api": "Grafik-API:", "lbl_res": "Interne Auflösung:",
+        "sw_full": "Vollbild", "sw_int": "Ganzzahlige Skalierung", "sw_lin": "Lineare Interpolation", "sw_vsync": "V-Sync",
+        "btn_save_vid": "💾 Video speichern", "lbl_saves_title": "Cloud-Backups wiederherstellen", "lbl_saves_desc": "Wählen Sie ein Backup-ZIP aus.",
+        "btn_search_saves": "🔄 Suchen", "combo_saves_def": "Klicken zum Suchen...", "btn_extract": "📥 Extrahieren",
+        "lbl_logs_title": "Protokolle (Logs)", "btn_log_refresh": "🔄 Aktualisieren", "btn_log_copy": "📋 Kopieren", "btn_log_clear": "🗑️ Löschen",
+        "log_not_found": "Kein Log gefunden.", "btn_verify": "🚀 PRÜFE...", "btn_rollback": "↩️ ZURÜCKSETZEN",
+        "btn_play": "SPIELEN", "btn_update_act": "AKTUALISIEREN", "btn_install_act": "INSTALLIEREN", "btn_starting": "STARTET...",
+        "btn_processing": "VERARBEITET...", "btn_reverting": "SETZT ZURÜCK...", "emu_status_checking": "Emulator: 🔵 Prüfe...",
+        "emu_status_updated": "Emulator: 🟢 Aktuell", "emu_status_outdated": "Emulator: 🟡 Veraltet", "emu_status_offline": "Emulator: 🟡 Offline",
+        "emu_status_missing": "Emulator: 🔴 Fehlt", "emu_status_error": "Emulator: 🔴 Fehler", "bios_ok": "BIOS: 🟢 OK",
+        "bios_custom": "BIOS: 🟢 OK (Custom)", "bios_wrong": "BIOS: 🟡 Falscher Pfad", "bios_missing": "BIOS: 🔴 Fehlt", "bios_error": "BIOS: 🔴 Fehler",
+        "msg_success": "Operation erfolgreich!", "msg_error": "Fehler bei der Operation.",
+        "msg_updater_update": "Eine neue Version des Flycast Updaters wurde erkannt!\nDas Programm wird zusammen mit dem Emulator aktualisiert.",
+        "tt_help": "Hilfe", "tt_bios": "Prüft BIOS.", "tt_path": "Installationspfad", "tt_master": "Stabel", "tt_dev": "Dev",
+        "tt_nogui": "CLI-Modus", "tt_reconfig": "Neu konfigurieren", "tt_opengl": "OpenGL", "tt_vulkan": "Vulkan", "tt_dx9": "DX9", "tt_dx11": "DX11",
+        "tt_custom_paths": "Eigene Pfade", "msg_bios_missing": "Fehlende BIOS-Dateien:\n- {files}", "title_bios_missing": "BIOS fehlt",
+        "msg_bios_partial": "Datei kopiert. Fehlt noch:\n- {missing}", "title_bios_partial": "BIOS unvollständig", "msg_bios_zip_success": "BIOS aus ZIP extrahiert!",
+        "msg_bios_bin_success": "BIOS installiert!", "msg_bios_unsupported": "Nicht unterstütztes Format."
     },
     "zh": {
         "title_sub": "更新、云端和配置管理器", "btn_help": "❔ 关于", "tab_cloud": "🚀 更新", "tab_emu": "⚙️ 模拟器", "tab_vid": "🖥️ 视频", "tab_saves": "🔄 存档", "tab_logs": "📝 日志",
         "lbl_path": "模拟器安装路径:", "btn_browse": "浏览...", "lbl_branch": "模拟器版本:",
-        "lbl_cloud": "云端存档同步:", "rb_none": "无", "sw_map": "备份控制器映射 (可选)",
-        "lbl_backup_limit": "备份限制:", "limit_unlimited": "无限制"
+        "rb_master_desc": "官方稳定版。", "rb_dev_desc": "每日云端构建。",
+        "lbl_cloud": "云端存档同步:", "rb_none": "无", "sw_desk": "创建桌面快捷方式",
+        "sw_start": "随Windows启动 (静默模式)", "sw_nogui": "禁用图形界面 (-nogui)", "sw_map": "备份控制器映射",
+        "lbl_backup_limit": "备份限制:", "limit_unlimited": "无限制",
+        "btn_reconfig": "⚙️ 重新配置模拟器和ROM", "lbl_roms": "游戏文件夹 (ROMs):", "lbl_ra": "RetroAchievements 成就:",
+        "sw_custom_paths": "使用自定义路径", "lbl_bios_path": "BIOS 文件夹:", "lbl_vmu_path": "VMU 文件夹:", "lbl_state_path": "即时存档文件夹:", "lbl_save_path": "游戏存档文件夹:",
+        "sw_ra": "启用 RetroAchievements", "lbl_user": "用户名:", "lbl_pass": "密码 / 令牌:", "sw_hard": "硬核模式 (禁用即时存档)",
+        "lbl_qol": "生活质量优化 (QoL):", "sw_vmu": "每游戏独立 VMU", "sw_box": "自动下载封面",
+        "sw_vga": "优化图形 (VGA)", "sw_disc": "Discord 状态", "sw_osd": "屏幕显示 VMU", "sw_vmu_snd": "启用 VMU 声音",
+        "btn_save_emu": "💾 保存模拟器设置", "lbl_vid_title": "视频设置 (基础)",
+        "lbl_vid_warn": "⚠️ 警告: 这些是基础设置。", "lbl_api": "图形 API:", "lbl_res": "内部分辨率:",
+        "sw_full": "全屏", "sw_int": "整数缩放", "sw_lin": "线性插值", "sw_vsync": "垂直同步 (V-Sync)",
+        "btn_save_vid": "💾 保存视频设置", "lbl_saves_title": "恢复云端备份", "lbl_saves_desc": "选择云端备份的 .zip 文件解压。",
+        "btn_search_saves": "🔄 查找备份", "combo_saves_def": "点击查找备份...", "btn_extract": "📥 提取并恢复",
+        "lbl_logs_title": "审计和诊断 (日志)", "btn_log_refresh": "🔄 刷新", "btn_log_copy": "📋 复制", "btn_log_clear": "🗑️ 清除",
+        "log_not_found": "未找到日志文件。", "btn_verify": "🚀 正在检查...", "btn_rollback": "↩️ 回滚",
+        "btn_play": "游玩", "btn_update_act": "更新", "btn_install_act": "安装", "btn_starting": "启动中...",
+        "btn_processing": "处理中...", "btn_reverting": "正在回滚...", "emu_status_checking": "模拟器: 🔵 检查云端版本...",
+        "emu_status_updated": "模拟器: 🟢 已是最新", "emu_status_outdated": "模拟器: 🟡 需要更新", "emu_status_offline": "模拟器: 🟡 离线",
+        "emu_status_missing": "模拟器: 🔴 缺失", "emu_status_error": "模拟器: 🔴 错误", "bios_ok": "BIOS: 🟢 正常",
+        "bios_custom": "BIOS: 🟢 正常 (自定义)", "bios_wrong": "BIOS: 🟡 路径不正确", "bios_missing": "BIOS: 🔴 缺失", "bios_error": "BIOS: 🔴 错误",
+        "msg_success": "操作成功完成！", "msg_error": "操作期间发生错误。",
+        "msg_updater_update": "检测到新版本的 Flycast Updater！\n程序将与模拟器一起更新。",
+        "tt_help": "点击这里阅读帮助。", "tt_bios": "检查 BIOS 文件。", "tt_path": "安装路径。", "tt_master": "稳定版。", "tt_dev": "开发版。",
+        "tt_nogui": "命令行模式。", "tt_reconfig": "重新配置。", "tt_opengl": "OpenGL API。", "tt_vulkan": "Vulkan API。", "tt_dx9": "DX9 API。", "tt_dx11": "DX11 API。",
+        "tt_custom_paths": "自定义路径。", "msg_bios_missing": "缺少以下 BIOS 文件:\n- {files}", "title_bios_missing": "缺少 BIOS",
+        "msg_bios_partial": "文件复制成功。\n缺少文件:\n- {missing}", "title_bios_partial": "BIOS 不完整", "msg_bios_zip_success": "BIOS 解压并安装成功！",
+        "msg_bios_bin_success": "BIOS 安装成功！", "msg_bios_unsupported": "不支持的文件格式."
     },
     "ja": {
         "title_sub": "アップデート、クラウド、設定マネージャー", "btn_help": "❔ 概要", "tab_cloud": "🚀 更新", "tab_emu": "⚙️ エミュレータ", "tab_vid": "🖥️ ビデオ", "tab_saves": "🔄 セーブ", "tab_logs": "📝 ログ",
-        "lbl_path": "インストール先:", "btn_browse": "参照...", "lbl_branch": "バージョン:",
-        "lbl_cloud": "クラウドセーブ同期:", "rb_none": "なし", "sw_map": "コントローラーのバックアップ",
-        "lbl_backup_limit": "バックアップ制限:", "limit_unlimited": "無制限"
+        "lbl_path": "インストール先:", "btn_browse": "参照...", "lbl_branch": "エミュレータバージョン:",
+        "rb_master_desc": "公式安定版リリース。", "rb_dev_desc": "毎日のクラウドビルド。",
+        "lbl_cloud": "クラウドセーブ同期:", "rb_none": "なし", "sw_desk": "デスクトップショートカット作成",
+        "sw_start": "Windowsと同時に起動 (サイレント)", "sw_nogui": "GUI無効化 (-nogui)", "sw_map": "コントローラーマッピングのバックアップ",
+        "lbl_backup_limit": "バックアップ制限:", "limit_unlimited": "無制限",
+        "btn_reconfig": "⚙️ エミュレータとROMの再設定", "lbl_roms": "ゲームフォルダ (ROMs):", "lbl_ra": "RetroAchievements:",
+        "sw_custom_paths": "カスタムパスを使用", "lbl_bios_path": "BIOSフォルダ:", "lbl_vmu_path": "VMUフォルダ:", "lbl_state_path": "ステートセーブフォルダ:", "lbl_save_path": "セーブフォルダ:",
+        "sw_ra": "RetroAchievementsを有効化", "lbl_user": "ユーザー名:", "lbl_pass": "パスワード / トークン:", "sw_hard": "ハードコアモード",
+        "lbl_qol": "品質向上 (QoL) 調整:", "sw_vmu": "ゲーム別VMU", "sw_box": "ジャケット自動ダウンロード",
+        "sw_vga": "グラフィック最適化 (VGA)", "sw_disc": "Discordプレゼンス", "sw_osd": "画面にVMUを表示", "sw_vmu_snd": "VMUサウンド有効化",
+        "btn_save_emu": "💾 設定を保存", "lbl_vid_title": "ビデオ設定 (基本)",
+        "lbl_vid_warn": "⚠️ 警告: 基本的な設定です。", "lbl_api": "グラフィックAPI:", "lbl_res": "内部解像度:",
+        "sw_full": "フルスクリーン", "sw_int": "整数スケーリング", "sw_lin": "線形補間", "sw_vsync": "垂直同期 (V-Sync)",
+        "btn_save_vid": "💾 ビデオ設定を保存", "lbl_saves_title": "クラウドバックアップの復元", "lbl_saves_desc": "バックアップの .zip を選択してください。",
+        "btn_search_saves": "🔄 検索", "combo_saves_def": "バックアップを検索...", "btn_extract": "📥 抽出して復元",
+        "lbl_logs_title": "ログと診断", "btn_log_refresh": "🔄 更新", "btn_log_copy": "📋 コピー", "btn_log_clear": "🗑️ クリア",
+        "log_not_found": "ログが見つかりません。", "btn_verify": "🚀 確認中...", "btn_rollback": "↩️ ロールバック",
+        "btn_play": "プレイ", "btn_update_act": "アップデート", "btn_install_act": "インストール", "btn_starting": "起動中...",
+        "btn_processing": "処理中...", "btn_reverting": "ロールバック中...", "emu_status_checking": "エミュレータ: 🔵 確認中...",
+        "emu_status_updated": "エミュレータ: 🟢 最新", "emu_status_outdated": "エミュレータ: 🟡 古いバージョン", "emu_status_offline": "エミュレータ: 🟡 オフライン",
+        "emu_status_missing": "エミュレータ: 🔴 不足", "emu_status_error": "エミュレータ: 🔴 エラー", "bios_ok": "BIOS: 🟢 OK",
+        "bios_custom": "BIOS: 🟢 OK (カスタム)", "bios_wrong": "BIOS: 🟡 パス不正", "bios_missing": "BIOS: 🔴 不足", "bios_error": "BIOS: 🔴 エラー",
+        "msg_success": "操作が完了しました！", "msg_error": "エラーが発生しました。",
+        "msg_updater_update": "Flycast Updaterの新バージョンが検出されました！\nエミュレータとともにプログラムが更新されます。",
+        "tt_help": "ヘルプを表示。", "tt_bios": "BIOSを確認。", "tt_path": "インストール先。", "tt_master": "安定版。", "tt_dev": "開発版。",
+        "tt_nogui": "CUIモード。", "tt_reconfig": "再設定。", "tt_opengl": "OpenGL API。", "tt_vulkan": "Vulkan API。", "tt_dx9": "DX9 API。", "tt_dx11": "DX11 API。",
+        "tt_custom_paths": "カスタムパス。", "msg_bios_missing": "次のBIOSファイルが不足しています:\n- {files}", "title_bios_missing": "BIOS不足",
+        "msg_bios_partial": "コピー成功。\n不足:\n- {missing}", "title_bios_partial": "BIOS不完全", "msg_bios_zip_success": "ZIPからBIOSをインストールしました！",
+        "msg_bios_bin_success": "BIOSをインストールしました！", "msg_bios_unsupported": "サポートされていない形式です。"
     },
     "ru": {
         "title_sub": "Менеджер обновлений, облака и настроек", "btn_help": "❔ О программе", "tab_cloud": "🚀 Обновление", "tab_emu": "⚙️ Эмулятор", "tab_vid": "🖥️ Видео", "tab_saves": "🔄 Сейвы", "tab_logs": "📝 Логи",
-        "lbl_path": "Путь установки:", "btn_browse": "Обзор...", "lbl_branch": "Версия эмулятора:",
-        "lbl_cloud": "Синхронизация облачных сохранений:", "rb_none": "Нет", "sw_map": "Бэкап управления",
-        "lbl_backup_limit": "Лимит бэкапов:", "limit_unlimited": "Неограничено"
+        "lbl_path": "Путь установки эмулятора:", "btn_browse": "Обзор...", "lbl_branch": "Версия эмулятора:",
+        "rb_master_desc": "Официальные и стабильные релизы.", "rb_dev_desc": "Ежедневные облачные сборки.",
+        "lbl_cloud": "Синхронизация облачных сохранений:", "rb_none": "Нет", "sw_desk": "Создать ярлык на рабочем столе",
+        "sw_start": "Запуск с Windows (Тихий режим)", "sw_nogui": "Отключить графический интерфейс (-nogui)", "sw_map": "Резервная копия управления",
+        "lbl_backup_limit": "Лимит бэкапов:", "limit_unlimited": "Неограничено",
+        "btn_reconfig": "⚙️ Перенастроить эмулятор и ROM", "lbl_roms": "Папка с играми (ROMs):", "lbl_ra": "RetroAchievements:",
+        "sw_custom_paths": "Использовать свои пути", "lbl_bios_path": "Папки BIOS:", "lbl_vmu_path": "Папка VMU:", "lbl_state_path": "Папки Save State:", "lbl_save_path": "Папка сохранений:",
+        "sw_ra": "Включить RetroAchievements", "lbl_user": "Имя пользователя:", "lbl_pass": "Пароль / Токен:", "sw_hard": "Хардкорный режим",
+        "lbl_qol": "Улучшения качества жизни:", "sw_vmu": "VMU для каждой игры", "sw_box": "Автозагрузка обложек",
+        "sw_vga": "Оптимизация графики (VGA)", "sw_disc": "Статус в Discord", "sw_osd": "Показать VMU на экране", "sw_vmu_snd": "Включить звуки VMU",
+        "btn_save_emu": "💾 Сохранить настройки", "lbl_vid_title": "Настройки видео (Базовые)",
+        "lbl_vid_warn": "⚠️ Внимание: Базовые настройки.", "lbl_api": "Графический API:", "lbl_res": "Внутреннее разрешение:",
+        "sw_full": "Полноэкранный режим", "sw_int": "Целочисленное масштабирование", "sw_lin": "Линейная интерполяция", "sw_vsync": "Вертикальная синхронизация",
+        "btn_save_vid": "💾 Сохранить видео", "lbl_saves_title": "Восстановить бэкапы", "lbl_saves_desc": "Выберите .zip архив бэкапа.",
+        "btn_search_saves": "🔄 Найти", "combo_saves_def": "Нажмите Поиск...", "btn_extract": "📥 Извлечь и восстановить",
+        "lbl_logs_title": "Аудит и диагностика (Логи)", "btn_log_refresh": "🔄 Обновить", "btn_log_copy": "📋 Копировать", "btn_log_clear": "🗑️ Очистить",
+        "log_not_found": "Файл лога не найден.", "btn_verify": "🚀 ПРОВЕРКА...", "btn_rollback": "↩️ ОТКАТ",
+        "btn_play": "ИГРАТЬ", "btn_update_act": "ОБНОВИТЬ", "btn_install_act": "УСТАНОВИТЬ", "btn_starting": "ЗАПУСК...",
+        "btn_processing": "ОБРАБОТКА...", "btn_reverting": "ОТКАТ...", "emu_status_checking": "Эмулятор: 🔵 Проверка...",
+        "emu_status_updated": "Эмулятор: 🟢 Актуально", "emu_status_outdated": "Эмулятор: 🟡 Устарел", "emu_status_offline": "Эмулятор: 🟡 Нет сети",
+        "emu_status_missing": "Эмулятор: 🔴 Отсутствует", "emu_status_error": "Эмулятор: 🔴 Ошибка", "bios_ok": "BIOS: 🟢 OK",
+        "bios_custom": "BIOS: 🟢 OK (Свой)", "bios_wrong": "BIOS: 🟡 Неверный путь", "bios_missing": "BIOS: 🔴 Нет", "bios_error": "BIOS: 🔴 Ошибка",
+        "msg_success": "Операция успешно завершена!", "msg_error": "Ошибка во время операции.",
+        "msg_updater_update": "Обнаружена новая версия Flycast Updater!\nПрограмма будет обновлена вместе с эмулятором.",
+        "tt_help": "Справка", "tt_bios": "Проверка BIOS.", "tt_path": "Путь установки.", "tt_master": "Стабильная.", "tt_dev": "Разработка.",
+        "tt_nogui": "Режим CLI.", "tt_reconfig": "Перенастроить.", "tt_opengl": "OpenGL API.", "tt_vulkan": "Vulkan API.", "tt_dx9": "DX9 API.", "tt_dx11": "DX11 API.",
+        "tt_custom_paths": "Свои пути.", "msg_bios_missing": "Отсутствуют файлы BIOS:\n- {files}", "title_bios_missing": "Нет BIOS",
+        "msg_bios_partial": "Файл скопирован.\nОстался:\n- {missing}", "title_bios_partial": "Неполный BIOS", "msg_bios_zip_success": "BIOS успешно извлечен!",
+        "msg_bios_bin_success": "Файлы BIOS установлены!", "msg_bios_unsupported": "Формат не поддерживается."
+    },
+    "ar": {
+        "title_sub": "مدير التحديثات والسحابة والإعدادات", "btn_help": "❔ حول", "tab_cloud": "🚀 التحديث", "tab_emu": "⚙️ المحاكي", "tab_vid": "🖥️ الفيديو", "tab_saves": "🔄 الحفظ", "tab_logs": "📝 السجلات",
+        "lbl_path": "مسار تثبيت المحاكي:", "btn_browse": "استعراض...", "lbl_branch": "إصدار المحاكي:",
+        "rb_master_desc": "الإصدارات الرسمية والمستقرة.", "rb_dev_desc": "Builds يومية.",
+        "lbl_cloud": "مزامنة الحفظ السحابي:", "rb_none": "لا يوجد", "sw_desk": "إنشاء اختصار سطح المكتب",
+        "sw_start": "البدء مع ويندوز", "sw_nogui": "تعطيل الواجهة الرسومية", "sw_map": "نسخ احتياطي للتحكم",
+        "lbl_backup_limit": "حد النسخ الاحتياطي:", "limit_unlimited": "غير محدود",
+        "btn_reconfig": "⚙️ إعادة تكوين المحاكي والألعاب", "lbl_roms": "مجلد الألعاب (ROMs):", "lbl_ra": "RetroAchievements:",
+        "sw_custom_paths": "استخدام مسارات مخصصة", "lbl_bios_path": "مجلدات BIOS:", "lbl_vmu_path": "مجلد VMU:", "lbl_state_path": "مجلدات الحفظ السريع:", "lbl_save_path": "مجلد حفظ اللعبة:",
+        "sw_ra": "تفعيل RetroAchievements", "lbl_user": "اسم المستخدم:", "lbl_pass": "كلمة المرور / الرمز:", "sw_hard": "وضع Hardcore",
+        "lbl_qol": "تحسينات جودة الحياة:", "sw_vmu": "VMU فردي لكل لعبة", "sw_box": "تحميل الأغلفة تلقائياً",
+        "sw_vga": "تحسين الرسومات (VGA)", "sw_disc": "حالة Discord", "sw_osd": "إظهار VMU على الشاشة", "sw_vmu_snd": "تفعيل أصوات VMU",
+        "btn_save_emu": "💾 حفظ إعدادات المحاكي", "lbl_vid_title": "إعدادات الفيديو",
+        "lbl_vid_warn": "⚠️ تحذير: إعدادات أساسية.", "lbl_api": "واجهة برمجة الرسومات:", "lbl_res": "الدقة الداخلية:",
+        "sw_full": "ملء الشاشة", "sw_int": "تحجيم صحيح", "sw_lin": "استيفاء خطي", "sw_vsync": "مزامنة رأسية",
+        "btn_save_vid": "💾 حفظ إعدادات الفيديو", "lbl_saves_title": "استعادة النسخ الاحتياطية", "lbl_saves_desc": "اختر ملف .zip للاستعادة.",
+        "btn_search_saves": "🔄 بحث", "combo_saves_def": "انقر للبحث...", "btn_extract": "📥 استخراج واستعادة",
+        "lbl_logs_title": "التدقيق والتشخيص (السجلات)", "btn_log_refresh": "🔄 تحديث", "btn_log_copy": "📋 نسخ", "btn_log_clear": "🗑️ مسح",
+        "log_not_found": "لم يتم العثور على سجل.", "btn_verify": "🚀 جاري التحقق...", "btn_rollback": "↩️ التراجع",
+        "btn_play": "تشغيل", "btn_update_act": "تحديث", "btn_install_act": "تثبيت", "btn_starting": "جاري البدء...",
+        "btn_processing": "جاري المعالجة...", "btn_reverting": "جاري التراجع...", "emu_status_checking": "المحاكي: 🔵 جاري التحقق...",
+        "emu_status_updated": "المحاكي: 🟢 محدث", "emu_status_outdated": "المحاكي: 🟡 قديم", "emu_status_offline": "المحاكي: 🟡 بدون إنترنت",
+        "emu_status_missing": "المحاكي: 🔴 مفقود", "emu_status_error": "المحاكي: 🔴 خطأ", "bios_ok": "BIOS: 🟢 جاهز",
+        "bios_custom": "BIOS: 🟢 جاهز (مخصص)", "bios_wrong": "BIOS: 🟡 مسار خاطئ", "bios_missing": "BIOS: 🔴 مفقود", "bios_error": "BIOS: 🔴 خطأ",
+        "msg_success": "تمت العملية بنجاح!", "msg_error": "حدث خطأ أثناء العملية.",
+        "msg_updater_update": "تم اكتشاف إصدار جديد من Flycast Updater!\nسيتم تحديث البرنامج مع المحاكي.",
+        "tt_help": "مساعدة", "tt_bios": "فحص ملفات BIOS.", "tt_path": "مسار التثبيت.", "tt_master": "مستقر.", "tt_dev": "تطوير.",
+        "tt_nogui": "وضع CLI.", "tt_reconfig": "إعادة تكوين.", "tt_opengl": "OpenGL.", "tt_vulkan": "Vulkan.", "tt_dx9": "DX9.", "tt_dx11": "DX11.",
+        "tt_custom_paths": "مسارات مخصصة.", "msg_bios_missing": "ملفات BIOS التالية مفقودة:\n- {files}", "title_bios_missing": "BIOS مفقود",
+        "msg_bios_partial": "تم النسخ.\nمفقود:\n- {missing}", "title_bios_partial": "BIOS غير مكتمل", "msg_bios_zip_success": "BIOS extrait du ZIP !",
+        "msg_bios_bin_success": "تم تثبيت BIOS بنجاح!", "msg_bios_unsupported": "صيغة غير مدعومة."
+    },
+    "hi": {
+        "title_sub": "أبडेट، کلاؤڈ اور کنفیگریشن مینیجر", "btn_help": "❔ کے بارے میں", "tab_cloud": "🚀 اپ ڈیٹ", "tab_emu": "⚙️ ایمولیٹر", "tab_vid": "🖥️ ویڈیو", "tab_saves": "🔄 سیو", "tab_logs": "📝 لاگز",
+        "lbl_path": "ایمولیٹر انسٹال پاتھ:", "btn_browse": "براؤز...", "lbl_branch": "ایمولیٹر ورژن:",
+        "rb_master_desc": "سرکاری اور مستحکم ورژن۔", "rb_dev_desc": "روزانہ کلاؤڈ بلڈز۔",
+        "lbl_cloud": "کلاؤڈ سیو ہم آہنگی:", "rb_none": "کوئی نہیں", "sw_desk": "ڈیسک ٹاپ شارٹ کٹ بنائیں",
+        "sw_start": "ونڈوز کے ساتھ شروع کریں", "sw_nogui": "GUI غیر فعال کریں", "sw_map": "کنٹرولر بیک اپ",
+        "lbl_backup_limit": "بیک اپ حد:", "limit_unlimited": "لامحدود",
+        "btn_reconfig": "⚙️ ایمولیٹر اور ROMs دوبارہ ترتیب دیں", "lbl_roms": "گیمز فولڈر (ROMs):", "lbl_ra": "RetroAchievements:",
+        "sw_custom_paths": "حسب ضرورت پاتھ استعمال کریں", "lbl_bios_path": "BIOS فولڈرز:", "lbl_vmu_path": "VMU فولڈر:", "lbl_state_path": "سیو اسٹیٹ فولڈرز:", "lbl_save_path": "گیم سیو فولڈر:",
+        "sw_ra": "RetroAchievements فعال کریں", "lbl_user": "صارف نام:", "lbl_pass": "پاس ورڈ / ٹوکن:", "sw_hard": "ہارڈکور موڈ",
+        "lbl_qol": "کوالٹی آف لائف ٹویکس:", "sw_vmu": "فی گیم VMU", "sw_box": "خودکار باکس آرٹ ڈاؤن لوڈ",
+        "sw_vga": "گرافکس کو بہتر بنائیں (VGA)", "sw_disc": "Discord موجودگی", "sw_osd": "اسکرین پر VMU دکھائیں", "sw_vmu_snd": "VMU آوازیں فعال کریں",
+        "btn_save_emu": "💾 ایمولیٹر کی ترتیبات محفوظ کریں", "lbl_vid_title": "ویڈیو کی ترتیبات",
+        "lbl_vid_warn": "⚠️ انتباہ: بنیادی ترتیبات۔", "lbl_api": "گرافکس API:", "lbl_res": "اندرونی ریزولوشن:",
+        "sw_full": "فل اسکرین", "sw_int": "انٹیجر سکیلنگ", "sw_lin": "لینیئر انٹرپولیشن", "sw_vsync": "ورٹیکل سنک",
+        "btn_save_vid": "💾 ویڈیو ترتیبات محفوظ کریں", "lbl_saves_title": "کلاؤڈ بیک اپ بحال کریں", "lbl_saves_desc": "ایک بیک اپ .zip فائل منتخب کریں۔",
+        "btn_search_saves": "🔄 تلاش کریں", "combo_saves_def": "تلاش پر کلک کریں...", "btn_extract": "📥 نکالیں اور بحال کریں",
+        "lbl_logs_title": "آڈٹ اور تشخیص (لاگز)", "btn_log_refresh": "🔄 ریفریش", "btn_log_copy": "📋 کاپی کریں", "btn_log_clear": "🗑️ صاف کریں",
+        "log_not_found": "کوئی لاگ فائل نہیں ملی۔", "btn_verify": "🚀 جانچ ہو رہی ہے...", "btn_rollback": "↩️ رول بیک",
+        "btn_play": "کھیلیں", "btn_update_act": "اپ ڈیٹ", "btn_install_act": "انسٹال", "btn_starting": "شروع ہو رہا ہے...",
+        "btn_processing": "پروسیسنگ...", "btn_reverting": "رول بیک ہو رہا ہے...", "emu_status_checking": "ایمولیٹر: 🔵 جانچ ہو رہی ہے...",
+        "emu_status_updated": "ایمولیٹر: 🟢 اپ ٹو ڈیٹ", "emu_status_outdated": "ایمولیٹر: 🟡 پرانا", "emu_status_offline": "ایمولیٹر: 🟡 آف لائن",
+        "emu_status_missing": "ایمولیٹر: 🔴 غائب", "emu_status_error": "ایمولیٹر: 🔴 خرابی", "bios_ok": "BIOS: 🟢 ٹھیک ہے",
+        "bios_custom": "BIOS: 🟢 ٹھیک ہے (حسب ضرورت)", "bios_wrong": "BIOS: 🟡 غلط پاتھ", "bios_missing": "BIOS: 🔴 غائب", "bios_error": "BIOS: 🔴 خرابی",
+        "msg_success": "آپریشن کامیابی سے مکمل ہو گیا!", "msg_error": "آپریشن کے دوران خرابی۔",
+        "msg_updater_update": "Flycast Updater کا نیا ورژن مل گیا ہے!\nप्रोग्राम को एमुलेटर के साथ अपडेट किया जाएगा।",
+        "tt_help": "مدد", "tt_bios": "BIOS چیک کرتا ہے۔", "tt_path": "انسٹالیشن پاتھ۔", "tt_master": "مستحکم۔", "tt_dev": "ڈویلپمنٹ۔",
+        "tt_nogui": "CLI موڈ۔", "tt_reconfig": "دوبارہ ترتیب دیں۔", "tt_opengl": "OpenGL API۔", "tt_vulkan": "Vulkan API۔", "tt_dx9": "DX9 API۔", "tt_dx11": "DX11 API۔",
+        "tt_custom_paths": "حسب ضرورت پاتھ۔", "msg_bios_missing": "مندرجہ ذیل BIOS فائلیں غائب ہیں:\n- {files}", "title_bios_missing": "BIOS غائب",
+        "msg_bios_partial": "فائل کاپی ہو گئی۔ غائب:\n- {missing}", "title_bios_partial": "نامکمل BIOS", "msg_bios_zip_success": "BIOS کامیابی سے زپ سے نکالا گیا!",
+        "msg_bios_bin_success": "BIOS انسٹال ہو گیا!", "msg_bios_unsupported": "غیر تعاون یافتہ فارمیٹ."
     }
 }
+
+VERSION = "4.1"
+CONFIG_FILE = "config.json"
+REPO_UPDATER = "dsantanna/flycast_updater"
 
 # ==========================================
 # FUNÇÕES NUCLEARES E PERSISTÊNCIA
@@ -322,6 +523,9 @@ def verificar_atualizacao_updater(install_path, modo_gui=False, app_gui=None):
             
         versao_remota = dados.get("tag_name", "").replace("v", "")
         if versao_remota and versao_remota > VERSION:
+            if modo_gui and app_gui:
+                msg = app_gui._("msg_updater_update")
+                mb.showinfo("Flycast Updater", msg, parent=app_gui)
             for asset in dados.get("assets", []):
                 if asset["name"].endswith(".exe"):
                     aplicar_auto_atualizacao(asset["browser_download_url"], install_path, modo_gui, app_gui)
@@ -368,7 +572,6 @@ class ConsoleRedirector:
         texto = message.strip()
         if not texto: return
         
-        # Loga silenciosamente o output do terminal no modo tagarela
         self.app.log(f"[MOTOR] {texto}", bypass_console=True)
 
         if "[*] Progresso:" in texto:
@@ -435,7 +638,7 @@ def iniciar_gui():
 
             self.btn_help = ctk.CTkButton(self.frame_top_right, text=self._("btn_help"), width=70, height=28, fg_color="#444", hover_color="#666", command=self.abrir_janela_ajuda)
             self.btn_help.pack(side="left")
-            ToolTip(self.btn_help, self._("tt_help"))
+            self.tt_help = ToolTip(self.btn_help, self._("tt_help"))
 
             # --- SISTEMA DE ABAS ---
             self.tabview = ctk.CTkTabview(self, width=580, height=660)
@@ -517,11 +720,83 @@ def iniciar_gui():
         def mudar_idioma(self, escolha):
             novo_lang = self.lang_map.get(escolha, "pt")
             if novo_lang != self.lang:
-                self.log(f"🌐 Idioma alterado pelo usuário para: {escolha}")
+                self.log(f"🌐 Idioma alterado em tempo real pelo usuário para: {escolha}")
                 self.lang = novo_lang
                 self.config_atual["language"] = novo_lang
                 self.salvar_estado_atual()
-                mb.showinfo("Language / Idioma", self._("msg_restart"), parent=self)
+                self.atualizar_textos_ui()
+
+        def atualizar_textos_ui(self):
+            """Atualiza todos os textos da interface instantaneamente sem reiniciar."""
+            self.label_sub.configure(text=self._("title_sub"))
+            self.btn_help.configure(text=self._("btn_help"))
+            self.tt_help.update_text(self._("tt_help"))
+            
+            # Aba Atualização
+            self.label_path.configure(text=self._("lbl_path"))
+            self.entry_path.configure(state="normal")
+            ToolTip(self.entry_path, self._("tt_path"))
+            self.entry_path.configure(state="readonly")
+            self.btn_path.configure(text=self._("btn_browse"))
+            self.label_branch.configure(text=self._("lbl_branch"))
+            self.lbl_dev_desc.configure(text=self._("rb_dev_desc"))
+            self.lbl_master_desc.configure(text=self._("rb_master_desc"))
+            self.switch_desktop.configure(text=self._("sw_desk"))
+            self.switch_startup.configure(text=self._("sw_start"))
+            self.switch_nogui.configure(text=self._("sw_nogui"))
+            self.btn_reconfig.configure(text=self._("btn_reconfig"))
+
+            # Aba Emulador
+            self.label_roms_title.configure(text=self._("lbl_roms"))
+            self.btn_roms.configure(text=self._("btn_browse"))
+            self.switch_custom_paths.configure(text=self._("sw_custom_paths"))
+            self.lbl_bios_path.configure(text=self._("lbl_bios_path"))
+            self.btn_bios_path.configure(text=self._("btn_browse"))
+            self.lbl_vmu_path.configure(text=self._("lbl_vmu_path"))
+            self.btn_vmu_path.configure(text=self._("btn_browse"))
+            self.lbl_state_path.configure(text=self._("lbl_state_path"))
+            self.btn_state_path.configure(text=self._("btn_browse"))
+            self.lbl_save_path.configure(text=self._("lbl_save_path"))
+            self.btn_save_path.configure(text=self._("btn_browse"))
+            self.label_ra_title.configure(text=self._("lbl_ra"))
+            self.switch_ra.configure(text=self._("sw_ra"))
+            self.lbl_ra_user.configure(text=self._("lbl_user"))
+            self.lbl_ra_pass.configure(text=self._("lbl_pass"))
+            self.switch_hardcore.configure(text=self._("sw_hard"))
+            self.label_qol_title.configure(text=self._("lbl_qol"))
+            self.switch_vmu.configure(text=self._("sw_vmu"))
+            self.switch_boxart.configure(text=self._("sw_box"))
+            self.switch_vga.configure(text=self._("sw_vga"))
+            self.switch_discord.configure(text=self._("sw_disc"))
+            self.switch_osd_vmu.configure(text=self._("sw_osd"))
+            self.switch_vmu_sound.configure(text=self._("sw_vmu_snd"))
+            self.btn_salvar_config_emu.configure(text=self._("btn_save_emu"))
+
+            # Aba Vídeo
+            self.label_video_title.configure(text=self._("lbl_vid_title"))
+            self.label_video_aviso.configure(text=self._("lbl_vid_warn"))
+            self.lbl_api.configure(text=self._("lbl_api"))
+            self.lbl_res.configure(text=self._("lbl_res"))
+            self.switch_fullscreen.configure(text=self._("sw_full"))
+            self.switch_integer.configure(text=self._("sw_int"))
+            self.switch_linear.configure(text=self._("sw_lin"))
+            self.switch_vsync.configure(text=self._("sw_vsync"))
+            self.btn_salvar_video.configure(text=self._("btn_save_vid"))
+
+            # Aba Saves
+            self.label_cloud.configure(text=self._("lbl_cloud"))
+            self.switch_mappings.configure(text=self._("sw_map"))
+            self.lbl_limit.configure(text=self._("lbl_backup_limit"))
+            self.label_saves_title.configure(text=self._("lbl_saves_title"))
+            self.label_saves_desc.configure(text=self._("lbl_saves_desc"))
+            self.btn_buscar_saves.configure(text=self._("btn_search_saves"))
+            self.btn_restaurar_save.configure(text=self._("btn_extract"))
+
+            # Aba Logs
+            self.label_logs_title.configure(text=self._("lbl_logs_title"))
+            self.btn_refresh_log.configure(text=self._("btn_log_refresh"))
+            self.btn_copy_log.configure(text=self._("btn_log_copy"))
+            self.btn_clear_log.configure(text=self._("btn_log_clear"))
 
         def construir_aba_nuvem(self):
             self.frame_path_title = ctk.CTkFrame(self.tab_atualizador, fg_color="transparent")
@@ -802,7 +1077,6 @@ def iniciar_gui():
             self.switch_mappings.pack(anchor="w", padx=10, pady=(5, 10))
             if self.config_atual.get("backup_mappings", False): self.switch_mappings.select()
 
-            # --- NOVO: LIMITADOR DE BACKUPS ---
             self.frame_limit = ctk.CTkFrame(self.tab_saves, fg_color="transparent")
             self.frame_limit.pack(fill="x", padx=10, pady=(0, 10))
             self.lbl_limit = ctk.CTkLabel(self.frame_limit, text=self._("lbl_backup_limit"))
@@ -920,7 +1194,7 @@ def iniciar_gui():
             if not completo and not recusado:
                 self.log("🚀 Primeiro acesso detectado. Exibindo assistente de configuração.")
                 resposta = mb.askyesno(
-                    "Flycast Updater - v4.0 (Another Day Edition)",
+                    "Flycast Updater - v4.1 (Another Day Edition)",
                     "Bem-vindo / Welcome!\n\nDeseja ajuda para configurar rapidamente a pasta de ROMs e o RetroAchievements agora?",
                     parent=self
                 )
@@ -999,7 +1273,7 @@ def iniciar_gui():
                             self.procurar_e_instalar_bios(install_path, custom_bios_path)
                             return
                     else:
-                        self.log("✅ Todas as BIOS necessárias foram instaladas com sucesso.")
+                        self.log("✅ Toutes les BIOS nécessaires ont été installées avec succès.")
                         mb.showinfo("Sucesso", self._("msg_bios_bin_success"), parent=self)
                 except Exception as e:
                     self.log(f"❌ Erro ao copiar o arquivo BIN da BIOS: {e}")
@@ -1129,7 +1403,7 @@ def iniciar_gui():
                 return
 
             try:
-                self.limpar_backups_antigos() # Limpa proativamente antes de listar
+                self.limpar_backups_antigos() 
                 
                 arquivos_zip = []
                 for f in os.listdir(caminho_nuvem):
@@ -1622,10 +1896,7 @@ def iniciar_gui():
                 update_flycast.get_user_preference = lambda: branch_escolhida
                 update_flycast.BACKUP_MAPPINGS = self.switch_mappings.get() == 1
                 
-                # Executa o motor real do projeto
                 update_flycast.main()
-                
-                # Assim que voltar do motor, realiza a limpeza dos backups excedentes
                 self.limpar_backups_antigos()
                 
                 self.log("✅ Ciclo de atualização/operação finalizado com sucesso.")
