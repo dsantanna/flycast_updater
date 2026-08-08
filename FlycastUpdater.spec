@@ -29,6 +29,7 @@ exe = EXE(
     a.datas,
     [],
     name='FlycastUpdater',
+    icon='flycast_updater.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
