@@ -2,50 +2,42 @@
        FLYCAST UPDATER - CHANGELOG
 ========================================
 
+Versão 4.0 (Another Day Edition - Major Release)
+----------------------------------------
+- **Internacionalização Global (i18n):** O Flycast Updater agora fala com o mundo! Suporte nativo e instantâneo para os 10 idiomas mais falados (PT-BR, EN-US, ES-ES, FR-FR, DE-DE, ZH-CN, JA-JP, RU-RU, AR-SA, HI-IN).
+- **Assistente Inteligente de BIOS:** Novo motor autônomo que varre, detecta, auto-renomeia arquivos `.bin` incorretos e até extrai as BIOS (`dc_boot.bin` e `dc_flash.bin`) diretamente de pacotes `.zip` para a pasta correta.
+- **Custom Paths Dinâmicos:** Suporte completo à configuração de pastas personalizadas para BIOS, VMU, Save States e Saves de Jogo, com criação física automática de diretórios no Windows e integração total ao arquivo `emu.cfg`.
+- **Restaurador de Backup Avançado:** O descompactador de nuvem agora age com inteligência contextual. Ao restaurar um backup antigo, ele direciona automaticamente os arquivos do VMU e Mappings para os caminhos personalizados ativos.
+- **Gerenciamento Passivo de Nuvem:** Implementado sistema de limite de armazenamento para os Cloud Saves (1, 3, 5, 10, 15 ou Ilimitado). O motor agora limpa e deleta automaticamente os backups mais velhos para poupar espaço no Google Drive / OneDrive.
+- **Super Logger Integrado (Aba de Logs):** O motor interno ganhou um sistema de eventos detalhado (Modo Tagarela). Uma nova aba "Logs" foi adicionada à interface, atualizando em tempo real com todo o fluxo de diagnóstico e auditoria.
+- **UX & UI Design Refinado:** Novo layout adaptativo com a Branch "Dev" priorizada, campos de texto dinâmicos que sugerem as ramificações padrões baseadas no local de instalação e separadores visuais que melhoram a fluidez da interface.
+- **Sincronização de Mappings (Opcional):** Adicionado suporte para incluir o backup dos arquivos de mapeamento de controles (`.cfg`) diretamente nos pacotes salvos na nuvem.
+
+Versão 3.1 (Emerald Coast Edition - Bugfix)
+----------------------------------------
+- **Modo CLI Persistente (-nogui na UI):** Adicionado novo switch na aba de Nuvem para permitir que o usuário desative permanentemente o ambiente gráfico.
+- **Correção da Autoatualização Gráfica:** Ajustado o encerramento do processo de auto-update utilizando `os._exit(0)`, permitindo que o script `.bat` substitua o executável com sucesso.
+- **Mapeamento Exato da API Gráfica:** Correção definitiva dos índices do parâmetro `pvr.rend` no `emu.cfg` (`0 = OpenGL`, `1 = DirectX 9`, `2 = DirectX 11`, `4 = Vulkan`).
+
 Versão 3.0 (Emerald Coast Edition)
 ----------------------------------------
 - **Interface Gráfica Expandida (Hub Completo):** Adicionadas novas abas dedicadas a "Configurar Emulador", "Vídeo" e "Restaurar Saves", transformando o utilitário em um gerenciador total do ecossistema Flycast.
-- **Gerenciador de Saves na Nuvem (Restauração):** Interface gráfica inteligente que varre automaticamente a subpasta de backup na nuvem (Google Drive/OneDrive), lista os arquivos `.zip` em ordem cronológica (mais recente primeiro) e realiza a extração segura de volta para o emulador.
-- **Assistente de BIOS Inteligente:** Detecta automaticamente quando os arquivos de sistema (`dc_boot.bin`, `dc_flash.bin`) estão na raiz e oferece mover para a pasta correta (`data`) com um clique ou registrar o caminho personalizado no arquivo de configuração.
-- **Configuração Gráfica e de Vídeo Simplificada:** Nova aba para gerenciar a API Gráfica (OpenGL, Vulkan, DirectX 9, DirectX 11 com mapeamento exato de índices do emulador), Resolução Interna e switches de Tela Cheia, Escala Inteira, Interpolação Linear e V-Sync diretamente no `emu.cfg`.
-- **Tooltips Informativos de APIs:** Balões de dicas flutuantes explicativos ao passar o mouse sobre cada API gráfica, detalhando vantagens e cenários de uso recomendados.
+- **Gerenciador de Saves na Nuvem (Restauração):** Interface gráfica inteligente que varre automaticamente a subpasta de backup na nuvem (Google Drive/OneDrive) e lista os arquivos `.zip` em ordem cronológica.
 - **Olho Mágico (Toggle de Senha):** Adicionado botão interativo na aba de configurações para alternar entre mascarar (`*`) e exibir a senha ou Web API Key do RetroAchievements.
-- **Blindagem do Arquivo de Configuração:** Uso do `RawConfigParser(strict=False)` para leitura e escrita em modo bruto no `emu.cfg`, garantindo que chaves complexas e tokens contendo o caractere `%` não corrompam ou apaguem as preferências do usuário.
-- **Fechamento Automático Inteligente:** O aplicativo agora encerra suas atividades de forma limpa e automática após concluir com sucesso o lançamento do emulador.
+- **Blindagem do Arquivo de Configuração:** Uso do `RawConfigParser(strict=False)` para leitura e escrita em modo bruto no `emu.cfg`.
 
 Versão 2.0 (Gold Master - GUI Edition)
 ----------------------------------------
 - **Nova Interface Gráfica (GUI):** Desenvolvida com CustomTkinter, trazendo um design moderno, tema escuro e responsividade.
 - **Mutações de Ação Inteligentes:** O botão principal agora altera dinamicamente seu texto (Instalar, Atualizar, Jogar) com base na verificação em tempo real (em background) entre a versão local e a da nuvem.
 - **Semáforo de Status do Emulador:** Novo indicador visual que mostra se o emulador está ausente, desatualizado (amarelo) ou pronto para jogar (verde).
-- **Semáforo de BIOS:** Verificação visual interativa em tempo real informando a presença e o local correto dos arquivos `dc_boot.bin` e `dc_flash.bin`.
-- **Validação Ativa de Nuvem:** Os Radio Buttons de Cloud Save (Google Drive / OneDrive) agora detectam a existência das pastas no PC; opções não instaladas são desabilitadas automaticamente com avisos em Tooltips.
-- **Tooltips Informativos:** Adição de balões de dicas flutuantes explicativos ao passar o mouse sobre os elementos e botões.
-- **Console Híbrido:** Unificação do modo visual e do modo de linha de comando (`-nogui`), permitindo o uso do menu de ajuda nativo no terminal sem a exibição de janelas pretas indesejadas via duplo-clique no Windows Explorer.
-- **Menu de Ajuda GUI:** Botão interativo com o manual completo do aplicativo embarcado na interface.
 
 Versão 1.2 (Cloud Save Edition)
 ----------------------------------------
-- **Integração de Cloud Saves:** Novo módulo (`cloud_saves.py`) para detecção passiva e backup automatizado de arquivos de progresso (VMU e SRAM) utilizando instâncias locais do Google Drive e OneDrive.[cite: 1]
-- **Sistema de Rollback:** Implementada criação automática de "cápsulas do tempo" (backup estrutural do emulador) antes de sobreposições de atualização. Adicionado o parâmetro `-rollback` para reversão de falhas.[cite: 1]
-- **Modo Silencioso (Background):** Suporte nativo para supressão da janela do terminal (`-silent`), permitindo atualizações de forma transparente e integração à Inicialização do Windows (Startup).[cite: 1]
-- **Sincronização Cérebro/Motor:** O Launcher (`launcher.py`) foi atualizado para gerenciar os novos parâmetros CLI, embutir a escolha do provedor de nuvem no `config.json` e repassar os fluxos ao motor secundário.[cite: 1]
-- **Extensão da CLI:** Adição dos argumentos `-silent`, `-rollback`, `-backup`, `-gdrive` e `-onedrive`.[cite: 1]
+- **Integração de Cloud Saves:** Novo módulo (`cloud_saves.py`) para detecção passiva e backup automatizado de arquivos de progresso (VMU e SRAM) utilizando instâncias locais do Google Drive e OneDrive.
+- **Sistema de Rollback:** Implementada criação automática de "cápsulas do tempo" (backup estrutural do emulador) antes de sobreposições de atualização.
 
-Versão 1.1 (Agosto de 2026)
+Versão 1.1 e 1.0
 ----------------------------------------
-- **Novo Launcher (`launcher.py`):** Implementada nova camada de controle inteligente para gerenciar o ciclo de vida da aplicação.[cite: 1]
-- **Auto-Update do Atualizador:** Adicionada rotina de checagem na API do GitHub (`releases/latest`) para atualizar o próprio executável (`.exe`) via script auxiliar de substituição (`.bat`).[cite: 1]
-- **Barra de Progresso Visual:** Substituição do download estático por leitura em blocos (`chunks`) de 8 KB com exibição de barra de progresso em tempo real, porcentagem e megabytes baixados.[cite: 1]
-- **Auditoria de Logs Padronizada:** Sincronização de tags de versão (`[v1.1]`) e registro obrigatório dos parâmetros definidos pelo usuário no arquivo `flycast_updater.log`.[cite: 1]
-- **Monkeypatching Dinâmico:** Injeção em tempo de execução para manter a compatibilidade com o motor antigo sem gerar arquivos de configuração obsoletos.[cite: 1]
-- **Verificação Passiva de BIOS:** Implementação de checagem local opcional e educacional para alertar sobre a ausência dos dumps de BIOS necessários para iniciar os jogos, com total respeito aos direitos autorais.[cite: 1]
-- **Persistência e CLI Avançada:** Integração robusta com `config.json` e suporte expandido a argumentos de linha de comando (`-dev`, `-master`, `-path`, `-reset`).[cite: 1]
-
-Versão 1.0 (Versão Inicial)
-----------------------------------------
-- Lançamento do motor base de atualização (`update_flycast.py`).[cite: 1]
-- Suporte a download de releases estáveis da API do GitHub (Master) e varredura de commits em servidores S3 (Dev).[cite: 1]
-- Sistema básico de log incremental.[cite: 1]
-- Criação de atalhos na Área de Trabalho utilizando VBScript integrado.[cite: 1]
-- Tratamento de exceções de rede e compactação ZIP.[cite: 1][source: 3]
+- Lançamento do motor base de atualização (`update_flycast.py`) e rotina de auto-update.
+- Suporte a download de releases estáveis e diários.
