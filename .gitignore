@@ -11,7 +11,7 @@ build/
 dist/
 
 # PyInstaller
-*.spec
+
 
 # Arquivos de Execução, Logs e Dados Locais do App
 config.json
