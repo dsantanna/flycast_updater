@@ -7,9 +7,6 @@ hiddenimports = []
 tmp_ret = collect_all('customtkinter')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
-# ==========================================
-# 1. COLOQUE O BLOCO DA VERSÃO AQUI
-# ==========================================
 vs_version_info = VSVersionInfo(
   ffi=FixedFileInfo(
     filevers=(4, 0, 0, 0), 
@@ -26,20 +23,21 @@ vs_version_info = VSVersionInfo(
       [
       StringTable(
         '040904B0', 
-        [StringStruct('CompanyName', 'DaniboySan'), 
+        [
+         StringStruct('CompanyName', 'DaniboySan'), 
          StringStruct('FileDescription', 'Flycast Updater - Launcher'), 
          StringStruct('FileVersion', '4.0.0.0'), 
          StringStruct('InternalName', 'FlycastUpdater'), 
          StringStruct('LegalCopyright', 'Copyright (C) 2026 DaniboySan'), 
          StringStruct('OriginalFilename', 'FlycastUpdater.exe'), 
          StringStruct('ProductName', 'Flycast Updater'), 
-         StringProductVersion('ProductVersion', '4.0.0.0')])
+         StringStruct('ProductVersion', '4.0.0.0')
+        ])
       ]
     ), 
     VarFileInfo([VarStruct('Translation', [1033, 1204])])
   ]
 )
-
 
 a = Analysis(
     ['launcher.py'],
@@ -75,5 +73,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version=vs_version_info,  # <--- 2. ADICIONE ESTA LINHA AQUI NO FINAL DO EXE
+    version=vs_version_info,
 )
