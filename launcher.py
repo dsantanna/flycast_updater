@@ -524,22 +524,35 @@ def aplicar_auto_atualizacao(url_download, install_path, modo_gui=False, app_gui
     dir_atual = os.path.dirname(exe_atual)
     exe_novo = os.path.join(dir_atual, "FlycastUpdater_novo.exe")
     script_bat = os.path.join(dir_atual, "atualiza_updater.bat")
+    nome_exe = os.path.basename(exe_atual)
     
     if modo_gui and app_gui:
         app_gui.after(0, app_gui.label_status.configure, {"text": "Baixando nova versão do Atualizador...", "text_color": "orange"})
     
     try:
         urllib.request.urlretrieve(url_download, exe_novo)
-        nome_exe = os.path.basename(exe_atual)
-        conteudo_bat = f"""@echo off\ntimeout /t 2 /nobreak > NUL\ndel "{nome_exe}"\nren "FlycastUpdater_novo.exe" "{nome_exe}"\nstart "" "{nome_exe}"\n(goto) 2>nul & del "%~f0"\n"""
-        with open(script_bat, "w") as f:
+        
+        # Script BAT blindado com Loop de Espera (Wait Loop)
+        conteudo_bat = f"""@echo off
+cd /d "{dir_atual}"
+:wait
+timeout /t 1 /nobreak > NUL
+del "{nome_exe}"
+if exist "{nome_exe}" goto wait
+ren "FlycastUpdater_novo.exe" "{nome_exe}"
+start "" "{nome_exe}"
+(goto) 2>nul & del "%~f0"
+"""
+        with open(script_bat, "w", encoding="utf-8") as f:
             f.write(conteudo_bat)
             
-        subprocess.Popen(script_bat, shell=True)
+        # Executa o .bat forçando-o a usar o diretório correto como base
+        subprocess.Popen(script_bat, shell=True, cwd=dir_atual)
+        
         if modo_gui and app_gui:
             app_gui.after(0, app_gui.destroy)
         time.sleep(0.5)
-        os._exit(0)
+        os._exit(0)  
     except Exception:
         if os.path.exists(exe_novo):
             os.remove(exe_novo)
