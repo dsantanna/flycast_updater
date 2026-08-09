@@ -21,7 +21,7 @@ VSVersionInfo(
          StringStruct('LegalCopyright', 'Copyright (C) 2026 DaniboySan'), 
          StringStruct('OriginalFilename', 'FlycastUpdater.exe'), 
          StringStruct('ProductName', 'Flycast Updater'), 
-         StringProductVersion('ProductVersion', '4.2.0.0')])
+         StringStruct('ProductVersion', '4.2.0.0')])
       ]
     ), 
     VarFileInfo([VarStruct('Translation', [1033, 1204])])
