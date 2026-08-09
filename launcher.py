@@ -20,16 +20,16 @@ except ImportError:
     cloud_saves = None
 
 # ==========================================
-# Flycast Updater - Launcher v4.1 (Another Day Edition)
+# Flycast Updater - Launcher v4.2 (Another Day Edition)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
 
-VERSION = "4.1"
+VERSION = "4.2"
 CONFIG_FILE = "config.json"
 REPO_UPDATER = "dsantanna/flycast_updater"
 
 # ==========================================
-# DICIONÁRIO GLOBAL DE INTERNACIONALIZAÇÃO (i18n) - v4.1 FULL
+# DICIONÁRIO GLOBAL DE INTERNACIONALIZAÇÃO (i18n)
 # ==========================================
 TRANSLATIONS = {
     "pt": {
@@ -68,7 +68,10 @@ TRANSLATIONS = {
         "title_bios_partial": "BIOS Incompleta",
         "msg_bios_zip_success": "Arquivos de BIOS extraídos e instalados com sucesso do ZIP!",
         "msg_bios_bin_success": "Todos os arquivos de BIOS foram instalados com sucesso!",
-        "msg_bios_unsupported": "Formato de arquivo não suportado."
+        "msg_bios_unsupported": "Formato de arquivo não suportado.",
+        "lbl_hw_title": "Hardware Gráfico Detectado", "lbl_hw_search": "🔎 Procurando placas de vídeo...", "btn_driver": "🌐 Procurar Drivers Oficiais",
+        "msg_no_gpu": "⚠️ Não foi possível detectar a Placa de Vídeo.", "msg_gpu_done": "✨ Análise de Hardware Concluída!\n\n",
+        "msg_driver_suggest": "O site oficial da {fabricante} foi aberto no seu navegador.\n\nRecomendamos verificar se há uma versão mais recente que a sua atual e fazer o download diretamente pelo fabricante. Isso garante a segurança do seu PC e a performance máxima do Flycast."
     },
     "en": {
         "title_sub": "Update, Cloud and Configuration Manager", "btn_help": "❔ About", "tab_cloud": "🚀 Update", "tab_emu": "⚙️ Emulator", "tab_vid": "🖥️ Video", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
@@ -106,7 +109,10 @@ TRANSLATIONS = {
         "title_bios_partial": "Incomplete BIOS",
         "msg_bios_zip_success": "BIOS successfully extracted and installed from ZIP!",
         "msg_bios_bin_success": "All BIOS files installed successfully!",
-        "msg_bios_unsupported": "Unsupported file format."
+        "msg_bios_unsupported": "Unsupported file format.",
+        "lbl_hw_title": "Detected Graphic Hardware", "lbl_hw_search": "🔎 Searching for video cards...", "btn_driver": "🌐 Find Official Drivers",
+        "msg_no_gpu": "⚠️ Could not detect Video Card.", "msg_gpu_done": "✨ Hardware Analysis Complete!\n\n",
+        "msg_driver_suggest": "The official manufacturer website ({fabricante}) has been opened in your browser.\n\nWe recommend checking for a newer driver version and downloading it directly. This ensures your PC's security and maximum Flycast performance."
     },
     "es": {
         "title_sub": "Gestor de Actualizaciones, Nube y Configuración", "btn_help": "❔ Acerca de", "tab_cloud": "🚀 Actualizar", "tab_emu": "⚙️ Emulador", "tab_vid": "🖥️ Video", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
@@ -372,10 +378,6 @@ TRANSLATIONS = {
     }
 }
 
-VERSION = "4.1"
-CONFIG_FILE = "config.json"
-REPO_UPDATER = "dsantanna/flycast_updater"
-
 # ==========================================
 # FUNÇÕES NUCLEARES E PERSISTÊNCIA
 # ==========================================
@@ -406,6 +408,34 @@ def obter_token_retroachievements(usuario, senha):
     except Exception:
         pass
     return None
+
+def obter_gpus_windows():
+    """Consulta silenciosa via PowerShell para identificar as placas de vídeo e drivers no Windows."""
+    if os.name != 'nt':
+        return []
+    try:
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        
+        cmd = 'powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object Name, DriverVersion | ConvertTo-Json"'
+        result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
+        
+        if result.stdout.strip():
+            data = json.loads(result.stdout)
+            if isinstance(data, dict): 
+                data = [data]
+            
+            gpus = []
+            for g in data:
+                if g.get("Name"):
+                    gpus.append({
+                        "nome": g.get("Name", "Desconhecida"),
+                        "driver": g.get("DriverVersion", "Desconhecido")
+                    })
+            return gpus
+    except Exception as e:
+        print(f"Erro ao identificar GPU: {e}")
+    return []
 
 def atualizar_emu_cfg(install_path, roms_path=None, ra_enabled=None, ra_user=None, ra_pass=None, ra_hardcore=None, 
                       vmu_individual=None, fetch_boxart=None, vga_cable=None, discord_presence=None,
@@ -607,10 +637,11 @@ def iniciar_gui():
             self.lang = self.config_atual.get("language", "pt")
             
             self.title(f"🌀 Flycast Updater - v{VERSION} (Another Day Edition)")
-            self.geometry("620x960") 
+            self.geometry("640x960") 
             self.resizable(False, False)
             self.token_ra_salvo = "" 
             self.bios_prompt_done = False
+            self.fabricante_gpu = None
 
             # --- CABEÇALHO ---
             self.frame_header = ctk.CTkFrame(self, fg_color="transparent")
@@ -641,7 +672,7 @@ def iniciar_gui():
             self.tt_help = ToolTip(self.btn_help, self._("tt_help"))
 
             # --- SISTEMA DE ABAS ---
-            self.tabview = ctk.CTkTabview(self, width=580, height=660)
+            self.tabview = ctk.CTkTabview(self, width=600, height=660)
             self.tabview.pack(pady=5, padx=20, fill="both", expand=True)
             
             self.tab_atualizador = self.tabview.add(self._("tab_cloud"))
@@ -665,7 +696,7 @@ def iniciar_gui():
             self.carregar_dados_atuais_emu_cfg()
 
             # --- PROGRESSO E STATUS GERAL ---
-            self.progressbar = ctk.CTkProgressBar(self, width=540)
+            self.progressbar = ctk.CTkProgressBar(self, width=560)
             self.progressbar.set(0)
             self.label_status = ctk.CTkLabel(self, text="...", text_color="cyan")
 
@@ -691,6 +722,7 @@ def iniciar_gui():
             self.log(f"🚀 Flycast Updater v{VERSION} iniciado. Cinto apertado e pronto para a velocidade sônica!")
             self.atualizar_status_diretorio(self.entry_path.get())
             self.after(200, self.verificar_primeiro_acesso)
+            self.after(800, self.carregar_gpus) 
 
         def log(self, mensagem, bypass_console=False):
             try:
@@ -710,7 +742,8 @@ def iniciar_gui():
             except Exception: pass
 
         def _(self, key, **kwargs):
-            fallback = TRANSLATIONS.get("pt", {}).get(key, key)
+            default_text = kwargs.pop("default", key)
+            fallback = TRANSLATIONS.get("pt", {}).get(key, default_text)
             texto = TRANSLATIONS.get(self.lang, TRANSLATIONS["pt"]).get(key, fallback)
             if kwargs:
                 try: return texto.format(**kwargs)
@@ -727,7 +760,6 @@ def iniciar_gui():
                 self.atualizar_textos_ui()
 
         def atualizar_textos_ui(self):
-            """Atualiza todos os textos da interface instantaneamente sem reiniciar."""
             self.label_sub.configure(text=self._("title_sub"))
             self.btn_help.configure(text=self._("btn_help"))
             self.tt_help.update_text(self._("tt_help"))
@@ -772,7 +804,7 @@ def iniciar_gui():
             self.switch_vmu_sound.configure(text=self._("sw_vmu_snd"))
             self.btn_salvar_config_emu.configure(text=self._("btn_save_emu"))
 
-            # Aba Vídeo
+            # Aba Vídeo e Hardware
             self.label_video_title.configure(text=self._("lbl_vid_title"))
             self.label_video_aviso.configure(text=self._("lbl_vid_warn"))
             self.lbl_api.configure(text=self._("lbl_api"))
@@ -782,6 +814,14 @@ def iniciar_gui():
             self.switch_linear.configure(text=self._("sw_lin"))
             self.switch_vsync.configure(text=self._("sw_vsync"))
             self.btn_salvar_video.configure(text=self._("btn_save_vid"))
+            
+            self.label_hw_title.configure(text=self._("lbl_hw_title", default="Hardware Gráfico Detectado"))
+            if hasattr(self, 'fabricante_gpu'):
+                if not self.fabricante_gpu:
+                    self.lbl_hw_info.configure(text=self._("msg_no_gpu", default="⚠️ Não foi possível detectar a Placa de Vídeo."))
+            else:
+                self.lbl_hw_info.configure(text=self._("lbl_hw_search", default="🔎 Procurando placas de vídeo..."))
+            self.btn_driver.configure(text=self._("btn_driver", default="🌐 Procurar Drivers Oficiais"))
 
             # Aba Saves
             self.label_cloud.configure(text=self._("lbl_cloud"))
@@ -1044,7 +1084,23 @@ def iniciar_gui():
             self.switch_vsync.grid(row=6, column=0, columnspan=2, sticky="w", pady=5)
 
             self.btn_salvar_video = ctk.CTkButton(self.tab_video, text=self._("btn_save_vid"), width=280, height=35, font=ctk.CTkFont(weight="bold"), command=self.salvar_configuracoes_video)
-            self.btn_salvar_video.pack(pady=(30, 10))
+            self.btn_salvar_video.pack(pady=(15, 5))
+
+            # --- DETECÇÃO DE HARDWARE (v4.2) ---
+            self.frame_divisor_vid = ctk.CTkFrame(self.tab_video, height=2, fg_color="#444")
+            self.frame_divisor_vid.pack(fill="x", padx=10, pady=(5, 5))
+
+            self.label_hw_title = ctk.CTkLabel(self.tab_video, text=self._("lbl_hw_title", default="Hardware Gráfico Detectado"), font=ctk.CTkFont(size=14, weight="bold"))
+            self.label_hw_title.pack(anchor="w", padx=10, pady=(5, 2))
+
+            self.frame_hw = ctk.CTkFrame(self.tab_video, fg_color="#2b2b2b")
+            self.frame_hw.pack(fill="x", padx=10, pady=2, ipadx=5, ipady=5)
+            
+            self.lbl_hw_info = ctk.CTkLabel(self.frame_hw, text=self._("lbl_hw_search", default="🔎 Procurando placas de vídeo..."), justify="left")
+            self.lbl_hw_info.pack(anchor="w", padx=10, pady=5)
+            
+            self.btn_driver = ctk.CTkButton(self.frame_hw, text=self._("btn_driver", default="🌐 Procurar Drivers Oficiais"), width=200, height=28, fg_color="#4169E1", hover_color="#1E90FF", command=self.abrir_site_driver, state="disabled")
+            self.btn_driver.pack(anchor="w", padx=10, pady=(0, 5))
 
         def construir_aba_saves(self):
             self.label_cloud = ctk.CTkLabel(self.tab_saves, text=self._("lbl_cloud"), font=ctk.CTkFont(weight="bold", size=14))
@@ -1136,6 +1192,50 @@ def iniciar_gui():
             self.textbox_logs = ctk.CTkTextbox(self.tab_logs, width=540, height=450, state="disabled")
             self.textbox_logs.pack(padx=10, pady=5, fill="both", expand=True)
 
+        def carregar_gpus(self):
+            def rotina():
+                gpus = obter_gpus_windows()
+                if not gpus:
+                    self.lbl_hw_info.configure(text=self._("msg_no_gpu", default="⚠️ Não foi possível detectar a Placa de Vídeo."))
+                    return
+                
+                texto = self._("msg_gpu_done", default="✨ Análise de Hardware Concluída!\n\n")
+                fabricante_detectado = None
+                
+                for i, gpu in enumerate(gpus):
+                    nome = gpu['nome']
+                    driver = gpu['driver']
+                    texto += f"🎮 GPU {i+1}: {nome}\n⚙️ Driver: {driver}"
+                    
+                    if i < len(gpus) - 1:
+                        texto += "\n\n ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ \n\n"
+                    else:
+                        texto += "\n"
+                        
+                    if not fabricante_detectado:
+                        nome_lower = nome.lower()
+                        if "nvidia" in nome_lower: fabricante_detectado = "nvidia"
+                        elif "amd" in nome_lower or "radeon" in nome_lower: fabricante_detectado = "amd"
+                        elif "intel" in nome_lower: fabricante_detectado = "intel"
+                
+                self.fabricante_gpu = fabricante_detectado
+                self.lbl_hw_info.configure(text=texto)
+                
+                if fabricante_detectado:
+                    self.btn_driver.configure(state="normal")
+                    
+            threading.Thread(target=rotina, daemon=True).start()
+
+        def abrir_site_driver(self):
+            urls = {
+                "nvidia": "https://www.nvidia.com/pt-br/geforce/drivers/",
+                "amd": "https://www.amd.com/pt/support/download/drivers.html",
+                "intel": "https://www.intel.com.br/content/www/br/pt/download-center/home.html"
+            }
+            if hasattr(self, 'fabricante_gpu') and self.fabricante_gpu in urls:
+                webbrowser.open(urls[self.fabricante_gpu])
+                mb.showinfo("Atualização de Driver", self._("msg_driver_suggest", default="O site oficial foi aberto no seu navegador.\n\nRecomendamos verificar se há uma versão mais recente e fazer o download diretamente pelo fabricante.", fabricante=self.fabricante_gpu.upper()), parent=self)
+
         def carregar_logs(self):
             log_path = os.path.join(self.entry_path.get(), "flycast_updater.log")
             self.textbox_logs.configure(state="normal")
@@ -1194,7 +1294,7 @@ def iniciar_gui():
             if not completo and not recusado:
                 self.log("🚀 Primeiro acesso detectado. Exibindo assistente de configuração.")
                 resposta = mb.askyesno(
-                    "Flycast Updater - v4.1 (Another Day Edition)",
+                    "Flycast Updater - v4.2 (Another Day Edition)",
                     "Bem-vindo / Welcome!\n\nDeseja ajuda para configurar rapidamente a pasta de ROMs e o RetroAchievements agora?",
                     parent=self
                 )
@@ -1273,7 +1373,7 @@ def iniciar_gui():
                             self.procurar_e_instalar_bios(install_path, custom_bios_path)
                             return
                     else:
-                        self.log("✅ Toutes les BIOS nécessaires ont été installées avec succès.")
+                        self.log("✅ Todas as BIOS necessárias foram instaladas com sucesso.")
                         mb.showinfo("Sucesso", self._("msg_bios_bin_success"), parent=self)
                 except Exception as e:
                     self.log(f"❌ Erro ao copiar o arquivo BIN da BIOS: {e}")

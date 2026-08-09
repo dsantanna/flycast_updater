@@ -7,6 +7,7 @@ hiddenimports = []
 tmp_ret = collect_all('customtkinter')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+
 a = Analysis(
     ['launcher.py'],
     pathex=[],
@@ -29,7 +30,6 @@ exe = EXE(
     a.datas,
     [],
     name='FlycastUpdater',
-    icon='flycast_updater.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
