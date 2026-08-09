@@ -10,6 +10,7 @@ import threading
 import configparser
 import zipfile
 import shutil
+import re
 import tkinter as tk 
 import tkinter.messagebox as mb
 import webbrowser 
@@ -19,21 +20,46 @@ try:
 except ImportError:
     cloud_saves = None
 
+# Suporte avançado de imagens para o Lançador de Jogos
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
 # ==========================================
-# Flycast Updater - Launcher v4.2 (Another Day Edition)
+# Flycast Updater - Launcher v5.0 (Director's Cut)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
 
-VERSION = "4.2"
+VERSION = "5.0"
 CONFIG_FILE = "config.json"
 REPO_UPDATER = "dsantanna/flycast_updater"
+
+# ==========================================
+# BANCO DE DADOS DE CONTROLES (AUTO-MAPPING)
+# ==========================================
+PERFIS_CONTROLES = {
+    "Xbox (360 / One / Series)": {
+        "arquivo": "XInput Controller.cfg",
+        "conteudo": "[emulator]\nmapping_name = XInput Controller\n\n[dreamcast]\nbtn_a = 0\nbtn_b = 1\nbtn_x = 2\nbtn_y = 3\nbtn_start = 7\nbtn_dpad1_up = 11\nbtn_dpad1_down = 12\nbtn_dpad1_left = 13\nbtn_dpad1_right = 14\naxis_x = 0\naxis_y = 1\naxis_trigger_left = 4\naxis_trigger_right = 5\n"
+    },
+    "PlayStation (PS4 / PS5)": {
+        "arquivo": "PS4 Controller.cfg",
+        "conteudo": "[emulator]\nmapping_name = PS4 Controller\n\n[dreamcast]\nbtn_a = 1\nbtn_b = 2\nbtn_x = 0\nbtn_y = 3\nbtn_start = 9\nbtn_dpad1_up = 11\nbtn_dpad1_down = 12\nbtn_dpad1_left = 13\nbtn_dpad1_right = 14\naxis_x = 0\naxis_y = 1\naxis_trigger_left = 4\naxis_trigger_right = 5\n"
+    },
+    "8BitDo (Pro 2 / Ultimate / SN30)": {
+        "arquivo": "8BitDo Controller.cfg",
+        "conteudo": "[emulator]\nmapping_name = 8BitDo Controller\n\n[dreamcast]\nbtn_a = 1\nbtn_b = 0\nbtn_x = 3\nbtn_y = 2\nbtn_start = 11\nbtn_dpad1_up = 15\nbtn_dpad1_down = 16\nbtn_dpad1_left = 17\nbtn_dpad1_right = 18\naxis_x = 0\naxis_y = 1\naxis_trigger_left = 4\naxis_trigger_right = 5\n"
+    }
+}
 
 # ==========================================
 # DICIONÁRIO GLOBAL DE INTERNACIONALIZAÇÃO (i18n)
 # ==========================================
 TRANSLATIONS = {
     "pt": {
-        "title_sub": "Gerenciador de Atualizações, Nuvem e Configurações", "btn_help": "❔ Sobre", "tab_cloud": "🚀 Atualização", "tab_emu": "⚙️ Emulador", "tab_vid": "🖥️ Vídeo", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
+        "title_sub": "Gerenciador de Atualizações, Nuvem e Configurações", "btn_help": "❔ Sobre", "tab_cloud": "🚀 Atualização", "tab_emu": "⚙️ Emulador", "tab_vid": "🖥️ Vídeo", "tab_ctrl": "🎮 Controles", "tab_games": "🕹️ Jogos", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
         "lbl_path": "Local de Instalação do Emulador:", "btn_browse": "Procurar...", "lbl_branch": "Versão do Emulador:",
         "rb_master_desc": "Lançamentos oficiais e\nestáveis do emulador.", "rb_dev_desc": "Builds diárias da nuvem.\nNovos recursos e correções.",
         "lbl_cloud": "Sincronização de Saves na Nuvem:", "rb_none": "Nenhum", "sw_desk": "Criar Atalho no Desktop",
@@ -44,6 +70,7 @@ TRANSLATIONS = {
         "sw_ra": "Ativar RetroAchievements no Emulador", "lbl_user": "Usuário:", "lbl_pass": "Senha / Token:", "sw_hard": "Modo Hardcore (Desativa Save States e Trapaças)",
         "lbl_qol": "Melhorias e Qualidade de Vida (QoL):", "sw_vmu": "VMU Individual por Jogo", "sw_box": "Baixar Capas Automático",
         "sw_vga": "Otimizar Gráficos (VGA)", "sw_disc": "Status no Discord", "sw_osd": "Mostrar VMU na Tela", "sw_vmu_snd": "Ativar Sons do VMU",
+        "sw_streamer": "Modo Criador de Conteúdo / Streamer",
         "btn_save_emu": "💾 Salvar Configurações do Emulador", "lbl_vid_title": "Configurações de Vídeo (Básicas)",
         "lbl_vid_warn": "⚠️ Aviso: Estas são configurações básicas do emulador.\nVerifique o menu do próprio Flycast para opções avançadas.",
         "lbl_api": "Gráficos API:", "lbl_res": "Resolução Interna:", "sw_full": "Tela Cheia", "sw_int": "Escala Inteira",
@@ -71,10 +98,18 @@ TRANSLATIONS = {
         "msg_bios_unsupported": "Formato de arquivo não suportado.",
         "lbl_hw_title": "Hardware Gráfico Detectado", "lbl_hw_search": "🔎 Procurando placas de vídeo...", "btn_driver": "🌐 Procurar Drivers Oficiais",
         "msg_no_gpu": "⚠️ Não foi possível detectar a Placa de Vídeo.", "msg_gpu_done": "✨ Análise de Hardware Concluída!\n\n",
-        "msg_driver_suggest": "O site oficial da {fabricante} foi aberto no seu navegador.\n\nRecomendamos verificar se há uma versão mais recente que a sua atual e fazer o download diretamente pelo fabricante. Isso garante a segurança do seu PC e a performance máxima do Flycast."
+        "msg_driver_suggest": "O site oficial da {fabricante} foi aberto no seu navegador.\n\nRecomendamos verificar se há uma versão mais recente que a sua atual e fazer o download diretamente pelo fabricante.",
+        "lbl_ctrl_title": "Injeção de Perfis de Controle", "lbl_ctrl_desc": "Selecione o seu modelo de controle abaixo. O sistema irá gerar o arquivo\nde mapeamento (.cfg) e injetá-lo diretamente na pasta do emulador.", "btn_inject": "💉 Injetar Perfil de Controle",
+        "msg_inject_success": "Perfil de controle '{controle}' injetado com sucesso na pasta mappings!",
+        "lbl_games_title": "Lançador de Jogos Rápido", "lbl_games_desc": "Dê um duplo clique ou clique em 'Jogar' para iniciar a ROM instantaneamente.",
+        "sw_cheats": "Ativar Cheats ao Iniciar (Widescreen Hacks / Trapaças)", "btn_scan_games": "🔄 Escanear Pasta de ROMs", "msg_no_games": "Nenhum jogo de Dreamcast encontrado na pasta configurada.",
+        "msg_cheats_ra": "⚠️ ATENÇÃO: Ativar os Cheats desabilitará a conquista de RetroAchievements nesta sessão de jogo!",
+        "playtime_new": "Novo", "playtime_less_1m": "< 1m", "lbl_downloading_cover": "🎮\n(Baixando...)",
+        "lbl_select_disc": "Selecionar Disco", "lbl_choose_disc": "Este é um jogo multi-disco.\nEscolha qual disco deseja iniciar:",
+        "lbl_info_title": "Informações do Jogo", "lbl_release": "Lançamento:", "lbl_unknown": "Desconhecida", "msg_no_overview": "Nenhuma descrição disponível no banco de dados do emulador."
     },
     "en": {
-        "title_sub": "Update, Cloud and Configuration Manager", "btn_help": "❔ About", "tab_cloud": "🚀 Update", "tab_emu": "⚙️ Emulator", "tab_vid": "🖥️ Video", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
+        "title_sub": "Update, Cloud and Configuration Manager", "btn_help": "❔ About", "tab_cloud": "🚀 Update", "tab_emu": "⚙️ Emulator", "tab_vid": "🖥️ Video", "tab_ctrl": "🎮 Controllers", "tab_games": "🕹️ Games", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
         "lbl_path": "Emulator Install Path:", "btn_browse": "Browse...", "lbl_branch": "Emulator Version:",
         "rb_master_desc": "Official and stable\nemulator releases.", "rb_dev_desc": "Daily cloud builds.\nNew features and fixes.",
         "lbl_cloud": "Cloud Save Synchronization:", "rb_none": "None", "sw_desk": "Create Desktop Shortcut",
@@ -85,6 +120,7 @@ TRANSLATIONS = {
         "sw_ra": "Enable RetroAchievements", "lbl_user": "Username:", "lbl_pass": "Password / Token:", "sw_hard": "Hardcore Mode (Disables Save States)",
         "lbl_qol": "Quality of Life (QoL) Tweaks:", "sw_vmu": "Per-Game VMU", "sw_box": "Auto Download Boxart",
         "sw_vga": "Optimize Graphics (VGA)", "sw_disc": "Discord Rich Presence", "sw_osd": "Show VMU on Screen", "sw_vmu_snd": "Enable VMU Sounds",
+        "sw_streamer": "Content Creator / Streamer Mode",
         "btn_save_emu": "💾 Save Emulator Settings", "lbl_vid_title": "Video Settings (Basic)",
         "lbl_vid_warn": "⚠️ Warning: These are basic emulator settings.\nCheck the Flycast menu for advanced visual options.",
         "lbl_api": "Graphics API:", "lbl_res": "Internal Resolution:", "sw_full": "Fullscreen", "sw_int": "Integer Scaling",
@@ -112,10 +148,18 @@ TRANSLATIONS = {
         "msg_bios_unsupported": "Unsupported file format.",
         "lbl_hw_title": "Detected Graphic Hardware", "lbl_hw_search": "🔎 Searching for video cards...", "btn_driver": "🌐 Find Official Drivers",
         "msg_no_gpu": "⚠️ Could not detect Video Card.", "msg_gpu_done": "✨ Hardware Analysis Complete!\n\n",
-        "msg_driver_suggest": "The official manufacturer website ({fabricante}) has been opened in your browser.\n\nWe recommend checking for a newer driver version and downloading it directly. This ensures your PC's security and maximum Flycast performance."
+        "msg_driver_suggest": "The official manufacturer website ({fabricante}) has been opened.",
+        "lbl_ctrl_title": "Controller Profile Injection", "lbl_ctrl_desc": "Select your controller model below. The system will generate\nthe mapping file (.cfg) and inject it into the emulator's folder.", "btn_inject": "💉 Inject Controller Profile",
+        "msg_inject_success": "Controller profile '{controle}' successfully injected into the mappings folder!",
+        "lbl_games_title": "Quick Game Launcher", "lbl_games_desc": "Double-click or hit 'Play' to launch the ROM instantly.",
+        "sw_cheats": "Enable Cheats on Launch (Widescreen Hacks / Cheats)", "btn_scan_games": "🔄 Scan ROM Folder", "msg_no_games": "No supported games found in the configured folder.",
+        "msg_cheats_ra": "⚠️ WARNING: Activating Cheats will disable RetroAchievements for this gaming session!",
+        "playtime_new": "New", "playtime_less_1m": "< 1m", "lbl_downloading_cover": "🎮\n(Downloading...)",
+        "lbl_select_disc": "Select Disc", "lbl_choose_disc": "This game has multiple discs.\nChoose which one to start:",
+        "lbl_info_title": "Game Information", "lbl_release": "Release:", "lbl_unknown": "Unknown", "msg_no_overview": "No description available in the emulator database."
     },
     "es": {
-        "title_sub": "Gestor de Actualizaciones, Nube y Configuración", "btn_help": "❔ Acerca de", "tab_cloud": "🚀 Actualizar", "tab_emu": "⚙️ Emulador", "tab_vid": "🖥️ Video", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
+        "title_sub": "Gestor de Actualizaciones, Nube y Configuración", "btn_help": "❔ Acerca de", "tab_cloud": "🚀 Actualizar", "tab_emu": "⚙️ Emulador", "tab_vid": "🖥️ Video", "tab_ctrl": "🎮 Controles", "tab_games": "🕹️ Juegos", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
         "lbl_path": "Ruta de instalación:", "btn_browse": "Explorar...", "lbl_branch": "Versión del Emulador:",
         "rb_master_desc": "Versiones oficiales y estables.", "rb_dev_desc": "Builds diarios de la nube.",
         "lbl_cloud": "Sincronización en la Nube:", "rb_none": "Ninguno", "sw_desk": "Crear Acceso Directo",
@@ -126,6 +170,7 @@ TRANSLATIONS = {
         "sw_ra": "Activar RetroAchievements", "lbl_user": "Usuario:", "lbl_pass": "Contraseña / Token:", "sw_hard": "Modo Hardcore",
         "lbl_qol": "Mejoras de Calidad de Vida (QoL):", "sw_vmu": "VMU Individual por Juego", "sw_box": "Descargar Carátulas",
         "sw_vga": "Optimizar Gráficos (VGA)", "sw_disc": "Estado en Discord", "sw_osd": "Mostrar VMU en Pantalla", "sw_vmu_snd": "Activar Sonidos de VMU",
+        "sw_streamer": "Modo Creador de Contenido / Streamer",
         "btn_save_emu": "💾 Guardar Configuración", "lbl_vid_title": "Configuración de Video",
         "lbl_vid_warn": "⚠️ Advertencia: Configuraciones básicas.\nConsulta el menú de Flycast para más opciones.",
         "lbl_api": "API Gráfica:", "lbl_res": "Resolución Interna:", "sw_full": "Pantalla Completa", "sw_int": "Escala Entera",
@@ -144,16 +189,15 @@ TRANSLATIONS = {
         "tt_master": "Estable. Solo lanzamientos oficiales.", "tt_dev": "Descarga builds diarios.", "tt_nogui": "Abre en modo consola (CLI).",
         "tt_reconfig": "Abre la pestaña de ROMs.", "tt_opengl": "API clásica. Ideal para PCs antiguos.", "tt_vulkan": "API moderna. Máximo rendimiento.",
         "tt_dx9": "Para PCs con Windows muy antiguos.", "tt_dx11": "Excelente alternativa a Vulkan en Windows.", "tt_custom_paths": "Permite definir carpetas separadas para BIOS, Saves y States.",
-        "msg_bios_missing": "Faltan los siguientes archivos de BIOS:\n- {files}\n\n¿Deseas buscarlos en tu computadora (o seleccionar un .zip)?",
-        "title_bios_missing": "BIOS Faltante",
-        "msg_bios_partial": "Archivo copiado con éxito.\n\nAún falta el archivo:\n- {missing}\n\n¿Deseas buscarlo ahora?",
-        "title_bios_partial": "BIOS Incompleta",
-        "msg_bios_zip_success": "¡BIOS extraída e instalada con éxito del archivo ZIP!",
-        "msg_bios_bin_success": "¡Archivos de BIOS instalados con éxito!",
-        "msg_bios_unsupported": "Formato de archivo no suportado."
+        "lbl_games_title": "Lanzador de Juegos Rápido", "lbl_games_desc": "Haz doble clic o pulsa 'Jugar' para iniciar la ROM.",
+        "sw_cheats": "Activar Trucos al Iniciar (Widescreen Hacks)", "btn_scan_games": "🔄 Escanear ROMs", "msg_no_games": "No se encontraron juegos.",
+        "msg_cheats_ra": "⚠️ ADVERTENCIA: ¡Activar trucos deshabilitará los RetroAchievements en esta sesión!",
+        "playtime_new": "Nuevo", "playtime_less_1m": "< 1m", "lbl_downloading_cover": "🎮\n(Descargando...)",
+        "lbl_select_disc": "Seleccionar Disco", "lbl_choose_disc": "Este juego tiene varios discos.\nElige cuál deseas iniciar:",
+        "lbl_info_title": "Información del Juego", "lbl_release": "Lanzamiento:", "lbl_unknown": "Desconocida", "msg_no_overview": "Sin descripción disponible."
     },
     "fr": {
-        "title_sub": "Gestionnaire de Mises à jour, Cloud et Config", "btn_help": "❔ À propos", "tab_cloud": "🚀 M. à jour", "tab_emu": "⚙️ Émulateur", "tab_vid": "🖥️ Vidéo", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
+        "title_sub": "Gestionnaire de Mises à jour, Cloud et Config", "btn_help": "❔ À propos", "tab_cloud": "🚀 M. à jour", "tab_emu": "⚙️ Émulateur", "tab_vid": "🖥️ Vidéo", "tab_ctrl": "🎮 Controles", "tab_games": "🕹️ Jeux", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
         "lbl_path": "Chemin d'installation:", "btn_browse": "Parcourir...", "lbl_branch": "Version de l'Émulateur:",
         "rb_master_desc": "Versions officielles et stables.", "rb_dev_desc": "Builds cloud quotidiens.",
         "lbl_cloud": "Synchronisation Cloud:", "rb_none": "Aucun", "sw_desk": "Créer un raccourci bureau",
@@ -164,6 +208,7 @@ TRANSLATIONS = {
         "sw_ra": "Activer RetroAchievements", "lbl_user": "Utilisateur:", "lbl_pass": "Mot de passe / Token:", "sw_hard": "Mode Hardcore",
         "lbl_qol": "Améliorations de qualité de vie:", "sw_vmu": "VMU par Jeu", "sw_box": "Télécharger Jaquettes",
         "sw_vga": "Optimiser Graphiques (VGA)", "sw_disc": "Statut Discord", "sw_osd": "Afficher VMU à l'écran", "sw_vmu_snd": "Sons VMU",
+        "sw_streamer": "Mode Créateur de Contenu / Streamer",
         "btn_save_emu": "💾 Enregistrer Configuration", "lbl_vid_title": "Paramètres Vidéo",
         "lbl_vid_warn": "⚠️ Avertissement: Paramètres de base.", "lbl_api": "API Graphique:", "lbl_res": "Résolution Interne:",
         "sw_full": "Plein écran", "sw_int": "Mise à l'échelle entière", "sw_lin": "Interpolation linéaire", "sw_vsync": "V-Sync",
@@ -182,10 +227,13 @@ TRANSLATIONS = {
         "tt_nogui": "Mode CLI", "tt_reconfig": "Reconfigurer", "tt_opengl": "OpenGL", "tt_vulkan": "Vulkan", "tt_dx9": "DX9", "tt_dx11": "DX11",
         "tt_custom_paths": "Chemins personnalisés", "msg_bios_missing": "Fichiers BIOS manquants:\n- {files}", "title_bios_missing": "BIOS Manquant",
         "msg_bios_partial": "Fichier copié. Manque:\n- {missing}", "title_bios_partial": "BIOS Incomplet", "msg_bios_zip_success": "BIOS extrait du ZIP !",
-        "msg_bios_bin_success": "BIOS installé !", "msg_bios_unsupported": "Format non supporté."
+        "msg_bios_bin_success": "BIOS installé !", "msg_bios_unsupported": "Format non supporté.",
+        "lbl_games_title": "Lanceur de Jeux Rapide",
+        "playtime_new": "Nouveau", "playtime_less_1m": "< 1m", "lbl_downloading_cover": "🎮\n(Téléchargement...)",
+        "lbl_info_title": "Informations sur le jeu", "lbl_release": "Sortie:", "lbl_unknown": "Inconnue", "msg_no_overview": "Aucune description disponible."
     },
     "de": {
-        "title_sub": "Update-, Cloud- und Konfigurationsmanager", "btn_help": "❔ Über", "tab_cloud": "🚀 Update", "tab_emu": "⚙️ Emulator", "tab_vid": "🖥️ Video", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
+        "title_sub": "Update-, Cloud- und Konfigurationsmanager", "btn_help": "❔ Über", "tab_cloud": "🚀 Update", "tab_emu": "⚙️ Emulator", "tab_vid": "🖥️ Video", "tab_ctrl": "🎮 Controles", "tab_games": "🕹️ Spiele", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
         "lbl_path": "Installationspfad:", "btn_browse": "Durchsuchen...", "lbl_branch": "Emulator-Version:",
         "rb_master_desc": "Offizielle stabile Versionen.", "rb_dev_desc": "Tägliche Cloud-Builds.",
         "lbl_cloud": "Cloud-Save-Synchronisierung:", "rb_none": "Keine", "sw_desk": "Desktop-Verknüpfung erstellen",
@@ -196,6 +244,7 @@ TRANSLATIONS = {
         "sw_ra": "RetroAchievements aktivieren", "lbl_user": "Benutzername:", "lbl_pass": "Passwort / Token:", "sw_hard": "Hardcore-Modus",
         "lbl_qol": "Qualitätsverbesserungen:", "sw_vmu": "VMU pro Spiel", "sw_box": "Cover automatisch laden",
         "sw_vga": "Grafik optimieren (VGA)", "sw_disc": "Discord-Status", "sw_osd": "VMU auf Bildschirm anzeigen", "sw_vmu_snd": "VMU-Sounds aktivieren",
+        "sw_streamer": "Content Creator / Streamer-Modus",
         "btn_save_emu": "💾 Einstellungen speichern", "lbl_vid_title": "Video-Einstellungen",
         "lbl_vid_warn": "⚠️ Warnung: Grundeinstellungen.", "lbl_api": "Grafik-API:", "lbl_res": "Interne Auflösung:",
         "sw_full": "Vollbild", "sw_int": "Ganzzahlige Skalierung", "sw_lin": "Lineare Interpolation", "sw_vsync": "V-Sync",
@@ -214,10 +263,13 @@ TRANSLATIONS = {
         "tt_nogui": "CLI-Modus", "tt_reconfig": "Neu konfigurieren", "tt_opengl": "OpenGL", "tt_vulkan": "Vulkan", "tt_dx9": "DX9", "tt_dx11": "DX11",
         "tt_custom_paths": "Eigene Pfade", "msg_bios_missing": "Fehlende BIOS-Dateien:\n- {files}", "title_bios_missing": "BIOS fehlt",
         "msg_bios_partial": "Datei kopiert. Fehlt noch:\n- {missing}", "title_bios_partial": "BIOS unvollständig", "msg_bios_zip_success": "BIOS aus ZIP extrahiert!",
-        "msg_bios_bin_success": "BIOS installiert!", "msg_bios_unsupported": "Nicht unterstütztes Format."
+        "msg_bios_bin_success": "BIOS installiert!", "msg_bios_unsupported": "Nicht unterstütztes Format.",
+        "lbl_games_title": "Schneller Spiele-Launcher",
+        "playtime_new": "Neu", "playtime_less_1m": "< 1m", "lbl_downloading_cover": "🎮\n(Wird heruntergeladen...)",
+        "lbl_info_title": "Spielinformationen", "lbl_release": "Veröffentlichung:", "lbl_unknown": "Unbekannt", "msg_no_overview": "Keine Beschreibung verfügbar."
     },
     "zh": {
-        "title_sub": "更新、云端和配置管理器", "btn_help": "❔ 关于", "tab_cloud": "🚀 更新", "tab_emu": "⚙️ 模拟器", "tab_vid": "🖥️ 视频", "tab_saves": "🔄 存档", "tab_logs": "📝 日志",
+        "title_sub": "更新、云端和配置管理器", "btn_help": "❔ 关于", "tab_cloud": "🚀 更新", "tab_emu": "⚙️ 模拟器", "tab_vid": "🖥️ 视频", "tab_ctrl": "🎮 控制器", "tab_games": "🕹️ 游戏", "tab_saves": "🔄 存档", "tab_logs": "📝 日志",
         "lbl_path": "模拟器安装路径:", "btn_browse": "浏览...", "lbl_branch": "模拟器版本:",
         "rb_master_desc": "官方稳定版。", "rb_dev_desc": "每日云端构建。",
         "lbl_cloud": "云端存档同步:", "rb_none": "无", "sw_desk": "创建桌面快捷方式",
@@ -228,6 +280,7 @@ TRANSLATIONS = {
         "sw_ra": "启用 RetroAchievements", "lbl_user": "用户名:", "lbl_pass": "密码 / 令牌:", "sw_hard": "硬核模式 (禁用即时存档)",
         "lbl_qol": "生活质量优化 (QoL):", "sw_vmu": "每游戏独立 VMU", "sw_box": "自动下载封面",
         "sw_vga": "优化图形 (VGA)", "sw_disc": "Discord 状态", "sw_osd": "屏幕显示 VMU", "sw_vmu_snd": "启用 VMU 声音",
+        "sw_streamer": "内容创作者 / 主播模式",
         "btn_save_emu": "💾 保存模拟器设置", "lbl_vid_title": "视频设置 (基础)",
         "lbl_vid_warn": "⚠️ 警告: 这些是基础设置。", "lbl_api": "图形 API:", "lbl_res": "内部分辨率:",
         "sw_full": "全屏", "sw_int": "整数缩放", "sw_lin": "线性插值", "sw_vsync": "垂直同步 (V-Sync)",
@@ -242,14 +295,12 @@ TRANSLATIONS = {
         "bios_custom": "BIOS: 🟢 正常 (自定义)", "bios_wrong": "BIOS: 🟡 路径不正确", "bios_missing": "BIOS: 🔴 缺失", "bios_error": "BIOS: 🔴 错误",
         "msg_success": "操作成功完成！", "msg_error": "操作期间发生错误。",
         "msg_updater_update": "检测到新版本的 Flycast Updater！\n程序将与模拟器一起更新。",
-        "tt_help": "点击这里阅读帮助。", "tt_bios": "检查 BIOS 文件。", "tt_path": "安装路径。", "tt_master": "稳定版。", "tt_dev": "开发版。",
-        "tt_nogui": "命令行模式。", "tt_reconfig": "重新配置。", "tt_opengl": "OpenGL API。", "tt_vulkan": "Vulkan API。", "tt_dx9": "DX9 API。", "tt_dx11": "DX11 API。",
-        "tt_custom_paths": "自定义路径。", "msg_bios_missing": "缺少以下 BIOS 文件:\n- {files}", "title_bios_missing": "缺少 BIOS",
-        "msg_bios_partial": "文件复制成功。\n缺少文件:\n- {missing}", "title_bios_partial": "BIOS 不完整", "msg_bios_zip_success": "BIOS 解压并安装成功！",
-        "msg_bios_bin_success": "BIOS 安装成功！", "msg_bios_unsupported": "不支持的文件格式."
+        "lbl_games_title": "快速游戏启动器",
+        "playtime_new": "新的", "playtime_less_1m": "< 1分钟", "lbl_downloading_cover": "🎮\n(下载中...)",
+        "lbl_info_title": "游戏信息", "lbl_release": "发布:", "lbl_unknown": "未知", "msg_no_overview": "没有可用的描述。"
     },
     "ja": {
-        "title_sub": "アップデート、クラウド、設定マネージャー", "btn_help": "❔ 概要", "tab_cloud": "🚀 更新", "tab_emu": "⚙️ エミュレータ", "tab_vid": "🖥️ ビデオ", "tab_saves": "🔄 セーブ", "tab_logs": "📝 ログ",
+        "title_sub": "アップデート、クラウド、設定マネージャー", "btn_help": "❔ 概要", "tab_cloud": "🚀 更新", "tab_emu": "⚙️ エミュレータ", "tab_vid": "🖥️ ビデオ", "tab_ctrl": "🎮 コントローラー", "tab_games": "🕹️ ゲーム", "tab_saves": "🔄 セーブ", "tab_logs": "📝 ログ",
         "lbl_path": "インストール先:", "btn_browse": "参照...", "lbl_branch": "エミュレータバージョン:",
         "rb_master_desc": "公式安定版リリース。", "rb_dev_desc": "毎日のクラウドビルド。",
         "lbl_cloud": "クラウドセーブ同期:", "rb_none": "なし", "sw_desk": "デスクトップショートカット作成",
@@ -260,6 +311,7 @@ TRANSLATIONS = {
         "sw_ra": "RetroAchievementsを有効化", "lbl_user": "ユーザー名:", "lbl_pass": "パスワード / トークン:", "sw_hard": "ハードコアモード",
         "lbl_qol": "品質向上 (QoL) 調整:", "sw_vmu": "ゲーム別VMU", "sw_box": "ジャケット自動ダウンロード",
         "sw_vga": "グラフィック最適化 (VGA)", "sw_disc": "Discordプレゼンス", "sw_osd": "画面にVMUを表示", "sw_vmu_snd": "VMUサウンド有効化",
+        "sw_streamer": "コンテンツクリエイター / ストリーマーモード",
         "btn_save_emu": "💾 設定を保存", "lbl_vid_title": "ビデオ設定 (基本)",
         "lbl_vid_warn": "⚠️ 警告: 基本的な設定です。", "lbl_api": "グラフィックAPI:", "lbl_res": "内部解像度:",
         "sw_full": "フルスクリーン", "sw_int": "整数スケーリング", "sw_lin": "線形補間", "sw_vsync": "垂直同期 (V-Sync)",
@@ -273,15 +325,12 @@ TRANSLATIONS = {
         "emu_status_missing": "エミュレータ: 🔴 不足", "emu_status_error": "エミュレータ: 🔴 エラー", "bios_ok": "BIOS: 🟢 OK",
         "bios_custom": "BIOS: 🟢 OK (カスタム)", "bios_wrong": "BIOS: 🟡 パス不正", "bios_missing": "BIOS: 🔴 不足", "bios_error": "BIOS: 🔴 エラー",
         "msg_success": "操作が完了しました！", "msg_error": "エラーが発生しました。",
-        "msg_updater_update": "Flycast Updaterの新バージョンが検出されました！\nエミュレータとともにプログラムが更新されます。",
-        "tt_help": "ヘルプを表示。", "tt_bios": "BIOSを確認。", "tt_path": "インストール先。", "tt_master": "安定版。", "tt_dev": "開発版。",
-        "tt_nogui": "CUIモード。", "tt_reconfig": "再設定。", "tt_opengl": "OpenGL API。", "tt_vulkan": "Vulkan API。", "tt_dx9": "DX9 API。", "tt_dx11": "DX11 API。",
-        "tt_custom_paths": "カスタムパス。", "msg_bios_missing": "次のBIOSファイルが不足しています:\n- {files}", "title_bios_missing": "BIOS不足",
-        "msg_bios_partial": "コピー成功。\n不足:\n- {missing}", "title_bios_partial": "BIOS不完全", "msg_bios_zip_success": "ZIPからBIOSをインストールしました！",
-        "msg_bios_bin_success": "BIOSをインストールしました！", "msg_bios_unsupported": "サポートされていない形式です。"
+        "lbl_games_title": "クイックゲームランチャー",
+        "playtime_new": "新", "playtime_less_1m": "< 1分", "lbl_downloading_cover": "🎮\n(ダウンロード中...)",
+        "lbl_info_title": "ゲーム情報", "lbl_release": "発売日:", "lbl_unknown": "不明", "msg_no_overview": "説明はありません。"
     },
     "ru": {
-        "title_sub": "Менеджер обновлений, облака и настроек", "btn_help": "❔ О программе", "tab_cloud": "🚀 Обновление", "tab_emu": "⚙️ Эмулятор", "tab_vid": "🖥️ Видео", "tab_saves": "🔄 Сейвы", "tab_logs": "📝 Логи",
+        "title_sub": "Менеджер обновлений, облака и настроек", "btn_help": "❔ О программе", "tab_cloud": "🚀 Обновление", "tab_emu": "⚙️ Эмулятор", "tab_vid": "🖥️ Видео", "tab_ctrl": "🎮 Контроллеры", "tab_games": "🕹️ Игры", "tab_saves": "🔄 Сейвы", "tab_logs": "📝 Логи",
         "lbl_path": "Путь установки эмулятора:", "btn_browse": "Обзор...", "lbl_branch": "Версия эмулятора:",
         "rb_master_desc": "Официальные и стабильные релизы.", "rb_dev_desc": "Ежедневные облачные сборки.",
         "lbl_cloud": "Синхронизация облачных сохранений:", "rb_none": "Нет", "sw_desk": "Создать ярлык на рабочем столе",
@@ -292,6 +341,7 @@ TRANSLATIONS = {
         "sw_ra": "Включить RetroAchievements", "lbl_user": "Имя пользователя:", "lbl_pass": "Пароль / Токен:", "sw_hard": "Хардкорный режим",
         "lbl_qol": "Улучшения качества жизни:", "sw_vmu": "VMU для каждой игры", "sw_box": "Автозагрузка обложек",
         "sw_vga": "Оптимизация графики (VGA)", "sw_disc": "Статус в Discord", "sw_osd": "Показать VMU на экране", "sw_vmu_snd": "Включить звуки VMU",
+        "sw_streamer": "Режим создателя контента / Стримера",
         "btn_save_emu": "💾 Сохранить настройки", "lbl_vid_title": "Настройки видео (Базовые)",
         "lbl_vid_warn": "⚠️ Внимание: Базовые настройки.", "lbl_api": "Графический API:", "lbl_res": "Внутреннее разрешение:",
         "sw_full": "Полноэкранный режим", "sw_int": "Целочисленное масштабирование", "sw_lin": "Линейная интерполяция", "sw_vsync": "Вертикальная синхронизация",
@@ -305,15 +355,12 @@ TRANSLATIONS = {
         "emu_status_missing": "Эмулятор: 🔴 Отсутствует", "emu_status_error": "Эмулятор: 🔴 Ошибка", "bios_ok": "BIOS: 🟢 OK",
         "bios_custom": "BIOS: 🟢 OK (Свой)", "bios_wrong": "BIOS: 🟡 Неверный путь", "bios_missing": "BIOS: 🔴 Нет", "bios_error": "BIOS: 🔴 Ошибка",
         "msg_success": "Операция успешно завершена!", "msg_error": "Ошибка во время операции.",
-        "msg_updater_update": "Обнаружена новая версия Flycast Updater!\nПрограмма будет обновлена вместе с эмулятором.",
-        "tt_help": "Справка", "tt_bios": "Проверка BIOS.", "tt_path": "Путь установки.", "tt_master": "Стабильная.", "tt_dev": "Разработка.",
-        "tt_nogui": "Режим CLI.", "tt_reconfig": "Перенастроить.", "tt_opengl": "OpenGL API.", "tt_vulkan": "Vulkan API.", "tt_dx9": "DX9 API.", "tt_dx11": "DX11 API.",
-        "tt_custom_paths": "Свои пути.", "msg_bios_missing": "Отсутствуют файлы BIOS:\n- {files}", "title_bios_missing": "Нет BIOS",
-        "msg_bios_partial": "Файл скопирован.\nОстался:\n- {missing}", "title_bios_partial": "Неполный BIOS", "msg_bios_zip_success": "BIOS успешно извлечен!",
-        "msg_bios_bin_success": "Файлы BIOS установлены!", "msg_bios_unsupported": "Формат не поддерживается."
+        "lbl_games_title": "Быстрый запуск игр",
+        "playtime_new": "Новый", "playtime_less_1m": "< 1м", "lbl_downloading_cover": "🎮\n(Загрузка...)",
+        "lbl_info_title": "Информация об игре", "lbl_release": "Выпуск:", "lbl_unknown": "Неизвестно", "msg_no_overview": "Нет описания."
     },
     "ar": {
-        "title_sub": "مدير التحديثات والسحابة والإعدادات", "btn_help": "❔ حول", "tab_cloud": "🚀 التحديث", "tab_emu": "⚙️ المحاكي", "tab_vid": "🖥️ الفيديو", "tab_saves": "🔄 الحفظ", "tab_logs": "📝 السجلات",
+        "title_sub": "مدير التحديثات والسحابة والإعدادات", "btn_help": "❔ حول", "tab_cloud": "🚀 التحديث", "tab_emu": "⚙️ المحاكي", "tab_vid": "🖥️ الفيديو", "tab_ctrl": "🎮 وحدات تحكم", "tab_games": "🕹️ ألعاب", "tab_saves": "🔄 الحفظ", "tab_logs": "📝 السجلات",
         "lbl_path": "مسار تثبيت المحاكي:", "btn_browse": "استعراض...", "lbl_branch": "إصدار المحاكي:",
         "rb_master_desc": "الإصدارات الرسمية والمستقرة.", "rb_dev_desc": "Builds يومية.",
         "lbl_cloud": "مزامنة الحفظ السحابي:", "rb_none": "لا يوجد", "sw_desk": "إنشاء اختصار سطح المكتب",
@@ -324,6 +371,7 @@ TRANSLATIONS = {
         "sw_ra": "تفعيل RetroAchievements", "lbl_user": "اسم المستخدم:", "lbl_pass": "كلمة المرور / الرمز:", "sw_hard": "وضع Hardcore",
         "lbl_qol": "تحسينات جودة الحياة:", "sw_vmu": "VMU فردي لكل لعبة", "sw_box": "تحميل الأغلفة تلقائياً",
         "sw_vga": "تحسين الرسومات (VGA)", "sw_disc": "حالة Discord", "sw_osd": "إظهار VMU على الشاشة", "sw_vmu_snd": "تفعيل أصوات VMU",
+        "sw_streamer": "وضع منشئ المحتوى / البث",
         "btn_save_emu": "💾 حفظ إعدادات المحاكي", "lbl_vid_title": "إعدادات الفيديو",
         "lbl_vid_warn": "⚠️ تحذير: إعدادات أساسية.", "lbl_api": "واجهة برمجة الرسومات:", "lbl_res": "الدقة الداخلية:",
         "sw_full": "ملء الشاشة", "sw_int": "تحجيم صحيح", "sw_lin": "استيفاء خطي", "sw_vsync": "مزامنة رأسية",
@@ -337,15 +385,12 @@ TRANSLATIONS = {
         "emu_status_missing": "المحاكي: 🔴 مفقود", "emu_status_error": "المحاكي: 🔴 خطأ", "bios_ok": "BIOS: 🟢 جاهز",
         "bios_custom": "BIOS: 🟢 جاهز (مخصص)", "bios_wrong": "BIOS: 🟡 مسار خاطئ", "bios_missing": "BIOS: 🔴 مفقود", "bios_error": "BIOS: 🔴 خطأ",
         "msg_success": "تمت العملية بنجاح!", "msg_error": "حدث خطأ أثناء العملية.",
-        "msg_updater_update": "تم اكتشاف إصدار جديد من Flycast Updater!\nسيتم تحديث البرنامج مع المحاكي.",
-        "tt_help": "مساعدة", "tt_bios": "فحص ملفات BIOS.", "tt_path": "مسار التثبيت.", "tt_master": "مستقر.", "tt_dev": "تطوير.",
-        "tt_nogui": "وضع CLI.", "tt_reconfig": "إعادة تكوين.", "tt_opengl": "OpenGL.", "tt_vulkan": "Vulkan.", "tt_dx9": "DX9.", "tt_dx11": "DX11.",
-        "tt_custom_paths": "مسارات مخصصة.", "msg_bios_missing": "ملفات BIOS التالية مفقودة:\n- {files}", "title_bios_missing": "BIOS مفقود",
-        "msg_bios_partial": "تم النسخ.\nمفقود:\n- {missing}", "title_bios_partial": "BIOS غير مكتمل", "msg_bios_zip_success": "BIOS extrait du ZIP !",
-        "msg_bios_bin_success": "تم تثبيت BIOS بنجاح!", "msg_bios_unsupported": "صيغة غير مدعومة."
+        "lbl_games_title": "مشغل ألعاب سريع",
+        "playtime_new": "جديد", "playtime_less_1m": "< 1 دقيقة", "lbl_downloading_cover": "🎮\n(جاري التحميل...)",
+        "lbl_info_title": "معلومات اللعبة", "lbl_release": "الإصدار:", "lbl_unknown": "غير معروف", "msg_no_overview": "لا يوجد وصف."
     },
     "hi": {
-        "title_sub": "أبडेट، کلاؤڈ اور کنفیگریشن مینیجر", "btn_help": "❔ کے بارے میں", "tab_cloud": "🚀 اپ ڈیٹ", "tab_emu": "⚙️ ایمولیٹر", "tab_vid": "🖥️ ویڈیو", "tab_saves": "🔄 سیو", "tab_logs": "📝 لاگز",
+        "title_sub": "أبडेट، کلاؤڈ اور کنفیگریشن مینیجر", "btn_help": "❔ کے بارے میں", "tab_cloud": "🚀 اپ ڈیٹ", "tab_emu": "⚙️ ایمولیٹر", "tab_vid": "🖥️ ویڈیو", "tab_ctrl": "🎮 کنٹرولرز", "tab_games": "🕹️ کھیل", "tab_saves": "🔄 سیو", "tab_logs": "📝 لاگز",
         "lbl_path": "ایمولیٹر انسٹال پاتھ:", "btn_browse": "براؤز...", "lbl_branch": "ایمولیٹر ورژن:",
         "rb_master_desc": "سرکاری اور مستحکم ورژن۔", "rb_dev_desc": "روزانہ کلاؤڈ بلڈز۔",
         "lbl_cloud": "کلاؤڈ سیو ہم آہنگی:", "rb_none": "کوئی نہیں", "sw_desk": "ڈیسک ٹاپ شارٹ کٹ بنائیں",
@@ -356,6 +401,7 @@ TRANSLATIONS = {
         "sw_ra": "RetroAchievements فعال کریں", "lbl_user": "صارف نام:", "lbl_pass": "پاس ورڈ / ٹوکن:", "sw_hard": "ہارڈکور موڈ",
         "lbl_qol": "کوالٹی آف لائف ٹویکس:", "sw_vmu": "فی گیم VMU", "sw_box": "خودکار باکس آرٹ ڈاؤن لوڈ",
         "sw_vga": "گرافکس کو بہتر بنائیں (VGA)", "sw_disc": "Discord موجودگی", "sw_osd": "اسکرین پر VMU دکھائیں", "sw_vmu_snd": "VMU آوازیں فعال کریں",
+        "sw_streamer": "مواد تخلیق کار / اسٹریمر موڈ",
         "btn_save_emu": "💾 ایمولیٹر کی ترتیبات محفوظ کریں", "lbl_vid_title": "ویڈیو کی ترتیبات",
         "lbl_vid_warn": "⚠️ انتباہ: بنیادی ترتیبات۔", "lbl_api": "گرافکس API:", "lbl_res": "اندرونی ریزولوشن:",
         "sw_full": "فل اسکرین", "sw_int": "انٹیجر سکیلنگ", "sw_lin": "لینیئر انٹرپولیشن", "sw_vsync": "ورٹیکل سنک",
@@ -369,12 +415,9 @@ TRANSLATIONS = {
         "emu_status_missing": "ایمولیٹر: 🔴 غائب", "emu_status_error": "ایمولیٹر: 🔴 خرابی", "bios_ok": "BIOS: 🟢 ٹھیک ہے",
         "bios_custom": "BIOS: 🟢 ٹھیک ہے (حسب ضرورت)", "bios_wrong": "BIOS: 🟡 غلط پاتھ", "bios_missing": "BIOS: 🔴 غائب", "bios_error": "BIOS: 🔴 خرابی",
         "msg_success": "آپریشن کامیابی سے مکمل ہو گیا!", "msg_error": "آپریشن کے دوران خرابی۔",
-        "msg_updater_update": "Flycast Updater کا نیا ورژن مل گیا ہے!\nप्रोग्राम को एमुलेटर के साथ अपडेट किया जाएगा।",
-        "tt_help": "مدد", "tt_bios": "BIOS چیک کرتا ہے۔", "tt_path": "انسٹالیشن پاتھ۔", "tt_master": "مستحکم۔", "tt_dev": "ڈویلپمنٹ۔",
-        "tt_nogui": "CLI موڈ۔", "tt_reconfig": "دوبارہ ترتیب دیں۔", "tt_opengl": "OpenGL API۔", "tt_vulkan": "Vulkan API۔", "tt_dx9": "DX9 API۔", "tt_dx11": "DX11 API۔",
-        "tt_custom_paths": "حسب ضرورت پاتھ۔", "msg_bios_missing": "مندرجہ ذیل BIOS فائلیں غائب ہیں:\n- {files}", "title_bios_missing": "BIOS غائب",
-        "msg_bios_partial": "فائل کاپی ہو گئی۔ غائب:\n- {missing}", "title_bios_partial": "نامکمل BIOS", "msg_bios_zip_success": "BIOS کامیابی سے زپ سے نکالا گیا!",
-        "msg_bios_bin_success": "BIOS انسٹال ہو گیا!", "msg_bios_unsupported": "غیر تعاون یافتہ فارمیٹ."
+        "lbl_games_title": "فوری گیم لانچر",
+        "playtime_new": "نیا", "playtime_less_1m": "< 1m", "lbl_downloading_cover": "🎮\n(ڈاؤن لوڈ ہو رہا ہے...)",
+        "lbl_info_title": "گیم کی معلومات", "lbl_release": "ریلیز:", "lbl_unknown": "نامعلوم", "msg_no_overview": "کوئی تفصیل نہیں ہے۔"
     }
 }
 
@@ -410,7 +453,6 @@ def obter_token_retroachievements(usuario, senha):
     return None
 
 def obter_gpus_windows():
-    """Consulta silenciosa via PowerShell para identificar as placas de vídeo e drivers no Windows."""
     if os.name != 'nt':
         return []
     try:
@@ -440,7 +482,8 @@ def obter_gpus_windows():
 def atualizar_emu_cfg(install_path, roms_path=None, ra_enabled=None, ra_user=None, ra_pass=None, ra_hardcore=None, 
                       vmu_individual=None, fetch_boxart=None, vga_cable=None, discord_presence=None,
                       show_osd_vmu=None, vmu_sound=None, bios_path=None, vmu_path=None, state_path=None, save_path=None,
-                      vid_api=None, vid_res=None, vid_full=None, vid_int=None, vid_lin=None, vid_vsync=None):
+                      vid_api=None, vid_res=None, vid_full=None, vid_int=None, vid_lin=None, vid_vsync=None,
+                      streamer_mode=None, cheat_enable=None):
     caminhos_possiveis = [
         os.path.join(install_path, "emu.cfg"),
         os.path.join(install_path, "data", "emu.cfg")
@@ -482,6 +525,15 @@ def atualizar_emu_cfg(install_path, roms_path=None, ra_enabled=None, ra_user=Non
     if discord_presence is not None: config.set('config', 'DiscordPresence', 'yes' if discord_presence else 'no')
     if show_osd_vmu is not None: config.set('config', 'ShowOsdVmu', 'yes' if show_osd_vmu else 'no')
     
+    if streamer_mode is not None:
+        if streamer_mode:
+            config.set('config', 'OsdMessages', 'no')
+        else:
+            config.set('config', 'OsdMessages', 'yes')
+
+    if cheat_enable is not None:
+        config.set('config', 'Cheat', 'yes' if cheat_enable else 'no')
+
     def _set_or_remove(sec, k, val):
         if val: config.set(sec, k, val.replace("/", "\\"))
         else:
@@ -524,15 +576,13 @@ def aplicar_auto_atualizacao(url_download, install_path, modo_gui=False, app_gui
     dir_atual = os.path.dirname(exe_atual)
     exe_novo = os.path.join(dir_atual, "FlycastUpdater_novo.exe")
     script_bat = os.path.join(dir_atual, "atualiza_updater.bat")
-    nome_exe = os.path.basename(exe_atual)
     
     if modo_gui and app_gui:
         app_gui.after(0, app_gui.label_status.configure, {"text": "Baixando nova versão do Atualizador...", "text_color": "orange"})
     
     try:
         urllib.request.urlretrieve(url_download, exe_novo)
-        
-        # Script BAT blindado com Loop de Espera (Wait Loop)
+        nome_exe = os.path.basename(exe_atual)
         conteudo_bat = f"""@echo off
 cd /d "{dir_atual}"
 :wait
@@ -546,13 +596,11 @@ start "" "{nome_exe}"
         with open(script_bat, "w", encoding="utf-8") as f:
             f.write(conteudo_bat)
             
-        # Executa o .bat forçando-o a usar o diretório correto como base
         subprocess.Popen(script_bat, shell=True, cwd=dir_atual)
-        
         if modo_gui and app_gui:
             app_gui.after(0, app_gui.destroy)
         time.sleep(0.5)
-        os._exit(0)  
+        os._exit(0)
     except Exception:
         if os.path.exists(exe_novo):
             os.remove(exe_novo)
@@ -649,9 +697,11 @@ def iniciar_gui():
             self.config_atual = carregar_configuracao()
             self.lang = self.config_atual.get("language", "pt")
             
-            self.title(f"🌀 Flycast Updater - v{VERSION} (Another Day Edition)")
-            self.geometry("640x960") 
-            self.resizable(False, False)
+            self.title(f"🌀 Flycast Updater - v{VERSION} (Director's Cut)")
+            self.geometry("660x980") 
+            self.minsize(660, 600)
+            self.resizable(True, True) 
+            
             self.token_ra_salvo = "" 
             self.bios_prompt_done = False
             self.fabricante_gpu = None
@@ -685,18 +735,22 @@ def iniciar_gui():
             self.tt_help = ToolTip(self.btn_help, self._("tt_help"))
 
             # --- SISTEMA DE ABAS ---
-            self.tabview = ctk.CTkTabview(self, width=600, height=660)
-            self.tabview.pack(pady=5, padx=20, fill="both", expand=True)
+            self.tabview = ctk.CTkTabview(self, width=620, height=680)
+            self.tabview.pack(pady=5, padx=15, fill="both", expand=True)
             
             self.tab_atualizador = self.tabview.add(self._("tab_cloud"))
+            self.tab_jogos = self.tabview.add(self._("tab_games", default="🕹️ Jogos")) 
             self.tab_config = self.tabview.add(self._("tab_emu"))
             self.tab_video = self.tabview.add(self._("tab_vid"))
+            self.tab_controles = self.tabview.add(self._("tab_ctrl", default="🎮 Controles"))
             self.tab_saves = self.tabview.add(self._("tab_saves"))
             self.tab_logs = self.tabview.add(self._("tab_logs"))
 
             self.construir_aba_nuvem()
+            self.construir_aba_jogos()   
             self.construir_aba_emulador()
             self.construir_aba_video()
+            self.construir_aba_controles()
             self.construir_aba_saves()
             self.construir_aba_logs()
 
@@ -709,7 +763,7 @@ def iniciar_gui():
             self.carregar_dados_atuais_emu_cfg()
 
             # --- PROGRESSO E STATUS GERAL ---
-            self.progressbar = ctk.CTkProgressBar(self, width=560)
+            self.progressbar = ctk.CTkProgressBar(self, width=580)
             self.progressbar.set(0)
             self.label_status = ctk.CTkLabel(self, text="...", text_color="cyan")
 
@@ -736,6 +790,7 @@ def iniciar_gui():
             self.atualizar_status_diretorio(self.entry_path.get())
             self.after(200, self.verificar_primeiro_acesso)
             self.after(800, self.carregar_gpus) 
+            self.after(1000, self.escanear_jogos) 
 
         def log(self, mensagem, bypass_console=False):
             try:
@@ -780,7 +835,7 @@ def iniciar_gui():
             # Aba Atualização
             self.label_path.configure(text=self._("lbl_path"))
             self.entry_path.configure(state="normal")
-            ToolTip(self.entry_path, self._("tt_path"))
+            if hasattr(self, 'tt_path'): self.tt_path.update_text(self._("tt_path"))
             self.entry_path.configure(state="readonly")
             self.btn_path.configure(text=self._("btn_browse"))
             self.label_branch.configure(text=self._("lbl_branch"))
@@ -789,12 +844,24 @@ def iniciar_gui():
             self.switch_desktop.configure(text=self._("sw_desk"))
             self.switch_startup.configure(text=self._("sw_start"))
             self.switch_nogui.configure(text=self._("sw_nogui"))
+            if hasattr(self, 'tt_nogui'): self.tt_nogui.update_text(self._("tt_nogui"))
             self.btn_reconfig.configure(text=self._("btn_reconfig"))
+            if hasattr(self, 'tt_reconfig'): self.tt_reconfig.update_text(self._("tt_reconfig"))
+
+            # Aba Jogos (v5.0)
+            self.label_games_title.configure(text=self._("lbl_games_title", default="Lançador de Jogos Rápido"))
+            self.label_games_desc.configure(text=self._("lbl_games_desc", default="Dê um duplo clique ou clique em 'Jogar' para iniciar a ROM instantaneamente."))
+            self.switch_cheats.configure(text=self._("sw_cheats", default="Ativar Cheats ao Iniciar (Widescreen Hacks / Trapaças)"))
+            self.btn_scan_games.configure(text=self._("btn_scan_games", default="🔄 Escanear Pasta de ROMs"))
 
             # Aba Emulador
             self.label_roms_title.configure(text=self._("lbl_roms"))
             self.btn_roms.configure(text=self._("btn_browse"))
+            if hasattr(self, 'tt_roms'): self.tt_roms.update_text(self._("tt_roms", default="Diretório raiz onde suas ROMs estão armazenadas."))
+            
             self.switch_custom_paths.configure(text=self._("sw_custom_paths"))
+            if hasattr(self, 'tt_custom_paths'): self.tt_custom_paths.update_text(self._("tt_custom_paths"))
+            
             self.lbl_bios_path.configure(text=self._("lbl_bios_path"))
             self.btn_bios_path.configure(text=self._("btn_browse"))
             self.lbl_vmu_path.configure(text=self._("lbl_vmu_path"))
@@ -803,11 +870,16 @@ def iniciar_gui():
             self.btn_state_path.configure(text=self._("btn_browse"))
             self.lbl_save_path.configure(text=self._("lbl_save_path"))
             self.btn_save_path.configure(text=self._("btn_browse"))
+            
             self.label_ra_title.configure(text=self._("lbl_ra"))
             self.switch_ra.configure(text=self._("sw_ra"))
+            if hasattr(self, 'tt_ra'): self.tt_ra.update_text(self._("tt_ra", default="Habilita conquistas (RetroAchievements) nos jogos suportados."))
+            
             self.lbl_ra_user.configure(text=self._("lbl_user"))
             self.lbl_ra_pass.configure(text=self._("lbl_pass"))
             self.switch_hardcore.configure(text=self._("sw_hard"))
+            if hasattr(self, 'tt_hardcore'): self.tt_hardcore.update_text(self._("tt_hardcore", default="Modo Hardcore: Desativa save states para pontuação dupla."))
+            
             self.label_qol_title.configure(text=self._("lbl_qol"))
             self.switch_vmu.configure(text=self._("sw_vmu"))
             self.switch_boxart.configure(text=self._("sw_box"))
@@ -815,6 +887,10 @@ def iniciar_gui():
             self.switch_discord.configure(text=self._("sw_disc"))
             self.switch_osd_vmu.configure(text=self._("sw_osd"))
             self.switch_vmu_sound.configure(text=self._("sw_vmu_snd"))
+            
+            self.switch_streamer.configure(text=self._("sw_streamer", default="Modo Criador de Conteúdo / Streamer"))
+            if hasattr(self, 'tt_streamer'): self.tt_streamer.update_text(self._("tt_streamer", default="Desativa notificações na tela e silencia o VMU para gravações limpas no OBS."))
+            
             self.btn_salvar_config_emu.configure(text=self._("btn_save_emu"))
 
             # Aba Vídeo e Hardware
@@ -835,6 +911,11 @@ def iniciar_gui():
             else:
                 self.lbl_hw_info.configure(text=self._("lbl_hw_search", default="🔎 Procurando placas de vídeo..."))
             self.btn_driver.configure(text=self._("btn_driver", default="🌐 Procurar Drivers Oficiais"))
+
+            # Aba Controles
+            self.label_ctrl_title.configure(text=self._("lbl_ctrl_title", default="Injeção de Perfis de Controle"))
+            self.label_ctrl_desc.configure(text=self._("lbl_ctrl_desc", default="Selecione o seu modelo de controle abaixo. O sistema irá gerar o arquivo\nde mapeamento (.cfg) e injetá-lo diretamente na pasta do emulador."))
+            self.btn_injetar_ctrl.configure(text=self._("btn_inject", default="💉 Injetar Perfil de Controle"))
 
             # Aba Saves
             self.label_cloud.configure(text=self._("lbl_cloud"))
@@ -931,6 +1012,322 @@ def iniciar_gui():
             else:
                 self.frame_custom_paths.pack_forget()
 
+        def ao_trocar_streamer(self):
+            if self.switch_streamer.get() == 1:
+                self.switch_osd_vmu.deselect()
+                self.switch_vmu_sound.deselect()
+                self.log("🎥 Modo Streamer ativado: OSD e sons do VMU desativados para uma gravação limpa.")
+
+        def ao_trocar_cheats(self):
+            if self.switch_cheats.get() == 1:
+                mb.showwarning("RetroAchievements", self._("msg_cheats_ra", default="⚠️ ATENÇÃO: Ativar os Cheats desabilitará a conquista de RetroAchievements nesta sessão de jogo!"), parent=self)
+
+        def construir_aba_jogos(self):
+            self.label_games_title = ctk.CTkLabel(self.tab_jogos, text=self._("lbl_games_title", default="Lançador de Jogos Rápido"), font=ctk.CTkFont(size=16, weight="bold"))
+            self.label_games_title.pack(anchor="w", padx=10, pady=(10, 2))
+
+            self.label_games_desc = ctk.CTkLabel(self.tab_jogos, text=self._("lbl_games_desc", default="Dê um duplo clique ou clique em 'Jogar' para iniciar a ROM instantaneamente."), text_color="gray", justify="left")
+            self.label_games_desc.pack(anchor="w", padx=10, pady=(0, 10))
+
+            self.frame_games_top = ctk.CTkFrame(self.tab_jogos, fg_color="transparent")
+            self.frame_games_top.pack(fill="x", padx=10, pady=5)
+
+            self.switch_cheats = ctk.CTkSwitch(self.frame_games_top, text=self._("sw_cheats", default="Ativar Cheats ao Iniciar (Widescreen Hacks / Trapaças)"), command=self.ao_trocar_cheats)
+            self.switch_cheats.pack(side="left")
+
+            self.btn_scan_games = ctk.CTkButton(self.frame_games_top, text=self._("btn_scan_games", default="🔄 Escanear Pasta de ROMs"), width=150, command=self.escanear_jogos)
+            self.btn_scan_games.pack(side="right")
+
+            self.frame_grid_games = ctk.CTkScrollableFrame(self.tab_jogos, width=580, height=450, corner_radius=10)
+            self.frame_grid_games.pack(fill="both", expand=True, padx=10, pady=(10, 5))
+
+        def baixar_capa_libretro(self, nome_jogo, boxart_dir, capa_lbl):
+            nome_busca = nome_jogo.replace("_", " ")
+            url_repo = f"https://raw.githubusercontent.com/libretro/libretro-thumbnails/master/Sega%20-%20Dreamcast/Named_Boxarts/{urllib.parse.quote(nome_busca)}.png"
+            destino = os.path.join(boxart_dir, f"{nome_jogo}.png")
+            
+            try:
+                os.makedirs(boxart_dir, exist_ok=True)
+                req = urllib.request.Request(url_repo, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=3) as response, open(destino, 'wb') as out_file:
+                    shutil.copyfileobj(response, out_file)
+                
+                if HAS_PIL and os.path.exists(destino):
+                    pil_img = Image.open(destino).resize((150, 150), Image.Resampling.LANCZOS)
+                    ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(150, 150))
+                    self.after(0, lambda: capa_lbl.configure(image=ctk_img, text=""))
+                    self.log(f"🖼️ Auto-Scraper: Capa de '{nome_jogo}' baixada com sucesso da nuvem!")
+            except Exception:
+                nome_limpo2 = re.sub(r'\(.*?\)|\[.*?\]', '', nome_busca).strip()
+                if nome_limpo2 and nome_limpo2 != nome_busca:
+                    url2 = f"https://raw.githubusercontent.com/libretro/libretro-thumbnails/master/Sega%20-%20Dreamcast/Named_Boxarts/{urllib.parse.quote(nome_limpo2)}.png"
+                    try:
+                        req = urllib.request.Request(url2, headers={'User-Agent': 'Mozilla/5.0'})
+                        with urllib.request.urlopen(req, timeout=3) as response, open(destino, 'wb') as out_file:
+                            shutil.copyfileobj(response, out_file)
+                        
+                        if HAS_PIL and os.path.exists(destino):
+                            pil_img = Image.open(destino).resize((150, 150), Image.Resampling.LANCZOS)
+                            ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(150, 150))
+                            self.after(0, lambda: capa_lbl.configure(image=ctk_img, text=""))
+                            self.log(f"🖼️ Auto-Scraper: Capa de '{nome_jogo}' baixada com sucesso (Nome simplificado)!")
+                    except Exception as e2:
+                        self.log(f"⚠️ Auto-Scraper falhou ao encontrar a arte para '{nome_jogo}'. Erro: {e2}")
+                        self.after(0, lambda: capa_lbl.configure(text="🎮\nFLYCAST"))
+                else:
+                    self.log(f"⚠️ Auto-Scraper não encontrou a capa para '{nome_jogo}'.")
+                    self.after(0, lambda: capa_lbl.configure(text="🎮\nFLYCAST"))
+
+        def monitorar_jogo(self, proc, nome_limpo):
+            inicio = time.time()
+            proc.wait() 
+            fim = time.time()
+            jogado_segundos = int(fim - inicio)
+            
+            if jogado_segundos > 10:
+                playtime_db = self.config_atual.setdefault("playtime", {})
+                total_jogado = playtime_db.get(nome_limpo, 0)
+                total_jogado += jogado_segundos
+                self.config_atual["playtime"][nome_limpo] = total_jogado
+                self.salvar_estado_atual()
+                self.log(f"⏱️ Playtime Tracker: Tempo de jogo atualizado para '{nome_limpo}': +{jogado_segundos}s (Total: {total_jogado}s)")
+                
+                self.after(0, self.escanear_jogos)
+
+        def lancar_jogo(self, rom_path, base_name=None):
+            install_path = self.entry_path.get()
+            flycast_exe = os.path.join(install_path, "flycast.exe")
+            
+            if not os.path.exists(flycast_exe):
+                self.log(f"❌ Erro ao lançar {os.path.basename(rom_path)}: O executável flycast.exe não foi encontrado na pasta atual.")
+                mb.showerror("Erro", "O emulador Flycast não foi encontrado. Instale-o primeiro na aba 'Atualização'.", parent=self)
+                return
+
+            usar_cheats = self.switch_cheats.get() == 1
+            if usar_cheats:
+                self.log("💉 Injetando Cheat=yes temporariamente no emu.cfg para esta sessão.")
+            
+            sucesso = atualizar_emu_cfg(install_path, cheat_enable=usar_cheats)
+            if not sucesso:
+                self.log("⚠️ Não foi possível alterar o arquivo emu.cfg antes de lançar o jogo.")
+
+            self.log(f"🚀 Iniciando jogo pelo Lançador: {os.path.basename(rom_path)}")
+            try:
+                proc = subprocess.Popen([flycast_exe, rom_path], cwd=install_path)
+                nome_track = base_name if base_name else os.path.splitext(os.path.basename(rom_path))[0]
+                
+                threading.Thread(target=self.monitorar_jogo, args=(proc, nome_track), daemon=True).start()
+            except Exception as e:
+                self.log(f"❌ Falha ao tentar executar o Flycast: {e}")
+                mb.showerror("Erro Crítico", f"Falha ao tentar abrir o jogo: {e}", parent=self)
+
+        def selecionar_disco(self, base_name, arquivos):
+            if len(arquivos) == 1:
+                self.lancar_jogo(arquivos[0], base_name)
+                return
+
+            top = ctk.CTkToplevel(self)
+            top.title(self._("lbl_select_disc", default="Selecionar Disco"))
+            top.geometry("400x300")
+            top.attributes("-topmost", True)
+            top.grab_set()
+
+            lbl = ctk.CTkLabel(top, text=self._("lbl_choose_disc", default="Este é um jogo multi-disco.\nEscolha qual disco deseja iniciar:"), font=ctk.CTkFont(weight="bold"))
+            lbl.pack(pady=15)
+
+            frame = ctk.CTkScrollableFrame(top, fg_color="transparent")
+            frame.pack(fill="both", expand=True, padx=20, pady=5)
+
+            for arq in sorted(arquivos):
+                nome_arq = os.path.basename(arq)
+                btn = ctk.CTkButton(frame, text=nome_arq, command=lambda a=arq: [top.destroy(), self.lancar_jogo(a, base_name)])
+                btn.pack(pady=5, fill="x")
+
+        def mostrar_info_jogo(self, base_name, nome_exibicao, db_info):
+            top = ctk.CTkToplevel(self)
+            top.title(self._("lbl_info_title", default="Informações do Jogo"))
+            top.geometry("550x450")
+            top.attributes("-topmost", True)
+
+            lbl_nome = ctk.CTkLabel(top, text=nome_exibicao, font=ctk.CTkFont(size=20, weight="bold"))
+            lbl_nome.pack(pady=(20, 5), padx=20, anchor="w")
+
+            if db_info:
+                data_lancamento = db_info.get("release_date", "")
+                overview = db_info.get("overview", "")
+            else:
+                data_lancamento = ""
+                overview = ""
+
+            if not data_lancamento:
+                data_lancamento = self._("lbl_unknown", default="Desconhecida")
+            if not overview:
+                overview = self._("msg_no_overview", default="Nenhuma descrição disponível no banco de dados do emulador.")
+
+            lbl_data = ctk.CTkLabel(top, text=f"{self._('lbl_release', default='Lançamento:')} {data_lancamento}", font=ctk.CTkFont(size=12, slant="italic"), text_color="gray")
+            lbl_data.pack(padx=20, anchor="w")
+
+            txt_desc = ctk.CTkTextbox(top, wrap="word", font=("Segoe UI", 13))
+            txt_desc.pack(fill="both", expand=True, padx=20, pady=20)
+            txt_desc.insert("1.0", overview)
+            txt_desc.configure(state="disabled")
+
+        def escanear_jogos(self):
+            for widget in self.frame_grid_games.winfo_children():
+                widget.destroy()
+
+            install_path = self.entry_path.get()
+            boxart_dir = os.path.join(install_path, "data", "boxart")
+
+            try:
+                roms_path = self.entry_roms.get()
+            except Exception:
+                roms_path = self.config_atual.get("Dreamcast.ContentPath", "")
+
+            if not roms_path or not os.path.exists(roms_path):
+                lbl = ctk.CTkLabel(self.frame_grid_games, text=self._("msg_no_games", default="Nenhum jogo de Dreamcast encontrado na pasta configurada."), font=ctk.CTkFont(size=14, slant="italic"), text_color="gray")
+                lbl.pack(pady=40)
+                self.log("⚠️ Scan de jogos abortado: Nenhuma pasta de ROMs válida configurada.")
+                return
+
+            extensoes_suportadas = ('.cdi', '.gdi', '.chd', '.cue')
+            jogos_fisicos = []
+            
+            try:
+                for f in os.listdir(roms_path):
+                    if f.lower().endswith(extensoes_suportadas):
+                        caminho_arquivo = os.path.join(roms_path, f)
+                        if os.path.getsize(caminho_arquivo) > 1024 * 1024: 
+                            jogos_fisicos.append(f)
+            except Exception as e:
+                self.log(f"❌ Erro ao ler pasta de ROMs: {e}")
+
+            if not jogos_fisicos:
+                lbl = ctk.CTkLabel(self.frame_grid_games, text=self._("msg_no_games", default="Nenhum jogo de Dreamcast encontrado na pasta configurada."), font=ctk.CTkFont(size=14, slant="italic"), text_color="gray")
+                lbl.pack(pady=40)
+                self.log(f"⚠️ Scan de jogos finalizado: Nenhum arquivo de Dreamcast válido detectado em {roms_path}")
+                return
+
+            jogos_agrupados = {}
+            padrao_disco = re.compile(r'(?i)\s*[\(\[-]?\s*disc\s*[0-9a-z]+\s*[\)\]]?')
+            
+            for jogo in jogos_fisicos:
+                nome_limpo = os.path.splitext(jogo)[0]
+                base_name = padrao_disco.sub('', nome_limpo).strip()
+                if base_name not in jogos_agrupados:
+                    jogos_agrupados[base_name] = []
+                jogos_agrupados[base_name].append(jogo)
+
+            db_path = os.path.join(boxart_dir, "flycast-gamedb.json")
+            game_db = {}
+            if os.path.exists(db_path):
+                try:
+                    with open(db_path, "r", encoding="utf-8") as f:
+                        db_data = json.load(f)
+                        for item in db_data:
+                            file_name = item.get("file_name")
+                            if file_name:
+                                game_db[file_name] = {
+                                    "boxart_path": item.get("boxart_path", ""),
+                                    "name": item.get("name", ""),
+                                    "overview": item.get("overview", ""),
+                                    "release_date": item.get("release_date", "")
+                                }
+                except Exception as e:
+                    self.log(f"⚠️ Erro ao ler flycast-gamedb.json: {e}")
+
+            self.log(f"🔎 Scan de jogos concluído: {len(jogos_agrupados)} título(s) único(s) detectado(s).")
+            
+            row, col = 0, 0
+            max_cols = 3 
+            playtime_db = self.config_atual.get("playtime", {})
+
+            for base_name in sorted(jogos_agrupados.keys()):
+                arquivos_jogo = [os.path.join(roms_path, f) for f in jogos_agrupados[base_name]]
+                jogo_ref = jogos_agrupados[base_name][0]
+                nome_limpo_ref = os.path.splitext(jogo_ref)[0]
+                
+                nome_exibicao = base_name
+                
+                card = ctk.CTkFrame(self.frame_grid_games, width=170, height=240, corner_radius=12, fg_color="#2b2b2b")
+                card.grid(row=row, column=col, padx=10, pady=10, sticky="n")
+                card.grid_propagate(False) 
+
+                capa_lbl = None
+                img_carregada = False
+                db_info = game_db.get(jogo_ref)
+
+                if HAS_PIL:
+                    caminhos_img = []
+                    if db_info:
+                        if db_info.get("name"):
+                            nome_exibicao = db_info["name"]
+                        if db_info.get("boxart_path"):
+                            caminhos_img.append(os.path.join(boxart_dir, db_info["boxart_path"]))
+                    
+                    caminhos_img.extend([
+                        os.path.join(boxart_dir, f"{jogo_ref}.png"),
+                        os.path.join(boxart_dir, f"{jogo_ref}.jpg"),
+                        os.path.join(boxart_dir, f"{nome_limpo_ref}.png"),
+                        os.path.join(boxart_dir, f"{nome_limpo_ref}.jpg"),
+                        os.path.join(roms_path, f"{nome_limpo_ref}.png"),
+                        os.path.join(roms_path, f"{nome_limpo_ref}.jpg")
+                    ])
+                    
+                    for img_p in caminhos_img:
+                        if os.path.exists(img_p):
+                            try:
+                                pil_img = Image.open(img_p)
+                                pil_img = pil_img.resize((150, 150), Image.Resampling.LANCZOS)
+                                ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(150, 150))
+                                capa_lbl = ctk.CTkLabel(card, image=ctk_img, text="")
+                                img_carregada = True
+                                break
+                            except Exception: pass
+
+                if not img_carregada:
+                    texto_download = self._("lbl_downloading_cover", default="🎮\n(Baixando Capa...)") if HAS_PIL else "🎮\nFLYCAST"
+                    capa_lbl = ctk.CTkLabel(card, text=texto_download, width=150, height=150, fg_color="#1a1a1a", corner_radius=8, font=ctk.CTkFont(size=14, weight="bold"))
+                    if HAS_PIL:
+                        threading.Thread(target=self.baixar_capa_libretro, args=(base_name, boxart_dir, capa_lbl), daemon=True).start()
+
+                capa_lbl.pack(pady=(10, 5), padx=10)
+                capa_lbl.bind("<Double-Button-1>", lambda e, b=base_name, a=arquivos_jogo: self.selecionar_disco(b, a))
+
+                nome_exibicao_curto = nome_exibicao[:18] + "..." if len(nome_exibicao) > 18 else nome_exibicao
+                lbl_nome = ctk.CTkLabel(card, text=nome_exibicao_curto, font=ctk.CTkFont(size=12, weight="bold"))
+                lbl_nome.pack(pady=(0, 2))
+                ToolTip(lbl_nome, nome_exibicao)
+
+                # --- Lógica do Playtime Tracker ---
+                total_segundos = playtime_db.get(base_name, 0)
+                horas = total_segundos // 3600
+                minutos = (total_segundos % 3600) // 60
+                
+                if horas > 0:
+                    str_tempo = f"{horas}h {minutos}m"
+                elif minutos > 0:
+                    str_tempo = f"{minutos}m"
+                else:
+                    str_tempo = self._("playtime_new", default="Novo") if total_segundos == 0 else self._("playtime_less_1m", default="< 1m")
+
+                lbl_tempo = ctk.CTkLabel(card, text=f"⏱️ {str_tempo}", font=ctk.CTkFont(size=10), text_color="gray")
+                lbl_tempo.pack(pady=(0, 2))
+
+                btn_frame = ctk.CTkFrame(card, fg_color="transparent")
+                btn_frame.pack(pady=(2, 10))
+
+                btn_play = ctk.CTkButton(btn_frame, text="▶️ Jogar", width=85, height=26, fg_color="#4169E1", hover_color="#1E90FF", command=lambda b=base_name, a=arquivos_jogo: self.selecionar_disco(b, a))
+                btn_play.pack(side="left", padx=(0, 5))
+
+                btn_info = ctk.CTkButton(btn_frame, text="ℹ️", width=26, height=26, fg_color="#555555", hover_color="#777777", command=lambda b=base_name, n=nome_exibicao, d=db_info: self.mostrar_info_jogo(b, n, d))
+                btn_info.pack(side="left")
+
+                col += 1
+                if col >= max_cols:
+                    col = 0
+                    row += 1
+
         def construir_aba_emulador(self):
             self.label_roms_title = ctk.CTkLabel(self.tab_config, text=self._("lbl_roms"), font=ctk.CTkFont(weight="bold"))
             self.label_roms_title.pack(anchor="w", padx=10, pady=(5, 2))
@@ -942,13 +1339,14 @@ def iniciar_gui():
             self.entry_roms = ctk.CTkEntry(self.frame_roms)
             self.entry_roms.grid(row=0, column=0, sticky="ew", padx=(0, 10))
             self.entry_roms.configure(state="readonly")
+            self.tt_roms = ToolTip(self.entry_roms, self._("tt_roms", default="Diretório raiz onde suas ROMs estão armazenadas."))
             
             self.btn_roms = ctk.CTkButton(self.frame_roms, text=self._("btn_browse"), width=80, command=self.escolher_diretorio_roms)
             self.btn_roms.grid(row=0, column=1)
 
             self.switch_custom_paths = ctk.CTkSwitch(self.tab_config, text=self._("sw_custom_paths"), command=self.toggle_custom_paths)
             self.switch_custom_paths.pack(anchor="w", padx=10, pady=(5, 5))
-            ToolTip(self.switch_custom_paths, self._("tt_custom_paths"))
+            self.tt_custom_paths = ToolTip(self.switch_custom_paths, self._("tt_custom_paths"))
 
             self.container_custom_paths = ctk.CTkFrame(self.tab_config, fg_color="transparent", height=0)
             self.container_custom_paths.pack(fill="x", padx=0, pady=0)
@@ -992,6 +1390,7 @@ def iniciar_gui():
 
             self.switch_ra = ctk.CTkSwitch(self.tab_config, text=self._("sw_ra"))
             self.switch_ra.pack(anchor="w", padx=10, pady=5)
+            self.tt_ra = ToolTip(self.switch_ra, self._("tt_ra", default="Habilita conquistas (RetroAchievements) nos jogos suportados."))
 
             self.frame_ra_cred = ctk.CTkFrame(self.tab_config, fg_color="transparent")
             self.frame_ra_cred.pack(fill="x", padx=10, pady=2)
@@ -1013,6 +1412,7 @@ def iniciar_gui():
 
             self.switch_hardcore = ctk.CTkSwitch(self.tab_config, text=self._("sw_hard"))
             self.switch_hardcore.pack(anchor="w", padx=10, pady=(5, 5))
+            self.tt_hardcore = ToolTip(self.switch_hardcore, self._("tt_hardcore", default="Modo Hardcore: Desativa save states para pontuação dupla."))
 
             self.frame_divisor2 = ctk.CTkFrame(self.tab_config, height=2, fg_color="#444")
             self.frame_divisor2.pack(fill="x", padx=10, pady=(5, 5))
@@ -1038,8 +1438,19 @@ def iniciar_gui():
             self.switch_vmu_sound = ctk.CTkSwitch(self.frame_qol, text=self._("sw_vmu_snd"))
             self.switch_vmu_sound.grid(row=2, column=1, sticky="w", pady=5)
 
+            # --- MODO STREAMER (v5.0) ---
             self.frame_divisor3 = ctk.CTkFrame(self.tab_config, height=2, fg_color="#444")
-            self.frame_divisor3.pack(fill="x", padx=10, pady=(15, 5))
+            self.frame_divisor3.pack(fill="x", padx=10, pady=(10, 5))
+
+            self.switch_streamer = ctk.CTkSwitch(self.tab_config, text=self._("sw_streamer", default="Modo Criador de Conteúdo / Streamer"), command=self.ao_trocar_streamer)
+            self.switch_streamer.pack(anchor="w", padx=10, pady=5)
+            self.tt_streamer = ToolTip(self.switch_streamer, self._("tt_streamer", default="Desativa notificações na tela e silencia o VMU para gravações limpas no OBS."))
+            
+            if self.config_atual.get("streamer_mode", False):
+                self.switch_streamer.select()
+
+            self.frame_divisor4 = ctk.CTkFrame(self.tab_config, height=2, fg_color="#444")
+            self.frame_divisor4.pack(fill="x", padx=10, pady=(15, 5))
 
             self.btn_salvar_config_emu = ctk.CTkButton(self.tab_config, text=self._("btn_save_emu"), width=280, height=35, font=ctk.CTkFont(weight="bold"), command=self.salvar_configuracoes_emulador)
             self.btn_salvar_config_emu.pack(anchor="center", pady=(10, 10))
@@ -1114,6 +1525,51 @@ def iniciar_gui():
             
             self.btn_driver = ctk.CTkButton(self.frame_hw, text=self._("btn_driver", default="🌐 Procurar Drivers Oficiais"), width=200, height=28, fg_color="#4169E1", hover_color="#1E90FF", command=self.abrir_site_driver, state="disabled")
             self.btn_driver.pack(anchor="w", padx=10, pady=(0, 5))
+
+        def construir_aba_controles(self):
+            # --- INJEÇÃO DE CONTROLES (v5.0) ---
+            self.label_ctrl_title = ctk.CTkLabel(self.tab_controles, text=self._("lbl_ctrl_title", default="Injeção de Perfis de Controle"), font=ctk.CTkFont(size=16, weight="bold"))
+            self.label_ctrl_title.pack(anchor="w", padx=10, pady=(15, 5))
+
+            self.label_ctrl_desc = ctk.CTkLabel(self.tab_controles, text=self._("lbl_ctrl_desc", default="Selecione o seu modelo de controle abaixo. O sistema irá gerar o arquivo\nde mapeamento (.cfg) e injetá-lo diretamente na pasta do emulador."), text_color="gray", justify="left")
+            self.label_ctrl_desc.pack(anchor="w", padx=10, pady=(0, 15))
+
+            self.frame_ctrl = ctk.CTkFrame(self.tab_controles, fg_color="transparent")
+            self.frame_ctrl.pack(fill="x", padx=10, pady=5)
+
+            self.combo_ctrl = ctk.CTkComboBox(self.frame_ctrl, values=list(PERFIS_CONTROLES.keys()), width=350, state="readonly")
+            self.combo_ctrl.pack(side="left", fill="x", expand=True, padx=(0, 10))
+            if list(PERFIS_CONTROLES.keys()):
+                self.combo_ctrl.set(list(PERFIS_CONTROLES.keys())[0])
+
+            self.btn_injetar_ctrl = ctk.CTkButton(self.tab_controles, text=self._("btn_inject", default="💉 Injetar Perfil de Controle"), width=280, height=35, font=ctk.CTkFont(weight="bold"), fg_color="#8B008B", hover_color="#A52A2A", command=self.injetar_controle)
+            self.btn_injetar_ctrl.pack(pady=(20, 10))
+
+        def injetar_controle(self):
+            controle_selecionado = self.combo_ctrl.get()
+            perfil = PERFIS_CONTROLES.get(controle_selecionado)
+            
+            if not perfil:
+                return
+
+            install_path = self.entry_path.get()
+            if not install_path or not os.path.exists(install_path):
+                mb.showerror("Erro", self._("msg_error"), parent=self)
+                return
+
+            mappings_dir = os.path.join(install_path, "mappings")
+            os.makedirs(mappings_dir, exist_ok=True)
+            
+            arquivo_destino = os.path.join(mappings_dir, perfil["arquivo"])
+            
+            try:
+                with open(arquivo_destino, "w", encoding="utf-8") as f:
+                    f.write(perfil["conteudo"])
+                self.log(f"🎮 Injeção: O arquivo de controle '{perfil['arquivo']}' foi criado em mappings/ com sucesso.")
+                mb.showinfo("Sucesso", self._("msg_inject_success", default=f"Perfil de controle '{controle_selecionado}' injetado com sucesso na pasta mappings!", controle=controle_selecionado), parent=self)
+            except Exception as e:
+                self.log(f"❌ Erro ao injetar o arquivo de controle: {e}")
+                mb.showerror("Erro", f"Erro: {e}", parent=self)
 
         def construir_aba_saves(self):
             self.label_cloud = ctk.CTkLabel(self.tab_saves, text=self._("lbl_cloud"), font=ctk.CTkFont(weight="bold", size=14))
@@ -1247,7 +1703,7 @@ def iniciar_gui():
             }
             if hasattr(self, 'fabricante_gpu') and self.fabricante_gpu in urls:
                 webbrowser.open(urls[self.fabricante_gpu])
-                mb.showinfo("Atualização de Driver", self._("msg_driver_suggest", default="O site oficial foi aberto no seu navegador.\n\nRecomendamos verificar se há uma versão mais recente e fazer o download diretamente pelo fabricante.", fabricante=self.fabricante_gpu.upper()), parent=self)
+                mb.showinfo("Atualização de Driver", self._("msg_driver_suggest", default="O site oficial foi aberto no seu navegador.\n\nRecomendamos verificar se há uma versão mais recente e fazer o download diretamente pelo fabricante."), parent=self)
 
         def carregar_logs(self):
             log_path = os.path.join(self.entry_path.get(), "flycast_updater.log")
@@ -1289,6 +1745,7 @@ def iniciar_gui():
             self.config_atual["language"] = self.lang
             self.config_atual["backup_mappings"] = self.switch_mappings.get() == 1
             self.config_atual["backup_limit"] = self.combo_limit.get()
+            self.config_atual["streamer_mode"] = getattr(self, "switch_streamer", ctk.BooleanVar(value=False)).get() == 1
             
             salvar_configuracao(self.config_atual)
 
@@ -1307,7 +1764,7 @@ def iniciar_gui():
             if not completo and not recusado:
                 self.log("🚀 Primeiro acesso detectado. Exibindo assistente de configuração.")
                 resposta = mb.askyesno(
-                    "Flycast Updater - v4.2 (Another Day Edition)",
+                    "Flycast Updater - v5.0 (Director's Cut)",
                     "Bem-vindo / Welcome!\n\nDeseja ajuda para configurar rapidamente a pasta de ROMs e o RetroAchievements agora?",
                     parent=self
                 )
@@ -1709,6 +2166,7 @@ def iniciar_gui():
                 self.entry_roms.insert(0, dir_escolhido)
                 self.entry_roms.configure(state="readonly")
                 self.log(f"📁 Pasta de ROMs definida para: {dir_escolhido}")
+                self.escanear_jogos()
 
         def salvar_configuracoes_emulador(self):
             install_path = self.entry_path.get()
@@ -1724,6 +2182,8 @@ def iniciar_gui():
             qol_discord = self.switch_discord.get() == 1
             qol_osd_vmu = self.switch_osd_vmu.get() == 1
             qol_vmu_sound = self.switch_vmu_sound.get() == 1
+
+            is_streamer = getattr(self, "switch_streamer", ctk.BooleanVar(value=False)).get() == 1
 
             use_custom = self.switch_custom_paths.get() == 1
             bios_p = self.entry_bios_path.get() if use_custom else ""
@@ -1757,7 +2217,8 @@ def iniciar_gui():
                 ra_enabled=ra_on, ra_user=ra_user, ra_pass=ra_token_final, ra_hardcore=ra_hard,
                 vmu_individual=qol_vmu, fetch_boxart=qol_boxart, vga_cable=qol_vga,
                 discord_presence=qol_discord, show_osd_vmu=qol_osd_vmu, vmu_sound=qol_vmu_sound,
-                bios_path=bios_p, vmu_path=vmu_p, state_path=state_p, save_path=save_p
+                bios_path=bios_p, vmu_path=vmu_p, state_path=state_p, save_path=save_p,
+                streamer_mode=is_streamer
             )
 
             self.config_atual["setup_completed"] = True

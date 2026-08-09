@@ -27,7 +27,6 @@ exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
-    a.zipfiles,
     a.datas,
     [],
     name='FlycastUpdater',
@@ -37,11 +36,12 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=False, # Dica: mude para False para esconder a tela preta do terminal quando abrir pelo executável
     disable_windowed_traceback=False,
+    argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='flycast_updater.ico',      
-    version='version_info.txt'       
+    icon='flycast_updater.ico',
+    version='version_info.txt'
 )
