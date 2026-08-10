@@ -2,6 +2,14 @@
        FLYCAST UPDATER - CHANGELOG
 ========================================
 
+Versão 5.1 (Official API & Global Expansion - Feature Update)
+----------------------------------------
+- **API Oficial do RetroAchievements:** Integração via REST API (`API_GetUserRecentlyPlayedGames.php`) substituindo o antigo scraping e contornando bloqueios de firewall/Cloudflare.
+- **Banco de Dados RAlocal.db:** O antigo cache local foi renomeado e expandido para armazenar dados completos por usuário (pontuações normais e hardcore, contagem de conquistas ganhas e totais).
+- **Exibição de Pontuação Real:** A interface dos cards de jogos agora exibe dinamicamente a pontuação oficial obtida em relação ao total possível do jogo (ex: 7/401 pts), respeitando o estado do Modo Hardcore.
+- **Janela de Ajuda da API Key:** Adicionado um botão de ajuda dedicado ("?") na aba de configurações do RetroAchievements com passo a passo ilustrado e redirecionamento direto para a aba de Aplicações no site oficial.
+- **Expansão Global para 20 Idiomas:** O sistema de internacionalização (i18n) foi modularizado para um arquivo externo (`idiomas.py`) e expandido para suportar 20 dos idiomas mais falados do mundo.
+
 Versão 5.0 (Director's Cut - Major Release)
 ----------------------------------------
 - **Lançador de Jogos Rápido (Mini-Frontend):** Nova aba "Jogos" com um design em grade (cards). O sistema escaneia sua pasta de ROMs e exibe os jogos com capas originais. Permite o lançamento instantâneo (via duplo clique) contornando a interface padrão do Flycast.
@@ -21,14 +29,15 @@ Versão 4.2 (Another Day Edition)
 
 Versão 4.1 (Another Day Edition - Major Release)
 ----------------------------------------
-- **Tradução em Tempo Real (i18n Dinâmico):** Ao alterar o idioma no menu superior, a interface gráfica é atualizada instantaneamente, eliminando a necessidade de reiniciar o aplicativo.[cite: 6]
-- **Cobertura Global Completa de Idiomas:** Todos os 10 idiomas suportados (PT-BR, EN-US, ES-ES, FR-FR, DE-DE, ZH-CN, JA-JP, RU-RU, AR-SA, HI-IN) foram totalmente preenchidos e revisados para contemplar todas as abas, botões, logs e opções avançadas.[cite: 6]
-- **Aviso Inteligente de Atualização do Launcher:** O sistema agora exibe um alerta claro e multilíngue quando uma nova versão do próprio *Flycast Updater* é detectada, informando que a ferramenta será atualizada em conjunto com o emulador.[cite: 6]
+- **Tradução em Tempo Real (i18n Dinâmico):** Ao alterar o idioma no menu superior, a interface gráfica é atualizada instantaneamente, eliminando a necessidade de reiniciar o aplicativo[cite: 6].
+- **Cobertura Global Completa de Idiomas:** Todos os idiomas suportados foram totalmente preenchidos e revisados para contemplar todas as abas, botões, logs e opções avançadas[cite: 6].
+- **Aviso Inteligente de Atualização do Launcher:** O sistema agora exibe um alerta claro e multilíngue quando uma nova versão do próprio *Flycast Updater* é detectada, informando que a ferramenta será atualizada em conjunto com o emulador[cite: 6].
 
 Versão 4.0 (Another Day Edition - Major Release)
 ----------------------------------------
-- **Internacionalização Global (i18n):** O Flycast Updater agora fala com o mundo! Suporte nativo e instantâneo para os 10 idiomas mais falados.[cite: 6]
-- **Assistente Inteligente de BIOS:** Novo motor autônomo que varre, detecta, auto-renomeia arquivos `.bin` incorretos e até extrai as BIOS diretamente de pacotes `.zip`.[cite: 6]
-- **Custom Paths Dinâmicos:** Suporte completo à configuração de pastas personalizadas para BIOS, VMU, Save States e Saves de Jogo.[cite: 6]
-- **Gerenciamento Passivo de Nuvem:** Implementado sistema de limite de armazenamento para os Cloud Saves com limpeza automática de arquivos antigos.[cite: 6]
-- **Super Logger Integrado (Aba de Logs):** Nova aba "Logs" adicionada à interface, atualizando em tempo real com todo o fluxo de diagnóstico e auditoria.[cite: 6]
+- **Internacionalização Global (i18n):** O Flycast Updater agora fala com o mundo! Suporte nativo e instantâneo para os idiomas globais[cite: 6].
+- **Assistente Inteligente de BIOS:** Novo motor autônomo que varre, detecta, auto-renomeia arquivos `.bin` incorretos e até extrai as BIOS diretamente de pacotes `.zip`[cite: 6].
+- **Custom Paths Dinâmicos:** Suporte completo à configuração de pastas personalizadas para BIOS, VMU, Save States e Saves de Jogo[cite: 6].
+- **Gerenciamento Passivo de Nuvem:** Implementado sistema de limite de armazenamento para os Cloud Saves com limpeza automática de arquivos antigos[cite: 6].
+- **Super Logger Integrado (Aba de Logs):** Nova aba "Logs" adicionada à interface, atualizando em tempo real com todo o fluxo de diagnóstico e auditoria[cite: 6].
+- **Semáforo Interativo de Status:** Verificação visual para status de updates das "Daily Builds" ou da branch "Master".
