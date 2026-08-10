@@ -26,6 +26,7 @@ TRANSLATIONS = {
         "sw_cheats": "Ativar Cheats ao Iniciar (Trapaças)", "btn_scan_games": "🔄 Escanear Pastas de ROMs", "msg_no_games": "Nenhum jogo suportado encontrado.",
         "msg_cheats_ra": "⚠️ ATENÇÃO: Ativar os Cheats desabilitará conquistas no RA!", "playtime_new": "Novo", "playtime_less_1m": "< 1m", "lbl_downloading_cover": "🎮\n(Baixando...)",
         "lbl_select_disc": "Selecionar Disco", "lbl_choose_disc": "Este é um jogo multi-disco.\nEscolha qual iniciar:", "lbl_info_title": "Informações do Jogo", "lbl_release": "Lançamento:", "lbl_unknown": "Desconhecida", "msg_no_overview": "Sem descrição.", "btn_add_path": "➕ Adicionar Pasta"
+        "title_bios_missing": "BIOS Ausente", "msg_bios_missing": "Os seguintes arquivos de BIOS estão faltando:\n- {files}\n\nDeseja procurá-los no seu computador (ou selecionar um .zip)?",
     },
     "en": {
         "title_sub": "Update, Cloud and Configuration Manager", "btn_help": "❔ About", "tab_cloud": "🚀 Update", "tab_emu": "⚙️ Emulator", "tab_qol": "🌟 QoL", "tab_vid": "🖥️ Video", "tab_ctrl": "🎮 Controllers", "tab_games": "🕹️ Games", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
@@ -50,6 +51,7 @@ TRANSLATIONS = {
         "sw_cheats": "Enable Cheats on Launch", "btn_scan_games": "🔄 Scan Folders", "msg_no_games": "No games found.",
         "msg_cheats_ra": "⚠️ WARNING: Cheats disable RA achievements!", "playtime_new": "New", "playtime_less_1m": "< 1m", "lbl_downloading_cover": "🎮\n(Downloading...)",
         "lbl_select_disc": "Select Disc", "lbl_choose_disc": "Multiple discs.\nChoose:", "lbl_info_title": "Game Info", "lbl_release": "Release:", "lbl_unknown": "Unknown", "msg_no_overview": "No description.", "btn_add_path": "➕ Add Folder"
+        "title_bios_missing": "Missing BIOS", "msg_bios_missing": "The following BIOS files are missing:\n- {files}\n\nWould you like to locate them on your computer (or select a .zip)?",
     },
     "es": {
         "title_sub": "Gestor de Actualizaciones, Nube y Configuración", "btn_help": "❔ Acerca de", "tab_cloud": "🚀 Actualizar", "tab_emu": "⚙️ Emulador", "tab_qol": "🌟 QoL", "tab_vid": "🖥️ Video", "tab_ctrl": "🎮 Controles", "tab_games": "🕹️ Juegos", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
