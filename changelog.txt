@@ -2,42 +2,56 @@
        FLYCAST UPDATER - CHANGELOG
 ========================================
 
-Versão 5.1 (Official API & Global Expansion - Feature Update)
+Versão 5.1 (Director's Cut - Official API & The Ultimate QoL Update)
 ----------------------------------------
-- **API Oficial do RetroAchievements:** Integração via REST API (`API_GetUserRecentlyPlayedGames.php`) substituindo o antigo scraping e contornando bloqueios de firewall/Cloudflare.
-- **Banco de Dados RAlocal.db:** O antigo cache local foi renomeado e expandido para armazenar dados completos por usuário (pontuações normais e hardcore, contagem de conquistas ganhas e totais).
-- **Exibição de Pontuação Real:** A interface dos cards de jogos agora exibe dinamicamente a pontuação oficial obtida em relação ao total possível do jogo (ex: 7/401 pts), respeitando o estado do Modo Hardcore.
-- **Janela de Ajuda da API Key:** Adicionado um botão de ajuda dedicado ("?") na aba de configurações do RetroAchievements com passo a passo ilustrado e redirecionamento direto para a aba de Aplicações no site oficial.
-- **Expansão Global para 20 Idiomas:** O sistema de internacionalização (i18n) foi modularizado para um arquivo externo (`idiomas.py`) e expandido para suportar 20 dos idiomas mais falados do mundo.
+- **API Oficial do RetroAchievements:** Integração via REST API (`API_GetUserRecentlyPlayedGames.php`) substituindo o antigo scraping e contornando bloqueios de firewall/Cloudflare[cite: 8].
+- **Banco de Dados RAlocal.db:** O antigo cache local foi renomeado e expandido para armazenar dados completos por usuário (pontuações normais e hardcore, contagem de conquistas ganhas e totais)[cite: 8].
+- **Exibição de Pontuação Real:** A interface dos cards de jogos agora exibe dinamicamente a pontuação oficial obtida em relação ao total possível do jogo (ex: 7/401 pts), respeitando o estado do Modo Hardcore[cite: 8].
+- **Janela de Ajuda da API Key:** Adicionado um botão de ajuda dedicado ("?") na aba de configurações do RetroAchievements com passo a passo ilustrado e redirecionamento direto para a aba de Aplicações no site oficial[cite: 8].
+- **Expansão Global para 20 Idiomas:** O sistema de internacionalização (i18n) foi modularizado para um arquivo externo (`idiomas.py`) e expandido para suportar 20 dos idiomas mais falados do mundo[cite: 8].
+- **Dashboard Gamer:** Placar global de estatísticas fixado no topo da aba Jogos, somando o total de horas jogadas e a pontuação consolidada do RetroAchievements.
+- **Barra de Pesquisa em Tempo Real:** Motor de filtro instantâneo que organiza os cards dos jogos enquanto o usuário digita.
+- **Agrupamento Inteligente de Biblioteca:** O sistema agora funde automaticamente versões duplicadas de regiões (USA, Japan, Europe) num único card, permitindo a seleção da ROM no momento do clique.
+- **Gerenciador Visual de Save States:** A janela de informações agora possui uma galeria de imagens horizontal que resgata as "fotos" automáticas tiradas pelos Save States, mostrando data, hora e tamanho do arquivo.
+- **Diário de Bordo do Criador:** Aba de Bloco de Notas dedicada por jogo para redigir roteiros, scripts e registrar timestamps para vídeos, salvos nativamente no banco de dados local.
+- **Sistema de Coleções (Favoritos):** Adicionado suporte para favoritar jogos com uma estrela (⭐) e um botão de filtro master para exibir apenas o acervo selecionado.
+- **A Platina da SEGA:** O motor reconhece contas que atingiram 100% de conquistas (Mastered) e substitui o placar padrão por um reluzente "🌀 PLATINA" em Azul SEGA.
+- **Backup Cloud de Configurações:** Nova arquitetura na aba de Saves que permite fazer backup e restaurar não só saves, mas também o `emu.cfg`, `config.json` e `RAlocal.db` direto no Google Drive ou OneDrive com recarregamento dinâmico da UI.
+- **Modo Streamer Profissional:** 
+  - *Integração OBS:* Gera arquivos de texto (`jogo_atual.txt`, `tempo_jogado.txt`, `pontos_ra.txt`) para leitura dinâmica em overlays de stream.
+  - *Anti-Leak (Privacidade):* Sobreposição holográfica oculta o nome de usuário e os caminhos de diretórios privados durante a gravação.
+  - *Widget Chroma Key:* Gera uma janela verde limpa e sem bordas exibindo a capa do jogo e as estatísticas, ideal para capturas de janela.
+- **Auto-Ocultar (Clean Desktop):** O Launcher agora desaparece automaticamente ao iniciar qualquer jogo, mantendo a Área de Trabalho limpa, e ressurge magicamente ao fechar a emulação.
+- **Motor Multithread e Info de Desenvolvedora:** As capas são baixadas simultaneamente sem travar a interface, e o sistema consulta a API do RA para descobrir e exibir a empresa desenvolvedora oficial de cada título.
 
 Versão 5.0 (Director's Cut - Major Release)
 ----------------------------------------
-- **Lançador de Jogos Rápido (Mini-Frontend):** Nova aba "Jogos" com um design em grade (cards). O sistema escaneia sua pasta de ROMs e exibe os jogos com capas originais. Permite o lançamento instantâneo (via duplo clique) contornando a interface padrão do Flycast.
-- **Auto-Scraper de Capas na Nuvem:** Integração nativa e gratuita com o repositório Libretro. Se a capa do jogo não for encontrada localmente, o utilitário fará o download silencioso da arte em plano de fundo.
-- **Detecção de Múltiplos Discos (Regex Engine):** O scanner de ROMs agrupa automaticamente jogos de vários discos sob uma única capa (ex: Shenmue, Resident Evil). Ao lançar o título, um pop-up minimalista permite escolher qual disco injetar no emulador.
-- **Playtime Tracker (Estatísticas):** O sistema agora monitora os processos do emulador, cronometra suas jogatinas e exibe o tempo total acumulado diretamente na capa de cada jogo.
-- **Injeção de Perfis de Controle (Auto-Mapping):** Nova aba "Controles" permite a criação e injeção instantânea (com 1 clique) de arquivos `.cfg` pré-mapeados para Xbox, PlayStation e 8BitDo diretamente na pasta `mappings` do emulador.
-- **Injeção de Cheats & Widescreen Hacks:** O frontend ganhou uma chave "Mestre dos Códigos". Ao ativá-la, o lançador prepara o `emu.cfg` para ativar *Widescreen Hacks* e *Cheats* antes do boot, exibindo um alerta dinâmico de bloqueio de conquistas.
-- **Janela de Informações e Overview:** Um botão inteligente "ℹ️" nos cards captura a descrição completa (`overview`) e a data de lançamento diretamente do banco de dados do Flycast (`flycast-gamedb.json`) e exibe em um painel elegante.
-- **Layout Livre:** O bloqueio de janela foi removido, permitindo agora a maximização e o redimensionamento fluido para melhorar a experiência em telas UltraWide e 4K.
+- **Lançador de Jogos Rápido (Mini-Frontend):** Nova aba "Jogos" com um design em grade (cards). O sistema escaneia sua pasta de ROMs e exibe os jogos com capas originais. Permite o lançamento instantâneo (via duplo clique) contornando a interface padrão do Flycast[cite: 8].
+- **Auto-Scraper de Capas na Nuvem:** Integração nativa e gratuita com o repositório Libretro. Se a capa do jogo não for encontrada localmente, o utilitário fará o download silencioso da arte em plano de fundo[cite: 8].
+- **Detecção de Múltiplos Discos (Regex Engine):** O scanner de ROMs agrupa automaticamente jogos de vários discos sob uma única capa (ex: Shenmue, Resident Evil). Ao lançar o título, um pop-up minimalista permite escolher qual disco injetar no emulador[cite: 8].
+- **Playtime Tracker (Estatísticas):** O sistema agora monitora os processos do emulador, cronometra suas jogatinas e exibe o tempo total acumulado diretamente na capa de cada jogo[cite: 8].
+- **Injeção de Perfis de Controle (Auto-Mapping):** Nova aba "Controles" permite a criação e injeção instantânea (com 1 clique) de arquivos `.cfg` pré-mapeados para Xbox, PlayStation e 8BitDo diretamente na pasta `mappings` do emulador[cite: 8].
+- **Injeção de Cheats & Widescreen Hacks:** O frontend ganhou uma chave "Mestre dos Códigos". Ao ativá-la, o lançador prepara o `emu.cfg` para ativar *Widescreen Hacks* e *Cheats* antes do boot, exibindo um alerta dinâmico de bloqueio de conquistas[cite: 8].
+- **Janela de Informações e Overview:** Um botão inteligente "ℹ️" nos cards captura a descrição completa (`overview`) e a data de lançamento diretamente do banco de dados do Flycast (`flycast-gamedb.json`) e exibe em um painel elegante[cite: 8].
+- **Layout Livre:** O bloqueio de janela foi removido, permitindo agora a maximização e o redimensionamento fluido para melhorar a experiência em telas UltraWide e 4K[cite: 8].
 
 Versão 4.2 (Another Day Edition)
 ----------------------------------------
-- **Detecção de Hardware Gráfico:** Nova seção na aba de Vídeo que identifica automaticamente todas as placas de vídeo (integradas e dedicadas) utilizando varredura silenciosa via PowerShell.
-- **Sugestão Inteligente de Drivers:** O sistema reconhece a fabricante da GPU (NVIDIA, AMD ou Intel) e habilita um botão com link direto para a página oficial de download de drivers, sugerindo a atualização de forma amigável.
-- **Layout Dinâmico para Múltiplas GPUs:** A interface insere separadores visuais elegantes automaticamente e ajusta o espaçamento quando o usuário possui mais de uma placa de vídeo (comum em notebooks).
+- **Detecção de Hardware Gráfico:** Nova seção na aba de Vídeo que identifica automaticamente todas as placas de vídeo (integradas e dedicadas) utilizando varredura silenciosa via PowerShell[cite: 8].
+- **Sugestão Inteligente de Drivers:** O sistema reconhece a fabricante da GPU (NVIDIA, AMD ou Intel) e habilita um botão com link direto para a página oficial de download de drivers, sugerindo a atualização de forma amigável[cite: 8].
+- **Layout Dinâmico para Múltiplas GPUs:** A interface insere separadores visuais elegantes automaticamente e ajusta o espaçamento quando o usuário possui mais de uma placa de vídeo (comum em notebooks)[cite: 8].
 
 Versão 4.1 (Another Day Edition - Major Release)
 ----------------------------------------
-- **Tradução em Tempo Real (i18n Dinâmico):** Ao alterar o idioma no menu superior, a interface gráfica é atualizada instantaneamente, eliminando a necessidade de reiniciar o aplicativo[cite: 6].
-- **Cobertura Global Completa de Idiomas:** Todos os idiomas suportados foram totalmente preenchidos e revisados para contemplar todas as abas, botões, logs e opções avançadas[cite: 6].
-- **Aviso Inteligente de Atualização do Launcher:** O sistema agora exibe um alerta claro e multilíngue quando uma nova versão do próprio *Flycast Updater* é detectada, informando que a ferramenta será atualizada em conjunto com o emulador[cite: 6].
+- **Tradução em Tempo Real (i18n Dinâmico):** Ao alterar o idioma no menu superior, a interface gráfica é atualizada instantaneamente, eliminando a necessidade de reiniciar o aplicativo[cite: 8].
+- **Cobertura Global Completa de Idiomas:** Todos os idiomas suportados foram totalmente preenchidos e revisados para contemplar todas as abas, botões, logs e opções avançadas[cite: 8].
+- **Aviso Inteligente de Atualização do Launcher:** O sistema agora exibe um alerta claro e multilíngue quando uma nova versão do próprio *Flycast Updater* é detectada, informando que a ferramenta será atualizada em conjunto com o emulador[cite: 8].
 
 Versão 4.0 (Another Day Edition - Major Release)
 ----------------------------------------
-- **Internacionalização Global (i18n):** O Flycast Updater agora fala com o mundo! Suporte nativo e instantâneo para os idiomas globais[cite: 6].
-- **Assistente Inteligente de BIOS:** Novo motor autônomo que varre, detecta, auto-renomeia arquivos `.bin` incorretos e até extrai as BIOS diretamente de pacotes `.zip`[cite: 6].
-- **Custom Paths Dinâmicos:** Suporte completo à configuração de pastas personalizadas para BIOS, VMU, Save States e Saves de Jogo[cite: 6].
-- **Gerenciamento Passivo de Nuvem:** Implementado sistema de limite de armazenamento para os Cloud Saves com limpeza automática de arquivos antigos[cite: 6].
-- **Super Logger Integrado (Aba de Logs):** Nova aba "Logs" adicionada à interface, atualizando em tempo real com todo o fluxo de diagnóstico e auditoria[cite: 6].
-- **Semáforo Interativo de Status:** Verificação visual para status de updates das "Daily Builds" ou da branch "Master".
+- **Internacionalização Global (i18n):** O Flycast Updater agora fala com o mundo! Suporte nativo e instantâneo para os idiomas globais[cite: 8].
+- **Assistente Inteligente de BIOS:** Novo motor autônomo que varre, detecta, auto-renomeia arquivos `.bin` incorretos e até extrai as BIOS diretamente de pacotes `.zip`[cite: 8].
+- **Custom Paths Dinâmicos:** Suporte completo à configuração de pastas personalizadas para BIOS, VMU, Save States e Saves de Jogo[cite: 8].
+- **Gerenciamento Passivo de Nuvem:** Implementado sistema de limite de armazenamento para os Cloud Saves com limpeza automática de arquivos antigos[cite: 8].
+- **Super Logger Integrado (Aba de Logs):** Nova aba "Logs" adicionada à interface, atualizando em tempo real com todo o fluxo de diagnóstico e auditoria[cite: 8].
+- **Semáforo Interativo de Status:** Verificação visual para status de updates das "Daily Builds" ou da branch "Master"[cite: 8].

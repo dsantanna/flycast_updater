@@ -3,6 +3,7 @@ import tkinter as tk
 import tkinter.messagebox as mb
 import webbrowser 
 from idiomas import TRANSLATIONS
+from collections.abc import MutableMapping
 
 try: import cloud_saves
 except ImportError: cloud_saves = None
@@ -177,8 +178,13 @@ class ToolTip:
         self.tooltip_window = None
         self.widget.bind("<Enter>", self.show_tooltip)
         self.widget.bind("<Leave>", self.hide_tooltip)
-    def update_text(self, new_text): self.text = new_text
+        
+    def update_text(self, new_text): 
+        self.text = new_text
+        
     def show_tooltip(self, event=None):
+        if self.tooltip_window or not self.text: 
+            return
         try:
             if self.widget.cget("state") == "disabled" and "Rollback" not in self.text and "não detectado" not in self.text: return 
         except Exception: pass
@@ -187,8 +193,10 @@ class ToolTip:
         self.tooltip_window = tw = tk.Toplevel(self.widget)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
+        tw.attributes("-topmost", True) # <--- GARANTE QUE FIQUE NA FRENTE
         label = tk.Label(tw, text=self.text, justify='left', background="#2b2b2b", foreground="#ffffff", relief='solid', borderwidth=1, font=("Segoe UI", 9, "normal"), padx=8, pady=4)
         label.pack(ipadx=1)
+        
     def hide_tooltip(self, event=None):
         if self.tooltip_window:
             self.tooltip_window.destroy()
@@ -226,7 +234,7 @@ def iniciar_gui():
             self.config_atual = carregar_configuracao()
             self.lang = self.config_atual.get("language", "pt")
             
-            self.title(f"🌀 Flycast Updater - v{VERSION}")
+            self.title(f"🌀 Flycast Updater - v{VERSION} (Director's Cut)")
             self.geometry("800x980") 
             self.minsize(800, 600)
             self.resizable(True, True) 
@@ -238,7 +246,36 @@ def iniciar_gui():
             self.bios_prompt_done = False
             self.fabricante_gpu = None
             self.rom_paths_list = []
-            self.ra_labels = {} 
+            # ra_labels holds mapping: base_name -> (label_widget, display_name)
+            class ra_labels(MutableMapping):
+                def __init__(self): self._data = {}
+                def __getitem__(self, k): return self._data[k]
+                def __setitem__(self, k, v):
+                    # ensure value is tuple (label, name)
+                    if isinstance(v, (list, tuple)) and len(v) >= 2:
+                        self._data[k] = (v[0], v[1])
+                    else:
+                        raise ValueError('ra_labels values must be (label_widget, display_name)')
+                def __delitem__(self, k): del self._data[k]
+                def __iter__(self): return iter(self._data)
+                def __len__(self): return len(self._data)
+                def items(self): return self._data.items()
+                def keys(self): return self._data.keys()
+                def values(self): return self._data.values()
+                def get(self, k, default=None): return self._data.get(k, default)
+                def clear(self): self._data.clear()
+                def update_label(self, base_name, text, color=None):
+                    v = self._data.get(base_name)
+                    if not v: return False
+                    lbl = v[0]
+                    try:
+                        if color is not None: lbl.configure(text=text, text_color=color)
+                        else: lbl.configure(text=text)
+                        return True
+                    except Exception:
+                        return False
+
+            self.ra_labels = ra_labels()
 
             self.frame_header = ctk.CTkFrame(self, fg_color="transparent")
             self.frame_header.pack(fill="x", padx=20, pady=(15, 0))
@@ -250,26 +287,17 @@ def iniciar_gui():
             self.frame_top_right = ctk.CTkFrame(self.frame_header, fg_color="transparent")
             self.frame_top_right.place(relx=1.0, rely=0.0, anchor="ne")
             self.lang_map = {
-                "Português (BR)": "pt",
-                "English (US)": "en",
-                "Español (ES)": "es",
-                "Français (FR)": "fr",
-                "Deutsch (DE)": "de",
-                "Italiano (IT)": "it",
-                "日本語 (JA)": "ja",
-                "简体中文 (ZH)": "zh",
-                "Русский (RU)": "ru",
-                "العربية (AR)": "ar",
-                "हिन्दी (HI)": "hi",
-                "한국어 (KO)": "ko",
-                "Polski (PL)": "pl",
-                "Nederlands (NL)": "nl",
-                "Türkçe (TR)": "tr",
-                "Svenska (SV)": "sv",
-                "Bahasa Indonesia (ID)": "id",
-                "ภาษาไทย (TH)": "th",
-                "Tiếng Việt (VI)": "vi",
-                "Ελληνικά (EL)": "el"
+                "Português (BR)": "pt", "English (US)": "en", "Español (ES)": "es", "Français (FR)": "fr","Deutsch (DE)": "de","Italiano (IT)": "it", "日本語 (JA)": "ja", "简体中文 (ZH)": "zh", "Русский (RU)": "ru", "العربية (AR)": "ar"
+                #"हिन्दी (HI)": "hi",
+                #"한국어 (KO)": "ko",
+                #"Polski (PL)": "pl",
+                #"Nederlands (NL)": "nl",
+                #"Türkçe (TR)": "tr",
+                #"Svenska (SV)": "sv",
+                #"Bahasa Indonesia (ID)": "id",
+                #"ภาษาไทย (TH)": "th",
+                #"Tiếng Việt (VI)": "vi",
+                #"Ελληνικά (EL)": "el"
             }
             self.rev_lang_map = {v: k for k, v in self.lang_map.items()}
 
@@ -443,7 +471,7 @@ def iniciar_gui():
 
             self.frame_path = ctk.CTkFrame(self.tab_atualizador, fg_color="transparent")
             self.frame_path.pack(fill="x", padx=10, pady=(0, 10))
-            self.frame_path.columnconfigure(0, weight=1)
+            self.frame_path.columnconfigure(0, weight=1) 
 
             self.entry_path = ctk.CTkEntry(self.frame_path)
             self.entry_path.grid(row=0, column=0, sticky="ew", padx=(0, 10))
@@ -458,13 +486,11 @@ def iniciar_gui():
             self.branch_var = ctk.StringVar(value=self.config_atual.get("branch", "dev").lower())
             self.frame_branches = ctk.CTkFrame(self.tab_atualizador, fg_color="transparent")
             self.frame_branches.pack(fill="x", padx=10, pady=(0, 10))
-            self.frame_branches.columnconfigure(0, weight=1)
-            self.frame_branches.columnconfigure(1, weight=1)
 
             self.rb_dev = ctk.CTkRadioButton(self.frame_branches, text="Branch Dev", font=ctk.CTkFont(weight="bold"), variable=self.branch_var, value="dev", command=self.ao_trocar_branch)
-            self.rb_dev.grid(row=0, column=0, sticky="w", padx=(0, 10))
+            self.rb_dev.grid(row=0, column=0, sticky="w", padx=(0, 50))
             self.lbl_dev_desc = ctk.CTkLabel(self.frame_branches, text=self._("rb_dev_desc"), text_color="gray", font=ctk.CTkFont(size=11), justify="left")
-            self.lbl_dev_desc.grid(row=1, column=0, sticky="nw", padx=(28, 0))
+            self.lbl_dev_desc.grid(row=1, column=0, sticky="nw", padx=(28, 50))
 
             self.rb_master = ctk.CTkRadioButton(self.frame_branches, text="Branch Master", font=ctk.CTkFont(weight="bold"), variable=self.branch_var, value="master", command=self.ao_trocar_branch)
             self.rb_master.grid(row=0, column=1, sticky="w", padx=(0, 10))
@@ -501,32 +527,254 @@ def iniciar_gui():
             if self.switch_custom_paths.get() == 1: self.frame_custom_paths.pack(fill="x", padx=10, pady=(5, 5))
             else: self.frame_custom_paths.pack_forget()
 
+        # --- SISTEMA HOLOGRÁFICO DE PRIVACIDADE (ANTI-LEAK) ---
+        def toggle_privacy_overlay(self, entry_widget, enable, texto="[ Caminho Protegido - Anti-Leak ]"):
+            if not hasattr(self, 'overlays'): self.overlays = {}
+            if enable:
+                if entry_widget not in self.overlays:
+                    overlay = ctk.CTkLabel(entry_widget.master, text=texto, fg_color="#1a1a1a", text_color="#00FF7F", corner_radius=6, font=ctk.CTkFont(weight="bold"))
+                    self.overlays[entry_widget] = overlay
+                self.overlays[entry_widget].place(in_=entry_widget, relx=0, rely=0, relwidth=1, relheight=1)
+            else:
+                if hasattr(self, 'overlays') and entry_widget in self.overlays:
+                    self.overlays[entry_widget].place_forget()
+
         def ao_trocar_streamer(self):
-            if getattr(self, "switch_streamer", ctk.BooleanVar(value=False)).get() == 1:
+            is_streamer = getattr(self, "switch_streamer", ctk.BooleanVar(value=False)).get() == 1
+            if is_streamer:
                 self.switch_osd_vmu.deselect()
                 self.switch_vmu_sound.deselect()
-                self.log("🎥 Modo Streamer ativado: OSD e sons desativados.")
+                self.toggle_privacy_overlay(self.entry_path, True)
+                self.toggle_privacy_overlay(self.entry_bios_path, True)
+                self.toggle_privacy_overlay(self.entry_vmu_path, True)
+                self.toggle_privacy_overlay(self.entry_state_path, True)
+                self.toggle_privacy_overlay(self.entry_save_path, True)
+                self.toggle_privacy_overlay(self.entry_ra_user, True, "[ Usuário Protegido ]")
+                self.log("🎥 Modo Streamer Ativo: OBS Data, Widget Chroma e Privacidade (Anti-Leak) LIGADOS.")
+            else:
+                self.toggle_privacy_overlay(self.entry_path, False)
+                self.toggle_privacy_overlay(self.entry_bios_path, False)
+                self.toggle_privacy_overlay(self.entry_vmu_path, False)
+                self.toggle_privacy_overlay(self.entry_state_path, False)
+                self.toggle_privacy_overlay(self.entry_save_path, False)
+                self.toggle_privacy_overlay(self.entry_ra_user, False)
+                self.log("🎥 Modo Streamer Desativado.")
+        
+        def monitorar_jogo(self, proc, nome_jogo):
+            inicio = time.time()
+            proc.wait() 
+            fim = time.time()
+            jogado_segundos = int(fim - inicio)
+
+            # GLOBAL: Restaura a janela do Launcher quando o jogo é fechado
+            self.after(0, self.deiconify)
+
+            # STREAMER: Destrói o Widget Chroma Key ao fechar o jogo
+            if hasattr(self, 'widget_chroma') and self.widget_chroma.winfo_exists():
+                self.after(0, self.widget_chroma.destroy)
+
+            if jogado_segundos > 10:
+                install_path = self.entry_path.get()
+                db_ra_path = os.path.join(install_path, "RAlocal.db")
+                ra_db = {}
+                if os.path.exists(db_ra_path):
+                    try:
+                        with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                    except Exception: pass
+                
+                playtime_db = ra_db.setdefault("_Playtime_", {})
+                playtime_antigo = self.config_atual.get("playtime", {})
+                
+                if playtime_antigo:
+                    for k, v in playtime_antigo.items():
+                        if k not in playtime_db: playtime_db[k] = v
+                    self.config_atual["playtime"] = {} 
+                    self.salvar_estado_atual()
+
+                playtime_db[nome_jogo] = playtime_db.get(nome_jogo, 0) + jogado_segundos
+                
+                try:
+                    with open(db_ra_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+                except Exception: pass
+                
+                self.log(f"⏱️ Playtime Tracker: Tempo atualizado para '{nome_jogo}': +{jogado_segundos}s")
+                self.after(0, self.escanear_jogos)
+
+        def lancar_jogo(self, rom_path, nome_jogo=None):
+            install_path = self.entry_path.get()
+            flycast_exe = os.path.join(install_path, "flycast.exe")
+            if not os.path.exists(flycast_exe):
+                mb.showerror("Erro", "O emulador Flycast não foi encontrado.", parent=self)
+                return
+            usar_cheats = self.switch_cheats.get() == 1
+            atualizar_emu_cfg(install_path, cheat_enable=usar_cheats)
+            self.log(f"🚀 Iniciando jogo: {os.path.basename(rom_path)}")
+
+            nome_track = nome_jogo if nome_jogo else os.path.splitext(os.path.basename(rom_path))[0]
+            is_streamer = getattr(self, "switch_streamer", ctk.BooleanVar(value=False)).get() == 1
+
+            if is_streamer:
+                # 1. Integração OBS (Now Playing Text Files)
+                stream_dir = os.path.join(install_path, "StreamData")
+                os.makedirs(stream_dir, exist_ok=True)
+
+                usuario = self.entry_ra_user.get().strip()
+                db_ra_path = os.path.join(install_path, "RAlocal.db")
+                ra_db = {}
+                if os.path.exists(db_ra_path):
+                    try:
+                        with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                    except Exception: pass
+
+                is_hardcore = getattr(self, "switch_hardcore", ctk.BooleanVar(value=False)).get() == 1
+                user_db = ra_db.get(usuario, {})
+                data_ra = user_db.get(nome_track, {})
+                pts = data_ra.get('score_hc', '0') if is_hardcore else data_ra.get('score', '0')
+                tot = data_ra.get('total_score', '0')
+                str_ra = f"🏆 {pts}/{tot} pts"
+
+                playtime_db = ra_db.get("_Playtime_", {})
+                total_segundos = playtime_db.get(nome_track, 0)
+                horas, minutos = total_segundos // 3600, (total_segundos % 3600) // 60
+                str_tempo = f"⏱️ {horas}h {minutos}m" if horas > 0 else (f"⏱️ {minutos}m" if minutos > 0 else "⏱️ < 1m")
+
+                try:
+                    with open(os.path.join(stream_dir, "jogo_atual.txt"), "w", encoding="utf-8") as f: f.write(nome_track)
+                    with open(os.path.join(stream_dir, "tempo_jogado.txt"), "w", encoding="utf-8") as f: f.write(str_tempo)
+                    with open(os.path.join(stream_dir, "pontos_ra.txt"), "w", encoding="utf-8") as f: f.write(str_ra)
+                except Exception: pass
+
+                # 3. Mini-Widget Chroma Key
+                self.widget_chroma = ctk.CTkToplevel(self)
+                self.widget_chroma.title("Chroma Key Widget")
+                self.widget_chroma.geometry("380x120+50+50") # Aparece no canto superior esquerdo
+                self.widget_chroma.attributes("-topmost", True)
+                self.widget_chroma.overrideredirect(True) # Remove bordas do Windows
+                self.widget_chroma.configure(fg_color="#00FF00") # Fundo Verde Chroma
+                
+                boxart_dir = os.path.join(install_path, "data", "boxart")
+                caminhos_img = [os.path.join(boxart_dir, f"{nome_track}.png"), os.path.join(boxart_dir, f"{nome_track}.jpg")]
+                img_to_use = next((p for p in caminhos_img if os.path.exists(p)), None)
+                
+                frame_w = ctk.CTkFrame(self.widget_chroma, fg_color="#00FF00", corner_radius=0)
+                frame_w.pack(fill="both", expand=True, padx=10, pady=10)
+
+                if img_to_use and HAS_PIL:
+                    try:
+                        pil_img = Image.open(img_to_use).resize((100, 100), Image.Resampling.LANCZOS)
+                        ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(100, 100))
+                        lbl_c = ctk.CTkLabel(frame_w, image=ctk_img, text="")
+                        lbl_c.pack(side="left", padx=(0, 15))
+                    except: pass
+                
+                frame_t = ctk.CTkFrame(frame_w, fg_color="#00FF00", corner_radius=0)
+                frame_t.pack(side="left", fill="both", expand=True)
+
+                lbl_nw = ctk.CTkLabel(frame_t, text=nome_track, font=ctk.CTkFont(size=18, weight="bold"), text_color="white", anchor="w")
+                lbl_nw.pack(fill="x", pady=(5, 5))
+                lbl_rw = ctk.CTkLabel(frame_t, text=str_ra, font=ctk.CTkFont(size=14, weight="bold"), text_color="yellow", anchor="w")
+                lbl_rw.pack(fill="x")
+                lbl_tw = ctk.CTkLabel(frame_t, text=str_tempo, font=ctk.CTkFont(size=14, weight="bold"), text_color="cyan", anchor="w")
+                lbl_tw.pack(fill="x")
+
+            # GLOBAL: Auto-Ocultar (Clean Desktop)
+            self.withdraw()
+
+            try:
+                proc = subprocess.Popen([flycast_exe, rom_path], cwd=install_path)
+                threading.Thread(target=self.monitorar_jogo, args=(proc, nome_track), daemon=True).start()
+            except Exception as e:
+                self.deiconify() # Restaura se der erro ao abrir
+                if is_streamer and hasattr(self, 'widget_chroma'): self.widget_chroma.destroy()
+                mb.showerror("Erro Crítico", f"Falha ao abrir jogo: {e}", parent=self)
 
         def ao_trocar_cheats(self):
             if self.switch_cheats.get() == 1:
                 mb.showwarning("RetroAchievements", self._("msg_cheats_ra"), parent=self)
 
+        def toggle_filtro_favoritos(self):
+            self.show_favorites_only = not getattr(self, "show_favorites_only", False)
+            cor = "#FFD700" if self.show_favorites_only else "gray"
+            self.btn_filter_fav.configure(text_color=cor, border_color=cor)
+            self.escanear_jogos()
+
+        def toggle_favorito(self, nome_jogo, btn_widget):
+            install_path = self.entry_path.get()
+            db_ra_path = os.path.join(install_path, "RAlocal.db")
+            ra_db = {}
+            if os.path.exists(db_ra_path):
+                try:
+                    with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                except Exception: pass
+            
+            favs = ra_db.setdefault("_Favorites_", [])
+            if nome_jogo in favs:
+                favs.remove(nome_jogo)
+                btn_widget.configure(text_color="gray")
+            else:
+                favs.append(nome_jogo)
+                btn_widget.configure(text_color="#FFD700")
+                
+            try:
+                with open(db_ra_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+            except Exception: pass
+
+        def salvar_notas_jogo(self, nome_jogo, text_widget, btn_widget):
+            nota = text_widget.get("1.0", "end-1c")
+            install_path = self.entry_path.get()
+            db_ra_path = os.path.join(install_path, "RAlocal.db")
+            ra_db = {}
+            if os.path.exists(db_ra_path):
+                try:
+                    with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                except Exception: pass
+            
+            notas_db = ra_db.setdefault("_UserNotes_", {})
+            notas_db[nome_jogo] = nota
+            try:
+                with open(db_ra_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+            except Exception: pass
+            
+            btn_widget.configure(text="✔️ Salvo!", fg_color="#228B22")
+            self.after(2000, lambda: btn_widget.configure(text="💾 Salvar Notas", fg_color="#1E90FF"))
+
         def construir_aba_jogos(self):
             self.label_games_title = ctk.CTkLabel(self.tab_jogos, text=self._("lbl_games_title"), font=ctk.CTkFont(size=16, weight="bold"))
             self.label_games_title.pack(anchor="w", padx=10, pady=(10, 2))
             self.label_games_desc = ctk.CTkLabel(self.tab_jogos, text=self._("lbl_games_desc"), text_color="gray", justify="left")
-            self.label_games_desc.pack(anchor="w", padx=10, pady=(0, 10))
-            
+            self.label_games_desc.pack(anchor="w", padx=10, pady=(0, 5))
+
+            self.frame_dashboard = ctk.CTkFrame(self.tab_jogos, fg_color="#1a1a1a", corner_radius=10)
+            self.frame_dashboard.pack(fill="x", padx=10, pady=(0, 5))
+            self.frame_dashboard.columnconfigure(0, weight=1)
+            self.frame_dashboard.columnconfigure(1, weight=1)
+
+            self.lbl_dash_tempo = ctk.CTkLabel(self.frame_dashboard, text="⏱️ Tempo Total: 0h 0m", font=ctk.CTkFont(size=14, weight="bold"), text_color="#1E90FF")
+            self.lbl_dash_tempo.grid(row=0, column=0, pady=10, padx=10, sticky="w")
+
+            self.lbl_dash_ra = ctk.CTkLabel(self.frame_dashboard, text="🏆 Total RA: 0 pts", font=ctk.CTkFont(size=14, weight="bold"), text_color="#00FF7F")
+            self.lbl_dash_ra.grid(row=0, column=1, pady=10, padx=10, sticky="e")
+
             self.frame_games_top = ctk.CTkFrame(self.tab_jogos, fg_color="transparent")
-            self.frame_games_top.pack(fill="x", padx=10, pady=5)
+            self.frame_games_top.pack(fill="x", padx=10, pady=0)
+
             self.switch_cheats = ctk.CTkSwitch(self.frame_games_top, text=self._("sw_cheats"), command=self.ao_trocar_cheats)
             self.switch_cheats.pack(side="left")
-            self.btn_scan_games = ctk.CTkButton(self.frame_games_top, text=self._("btn_scan_games"), width=150, command=self.escanear_jogos)
-            self.btn_scan_games.pack(side="right")
-            
-            self.frame_grid_games = ctk.CTkScrollableFrame(self.tab_jogos, width=580, height=450, corner_radius=10)
-            self.frame_grid_games.pack(fill="both", expand=True, padx=10, pady=(10, 5))
 
+            self.btn_filter_fav = ctk.CTkButton(self.frame_games_top, text="⭐", width=30, fg_color="transparent", border_width=1, text_color="gray", command=self.toggle_filtro_favoritos)
+            self.btn_filter_fav.pack(side="left", padx=(15, 0))
+            self.show_favorites_only = False
+
+            self.btn_scan_games = ctk.CTkButton(self.frame_games_top, text=self._("btn_scan_games"), width=120, command=self.escanear_jogos)
+            self.btn_scan_games.pack(side="right", padx=(10, 0))
+
+            self.entry_busca_jogos = ctk.CTkEntry(self.frame_games_top, placeholder_text="🔍 Buscar jogo...", width=160)
+            self.entry_busca_jogos.pack(side="right")
+            self.entry_busca_jogos.bind("<KeyRelease>", lambda e: self.escanear_jogos())
+
+            self.frame_grid_games = ctk.CTkScrollableFrame(self.tab_jogos, width=580, height=330, corner_radius=10)
+            self.frame_grid_games.pack(fill="both", expand=True, padx=10, pady=(5, 5))
+        
         def baixar_capa_libretro(self, nome_jogo, boxart_dir, capa_lbl):
             nome_busca = nome_jogo.replace("_", " ")
             url_repo = f"https://raw.githubusercontent.com/libretro/libretro-thumbnails/master/Sega%20-%20Dreamcast/Named_Boxarts/{urllib.parse.quote(nome_busca)}.png"
@@ -562,7 +810,6 @@ def iniciar_gui():
             is_hardcore = getattr(self, "switch_hardcore", ctk.BooleanVar(value=False)).get() == 1
             tag_modo = " (Hardcore)" if is_hardcore else ""
 
-            # NOVO NOME: RAlocal.db
             db_path = os.path.join(self.entry_path.get(), "RAlocal.db")
             ra_db = {}
             if os.path.exists(db_path):
@@ -579,8 +826,15 @@ def iniciar_gui():
                     if data:
                         pts = data.get('score_hc', '0') if is_hardcore else data.get('score', '0')
                         tot = data.get('total_score', '0')
-                        texto = f"🏆 {pts}/{tot} pts{tag_modo}"
-                        cor = "gray" if pts == "0" else "#00FF7F"
+                        ach = int(data.get('achieved_hc', '0')) if is_hardcore else int(data.get('achieved', '0'))
+                        tot_ach = int(data.get('total_achievements', '0'))
+                        
+                        if ach == tot_ach and tot_ach > 0:
+                            texto = f"🌀 PLATINA{tag_modo}"
+                            cor = "#00BFFF"
+                        else:
+                            texto = f"🏆 {pts}/{tot} pts{tag_modo}"
+                            cor = "gray" if pts == "0" else "#00FF7F"
                     else:
                         texto = f"🏆 Não Iniciado{tag_modo}"
                         cor = "gray"
@@ -602,7 +856,6 @@ def iniciar_gui():
                     title = game.get("Title", "")
                     if not title: continue
                     
-                    # Salva TUDO no RAlocal.db de forma estruturada e correta
                     achieved = str(game.get("NumAchieved", "0"))
                     achieved_hc = str(game.get("NumAchievedHardcore", "0"))
                     total_ach = str(game.get("NumPossibleAchievements", "0"))
@@ -637,8 +890,15 @@ def iniciar_gui():
                     if data:
                         pts = data.get('score_hc', '0') if is_hardcore else data.get('score', '0')
                         tot = data.get('total_score', '0')
-                        texto = f"🏆 {pts}/{tot} pts{tag_modo}"
-                        cor = "gray" if pts == "0" else "#00FF7F"
+                        ach = int(data.get('achieved_hc', '0')) if is_hardcore else int(data.get('achieved', '0'))
+                        tot_ach = int(data.get('total_achievements', '0'))
+                        
+                        if ach == tot_ach and tot_ach > 0:
+                            texto = f"🌀 PLATINA{tag_modo}"
+                            cor = "#00BFFF"
+                        else:
+                            texto = f"🏆 {pts}/{tot} pts{tag_modo}"
+                            cor = "gray" if pts == "0" else "#00FF7F"
                     else:
                         texto = f"🏆 Não Iniciado{tag_modo}"
                         cor = "gray"
@@ -653,29 +913,102 @@ def iniciar_gui():
                     if data:
                         pts = data.get('score_hc', '0') if is_hardcore else data.get('score', '0')
                         tot = data.get('total_score', '0')
-                        texto = f"🏆 {pts}/{tot} pts{tag_modo}"
-                        cor = "gray" if pts == "0" else "#00FF7F"
+                        ach = int(data.get('achieved_hc', '0')) if is_hardcore else int(data.get('achieved', '0'))
+                        tot_ach = int(data.get('total_achievements', '0'))
+                        
+                        if ach == tot_ach and tot_ach > 0:
+                            texto = f"🌀 PLATINA{tag_modo}"
+                            cor = "#00BFFF"
+                        else:
+                            texto = f"🏆 {pts}/{tot} pts{tag_modo}"
+                            cor = "gray" if pts == "0" else "#00FF7F"
                     else:
                         texto = f"🏆 Não Iniciado{tag_modo}"
                         cor = "gray"
                     try: self.after(0, lambda l=lbl, t=texto, c=cor: l.configure(text=t, text_color=c))
                     except Exception: pass
 
-        def monitorar_jogo(self, proc, nome_limpo):
+        def buscar_empresa_ra(self, base_name, lbl_empresa):
+            usuario = self.entry_ra_user.get().strip()
+            api_key = self.config_atual.get("ra_api_key", "").strip()
+            
+            install_path = self.entry_path.get()
+            db_ra_path = os.path.join(install_path, "RAlocal.db")
+            ra_db = {}
+            if os.path.exists(db_ra_path):
+                try:
+                    with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                except Exception: pass
+            
+            info_db = ra_db.setdefault("_GameInfo_", {})
+            if base_name in info_db:
+                self.after(0, lambda: lbl_empresa.configure(text=f"Empresa: {info_db[base_name]}"))
+                return
+                
+            if not usuario or not api_key: return 
+            
+            try:
+                game_id = None
+                nome_busca = base_name.lower().replace(" (usa)", "").replace(" (europe)", "").replace(" (japan)", "").strip()
+                
+                # 32 = Dreamcast, 27 = Arcade (Naomi/Atomiswave)
+                for console_id in [32, 27]:
+                    if game_id: break
+                    url_list = f"https://retroachievements.org/API/API_GetGameList.php?z={urllib.parse.quote(usuario)}&y={api_key}&i={console_id}"
+                    req = urllib.request.Request(url_list, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
+                    with urllib.request.urlopen(req, timeout=5) as response:
+                        lista = json.loads(response.read().decode('utf-8'))
+                    
+                    for game in lista:
+                        if nome_busca in game.get("Title", "").lower() or game.get("Title", "").lower() in nome_busca:
+                            game_id = game.get("ID")
+                            break
+                
+                if game_id:
+                    url_game = f"https://retroachievements.org/API/API_GetGame.php?z={urllib.parse.quote(usuario)}&y={api_key}&i={game_id}"
+                    req2 = urllib.request.Request(url_game, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
+                    with urllib.request.urlopen(req2, timeout=5) as response2:
+                        dados_jogo = json.loads(response2.read().decode('utf-8'))
+                        empresa = dados_jogo.get("Developer", dados_jogo.get("Publisher", ""))
+                        if empresa:
+                            info_db[base_name] = empresa
+                            with open(db_ra_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+                            self.after(0, lambda: lbl_empresa.configure(text=f"Empresa: {empresa}"))
+            except Exception: pass
+        
+        def monitorar_jogo(self, proc, nome_jogo):
             inicio = time.time()
             proc.wait() 
             fim = time.time()
             jogado_segundos = int(fim - inicio)
             if jogado_segundos > 10:
-                playtime_db = self.config_atual.setdefault("playtime", {})
-                total_jogado = playtime_db.get(nome_limpo, 0)
-                total_jogado += jogado_segundos
-                self.config_atual["playtime"][nome_limpo] = total_jogado
-                self.salvar_estado_atual()
-                self.log(f"⏱️ Playtime Tracker: Tempo atualizado para '{nome_limpo}': +{jogado_segundos}s")
+                install_path = self.entry_path.get()
+                db_ra_path = os.path.join(install_path, "RAlocal.db")
+                ra_db = {}
+                if os.path.exists(db_ra_path):
+                    try:
+                        with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                    except Exception: pass
+                
+                playtime_db = ra_db.setdefault("_Playtime_", {})
+                playtime_antigo = self.config_atual.get("playtime", {})
+                
+                if playtime_antigo:
+                    for k, v in playtime_antigo.items():
+                        if k not in playtime_db: playtime_db[k] = v
+                    self.config_atual["playtime"] = {} 
+                    self.salvar_estado_atual()
+
+                playtime_db[nome_jogo] = playtime_db.get(nome_jogo, 0) + jogado_segundos
+                
+                try:
+                    with open(db_ra_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+                except Exception: pass
+                
+                self.log(f"⏱️ Playtime Tracker: Tempo atualizado para '{nome_jogo}': +{jogado_segundos}s")
                 self.after(0, self.escanear_jogos)
 
-        def lancar_jogo(self, rom_path, base_name=None):
+        def lancar_jogo(self, rom_path, nome_jogo=None):
             install_path = self.entry_path.get()
             flycast_exe = os.path.join(install_path, "flycast.exe")
             if not os.path.exists(flycast_exe):
@@ -686,52 +1019,302 @@ def iniciar_gui():
             self.log(f"🚀 Iniciando jogo: {os.path.basename(rom_path)}")
             try:
                 proc = subprocess.Popen([flycast_exe, rom_path], cwd=install_path)
-                nome_track = base_name if base_name else os.path.splitext(os.path.basename(rom_path))[0]
+                nome_track = nome_jogo if nome_jogo else os.path.splitext(os.path.basename(rom_path))[0]
                 threading.Thread(target=self.monitorar_jogo, args=(proc, nome_track), daemon=True).start()
             except Exception as e:
                 mb.showerror("Erro Crítico", f"Falha ao abrir jogo: {e}", parent=self)
 
-        def selecionar_disco(self, base_name, arquivos):
+        def selecionar_disco(self, nome_jogo, arquivos):
             if len(arquivos) == 1:
-                self.lancar_jogo(arquivos[0], base_name)
+                self.lancar_jogo(arquivos[0], nome_jogo)
                 return
             top = ctk.CTkToplevel(self)
-            top.title(self._("lbl_select_disc"))
-            top.geometry("400x300")
+            top.title("Selecionar Versão / Disco")
+            top.geometry("450x300")
             top.attributes("-topmost", True)
             top.grab_set()
-            lbl = ctk.CTkLabel(top, text=self._("lbl_choose_disc"), font=ctk.CTkFont(weight="bold"))
+            lbl = ctk.CTkLabel(top, text="Este jogo possui múltiplas versões ou discos.\nEscolha qual iniciar:", font=ctk.CTkFont(weight="bold"))
             lbl.pack(pady=15)
             frame = ctk.CTkScrollableFrame(top, fg_color="transparent")
             frame.pack(fill="both", expand=True, padx=20, pady=5)
             for arq in sorted(arquivos):
                 nome_arq = os.path.basename(arq)
-                btn = ctk.CTkButton(frame, text=nome_arq, command=lambda a=arq: [top.destroy(), self.lancar_jogo(a, base_name)])
+                btn = ctk.CTkButton(frame, text=nome_arq, command=lambda a=arq: [top.destroy(), self.lancar_jogo(a, nome_jogo)])
                 btn.pack(pady=5, fill="x")
 
-        def mostrar_info_jogo(self, base_name, nome_exibicao, db_info):
+        def buscar_empresa_ra(self, nome_jogo, lbl_empresa):
+            usuario = self.entry_ra_user.get().strip()
+            api_key = self.config_atual.get("ra_api_key", "").strip()
+            
+            install_path = self.entry_path.get()
+            db_ra_path = os.path.join(install_path, "RAlocal.db")
+            ra_db = {}
+            if os.path.exists(db_ra_path):
+                try:
+                    with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                except Exception: pass
+            
+            info_db = ra_db.setdefault("_GameInfo_", {})
+            if nome_jogo in info_db:
+                self.after(0, lambda: lbl_empresa.configure(text=f"Empresa: {info_db[nome_jogo]}"))
+                return
+                
+            if not usuario or not api_key: return 
+            
+            try:
+                game_id = None
+                nome_busca = re.sub(r'\(.*?\)|\[.*?\]', '', nome_jogo).strip().lower()
+                
+                # 32 = Dreamcast, 27 = Arcade (Naomi/Atomiswave)
+                for console_id in [32, 27]:
+                    if game_id: break
+                    url_list = f"https://retroachievements.org/API/API_GetGameList.php?z={urllib.parse.quote(usuario)}&y={api_key}&i={console_id}"
+                    req = urllib.request.Request(url_list, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
+                    with urllib.request.urlopen(req, timeout=5) as response:
+                        lista = json.loads(response.read().decode('utf-8'))
+                    
+                    for game in lista:
+                        if nome_busca in game.get("Title", "").lower() or game.get("Title", "").lower() in nome_busca:
+                            game_id = game.get("ID")
+                            break
+                
+                if game_id:
+                    url_game = f"https://retroachievements.org/API/API_GetGame.php?z={urllib.parse.quote(usuario)}&y={api_key}&i={game_id}"
+                    req2 = urllib.request.Request(url_game, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
+                    with urllib.request.urlopen(req2, timeout=5) as response2:
+                        dados_jogo = json.loads(response2.read().decode('utf-8'))
+                        empresa = dados_jogo.get("Developer", dados_jogo.get("Publisher", ""))
+                        if empresa:
+                            info_db[nome_jogo] = empresa
+                            with open(db_ra_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+                            self.after(0, lambda: lbl_empresa.configure(text=f"Empresa: {empresa}"))
+            except Exception: pass
+
+        def mostrar_info_jogo(self, nome_jogo, db_info):
             top = ctk.CTkToplevel(self)
             top.title(self._("lbl_info_title"))
-            top.geometry("550x450")
+            top.geometry("680x660")
             top.attributes("-topmost", True)
-            lbl_nome = ctk.CTkLabel(top, text=nome_exibicao, font=ctk.CTkFont(size=20, weight="bold"))
-            lbl_nome.pack(pady=(20, 5), padx=20, anchor="w")
-            data_lancamento = db_info.get("release_date", "") if db_info else ""
+            top.grab_set()
+
+            install_path = self.entry_path.get()
+            boxart_dir = os.path.join(install_path, "data", "boxart")
+
+            frame_header_top = ctk.CTkFrame(top, fg_color="transparent")
+            frame_header_top.pack(fill="x", padx=20, pady=(20, 10))
+
+            frame_capa = ctk.CTkFrame(frame_header_top, fg_color="transparent")
+            frame_capa.pack(side="left", padx=(0, 15))
+
+            if HAS_PIL:
+                caminhos_img = []
+                if db_info and db_info.get("boxart_path"):
+                    caminhos_img.append(os.path.join(boxart_dir, db_info["boxart_path"]))
+                caminhos_img.extend([
+                    os.path.join(boxart_dir, f"{nome_jogo}.png"), os.path.join(boxart_dir, f"{nome_jogo}.jpg")
+                ])
+                
+                capa_encontrada = False
+                for img_p in caminhos_img:
+                    if os.path.exists(img_p):
+                        try:
+                            pil_img = Image.open(img_p).resize((100, 100), Image.Resampling.LANCZOS)
+                            ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(100, 100))
+                            lbl_capa = ctk.CTkLabel(frame_capa, image=ctk_img, text="")
+                            lbl_capa.pack()
+                            capa_encontrada = True
+                            break
+                        except Exception: pass
+                
+                if not capa_encontrada:
+                    lbl_capa_placeholder = ctk.CTkLabel(frame_capa, text="🎮", width=100, height=100, fg_color="#1a1a1a", corner_radius=8, font=ctk.CTkFont(size=30))
+                    lbl_capa_placeholder.pack()
+
+            frame_titulo_data = ctk.CTkFrame(frame_header_top, fg_color="transparent")
+            frame_titulo_data.pack(side="left", fill="both", expand=True)
+
+            lbl_nome = ctk.CTkLabel(frame_titulo_data, text=nome_jogo, font=ctk.CTkFont(size=20, weight="bold"), anchor="w", justify="left")
+            lbl_nome.pack(fill="x", pady=(5, 2))
+
+            data_bruta = db_info.get("release_date", "") if db_info else ""
+            if data_bruta and len(data_bruta) == 10 and data_bruta.count("-") == 2:
+                partes = data_bruta.split("-")
+                data_formatada = f"{partes[2]}/{partes[1]}/{partes[0]}"
+            else:
+                data_formatada = data_bruta if data_bruta else self._("lbl_unknown")
+
+            lbl_data = ctk.CTkLabel(frame_titulo_data, text=f"{self._('lbl_release')} {data_formatada}", font=ctk.CTkFont(size=12, slant="italic"), text_color="gray", anchor="w")
+            lbl_data.pack(fill="x")
+            
+            lbl_empresa = ctk.CTkLabel(frame_titulo_data, text=f"Empresa: {self._('lbl_unknown')}", font=ctk.CTkFont(size=12, slant="italic"), text_color="gray", anchor="w")
+            lbl_empresa.pack(fill="x")
+            threading.Thread(target=self.buscar_empresa_ra, args=(nome_jogo, lbl_empresa), daemon=True).start()
+
+            frame_stats = ctk.CTkFrame(frame_header_top, fg_color="#1a1a1a", corner_radius=8)
+            frame_stats.pack(side="right", anchor="center", padx=(10, 0), ipadx=10, ipady=8)
+
+            lbl_stats_title = ctk.CTkLabel(frame_stats, text="RetroAchievements", font=ctk.CTkFont(size=10, weight="bold"), text_color="gray")
+            lbl_stats_title.pack(anchor="center", pady=(0, 5))
+
+            usuario = self.entry_ra_user.get().strip()
+            db_ra_path = os.path.join(install_path, "RAlocal.db")
+            ra_db = {}
+            if os.path.exists(db_ra_path):
+                try:
+                    with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                except Exception: pass
+            
+            user_db = ra_db.get(usuario, {})
+            is_hardcore = getattr(self, "switch_hardcore", ctk.BooleanVar(value=False)).get() == 1
+            tag_modo = " (HC)" if is_hardcore else ""
+            
+            data_ra = user_db.get(nome_jogo)
+            if data_ra:
+                pts = data_ra.get('score_hc', '0') if is_hardcore else data_ra.get('score', '0')
+                tot = data_ra.get('total_score', '0')
+                ach = int(data_ra.get('achieved_hc', '0')) if is_hardcore else int(data_ra.get('achieved', '0'))
+                tot_ach = int(data_ra.get('total_achievements', '0'))
+                
+                if ach == tot_ach and tot_ach > 0:
+                    str_ra = f"🌀 PLATINA{tag_modo}"
+                    cor_ra = "#00BFFF"
+                else:
+                    str_ra = f"🏆 {pts}/{tot} pts{tag_modo}"
+                    cor_ra = "gray" if pts == "0" else "#00FF7F"
+            else:
+                str_ra = "🏆 0/0 pts"
+                cor_ra = "gray"
+
+            playtime_db = ra_db.get("_Playtime_", {})
+            total_segundos = playtime_db.get(nome_jogo, 0)
+            
+            horas, minutos = total_segundos // 3600, (total_segundos % 3600) // 60
+            if horas > 0: str_tempo = f"⏱️ {horas}h {minutos}m"
+            elif minutos > 0: str_tempo = f"⏱️ {minutos}m"
+            else: str_tempo = f"⏱️ {self._('playtime_new', default='Novo')}"
+
+            lbl_stat_ra = ctk.CTkLabel(frame_stats, text=str_ra, font=ctk.CTkFont(size=13, weight="bold"), text_color=cor_ra)
+            lbl_stat_ra.pack(anchor="center", pady=(0, 5))
+
+            lbl_stat_tempo = ctk.CTkLabel(frame_stats, text=str_tempo, font=ctk.CTkFont(size=12, weight="bold"), text_color="#1E90FF")
+            lbl_stat_tempo.pack(anchor="center", pady=(0, 0))
+
+            tabview_info = ctk.CTkTabview(top, height=360)
+            tabview_info.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+            tab_geral = tabview_info.add("Geral & Saves")
+            tab_notas = tabview_info.add("📝 Diário de Bordo")
+
             overview = db_info.get("overview", "") if db_info else ""
-            if not data_lancamento: data_lancamento = self._("lbl_unknown")
             if not overview: overview = self._("msg_no_overview")
-            lbl_data = ctk.CTkLabel(top, text=f"{self._('lbl_release')} {data_lancamento}", font=ctk.CTkFont(size=12, slant="italic"), text_color="gray")
-            lbl_data.pack(padx=20, anchor="w")
-            txt_desc = ctk.CTkTextbox(top, wrap="word", font=("Segoe UI", 13))
-            txt_desc.pack(fill="both", expand=True, padx=20, pady=20)
+
+            txt_desc = ctk.CTkTextbox(tab_geral, wrap="word", font=("Segoe UI", 13), height=90)
+            txt_desc.pack(fill="x", padx=5, pady=(5, 10))
             txt_desc.insert("1.0", overview)
             txt_desc.configure(state="disabled")
 
+            lbl_galeria = ctk.CTkLabel(tab_geral, text="📸 Galeria de Save States", font=ctk.CTkFont(size=14, weight="bold"))
+            lbl_galeria.pack(padx=5, anchor="w")
+
+            scroll_galeria = ctk.CTkScrollableFrame(tab_geral, orientation="horizontal", height=150, fg_color="#1a1a1a", corner_radius=10)
+            scroll_galeria.pack(fill="both", expand=True, padx=5, pady=(5, 5))
+
+            custom_state = self.entry_state_path.get()
+            state_dir = custom_state if custom_state else os.path.join(install_path, "data")
+            
+            encontrou_saves = False
+            
+            if os.path.exists(state_dir):
+                arquivos = os.listdir(state_dir)
+                nome_limpo_busca = re.sub(r'\(.*?\)|\[.*?\]', '', nome_jogo).strip()
+
+                imagens_state = [f for f in arquivos if f.startswith(nome_limpo_busca) and f.lower().endswith(('.png', '.jpg')) and 'state' in f.lower()]
+                
+                for img_file in sorted(imagens_state, key=lambda x: os.path.getmtime(os.path.join(state_dir, x)), reverse=True):
+                    caminho_img = os.path.join(state_dir, img_file)
+                    try:
+                        state_file = os.path.splitext(img_file)[0]
+                        caminho_state = os.path.join(state_dir, state_file)
+                        tamanho_kb = os.path.getsize(caminho_state) // 1024 if os.path.exists(caminho_state) else 0
+                        
+                        data_mod = datetime.datetime.fromtimestamp(os.path.getmtime(caminho_img)).strftime('%d/%m/%Y %H:%M')
+                        
+                        frame_card = ctk.CTkFrame(scroll_galeria, fg_color="#2b2b2b", corner_radius=8)
+                        frame_card.pack(side="left", padx=10, pady=10)
+                        
+                        if HAS_PIL:
+                            pil_img = Image.open(caminho_img).resize((140, 105), Image.Resampling.LANCZOS)
+                            ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(140, 105))
+                            lbl_img = ctk.CTkLabel(frame_card, image=ctk_img, text="")
+                            lbl_img.pack(padx=5, pady=5)
+                        
+                        lbl_info = ctk.CTkLabel(frame_card, text=f"🕒 {data_mod}\n💾 {tamanho_kb} KB", font=ctk.CTkFont(size=11), text_color="gray")
+                        lbl_info.pack(pady=(0, 5))
+                        
+                        encontrou_saves = True
+                    except Exception: pass
+            
+            if not encontrou_saves:
+                lbl_vazio = ctk.CTkLabel(scroll_galeria, text="Nenhuma captura de Save State encontrada para este jogo.", text_color="gray", font=ctk.CTkFont(slant="italic"))
+                lbl_vazio.pack(expand=True, pady=40)
+
+            notas_db = ra_db.get("_UserNotes_", {})
+            texto_nota = notas_db.get(nome_jogo, "")
+
+            txt_notas = ctk.CTkTextbox(tab_notas, wrap="word", font=("Segoe UI", 14))
+            txt_notas.pack(fill="both", expand=True, padx=5, pady=(5, 10))
+            txt_notas.insert("1.0", texto_nota)
+
+            btn_salvar_notas = ctk.CTkButton(tab_notas, text="💾 Salvar Notas", font=ctk.CTkFont(weight="bold"), fg_color="#1E90FF", hover_color="#4169E1")
+            btn_salvar_notas.configure(command=lambda: self.salvar_notas_jogo(nome_jogo, txt_notas, btn_salvar_notas))
+            btn_salvar_notas.pack(pady=(0, 5))
+
         def escanear_jogos(self):
+            import concurrent.futures
+            
             for widget in self.frame_grid_games.winfo_children(): widget.destroy()
             self.ra_labels = {} 
             install_path = self.entry_path.get()
             boxart_dir = os.path.join(install_path, "data", "boxart")
+            
+            termo_busca = getattr(self, "entry_busca_jogos", None)
+            filtro = termo_busca.get().lower() if termo_busca else ""
+
+            usuario = self.entry_ra_user.get().strip()
+            db_ra_path = os.path.join(install_path, "RAlocal.db")
+            ra_db = {}
+            if os.path.exists(db_ra_path):
+                try:
+                    with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                except Exception: pass
+            
+            playtime_db = ra_db.setdefault("_Playtime_", {})
+            playtime_antigo = self.config_atual.get("playtime", {})
+            if playtime_antigo:
+                for k, v in playtime_antigo.items():
+                    if k not in playtime_db: playtime_db[k] = v
+                self.config_atual["playtime"] = {}
+                self.salvar_estado_atual()
+                try:
+                    with open(db_ra_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+                except Exception: pass
+            
+            favs = ra_db.get("_Favorites_", [])
+            
+            soma_tempo_total = sum(playtime_db.values())
+            soma_ra_total = 0
+
+            user_db = ra_db.get(usuario, {})
+            is_hardcore = getattr(self, "switch_hardcore", ctk.BooleanVar(value=False)).get() == 1
+            tag_modo = " (Hardcore)" if is_hardcore else ""
+
+            for nome_jogo, dados_ra in user_db.items():
+                pts = int(dados_ra.get('score_hc', '0')) if is_hardcore else int(dados_ra.get('score', '0'))
+                soma_ra_total += pts
+
+            if hasattr(self, "lbl_dash_tempo"):
+                h_tot, m_tot = soma_tempo_total // 3600, (soma_tempo_total % 3600) // 60
+                self.lbl_dash_tempo.configure(text=f"⏱️ Tempo Total: {h_tot}h {m_tot}m")
+                self.lbl_dash_ra.configure(text=f"🏆 Total RA: {soma_ra_total} pts")
 
             if not self.rom_paths_list:
                 lbl = ctk.CTkLabel(self.frame_grid_games, text=self._("msg_no_games", default="Nenhuma pasta configurada."), font=ctk.CTkFont(size=14, slant="italic"), text_color="gray")
@@ -755,14 +1338,6 @@ def iniciar_gui():
                 lbl.pack(pady=40)
                 return
 
-            jogos_agrupados = {}
-            padrao_disco = re.compile(r'(?i)\s*[\(\[-]?\s*disc\s*[0-9a-z]+\s*[\)\]]?')
-            for jogo, r_path in jogos_fisicos:
-                nome_limpo = os.path.splitext(jogo)[0]
-                base_name = padrao_disco.sub('', nome_limpo).strip()
-                if base_name not in jogos_agrupados: jogos_agrupados[base_name] = []
-                jogos_agrupados[base_name].append(os.path.join(r_path, jogo))
-
             db_path = os.path.join(boxart_dir, "flycast-gamedb.json")
             game_db = {}
             if os.path.exists(db_path):
@@ -772,30 +1347,36 @@ def iniciar_gui():
                             if item.get("file_name"):
                                 game_db[item["file_name"]] = {"boxart_path": item.get("boxart_path", ""), "name": item.get("name", ""), "overview": item.get("overview", ""), "release_date": item.get("release_date", "")}
                 except Exception: pass
+
+            jogos_agrupados = {}
+            padrao_disco = re.compile(r'(?i)\s*[\(\[-]?\s*disc\s*[0-9a-z]+\s*[\)\]]?')
+            for jogo, r_path in jogos_fisicos:
+                db_info = game_db.get(jogo)
+                if db_info and db_info.get("name"):
+                    chave_grupo = db_info["name"]
+                else:
+                    nome_limpo = os.path.splitext(jogo)[0]
+                    chave_grupo = padrao_disco.sub('', nome_limpo).strip()
+                    
+                if chave_grupo not in jogos_agrupados: jogos_agrupados[chave_grupo] = []
+                jogos_agrupados[chave_grupo].append(os.path.join(r_path, jogo))
             
             screen_width = self.winfo_screenwidth()
             max_cols = max(3, (screen_width - 80) // 190)
             row, col = 0, 0
-            playtime_db = self.config_atual.get("playtime", {})
-            
-            # NOVO: Leitura do banco RAlocal.db com a arquitetura expandida
-            usuario = self.entry_ra_user.get().strip()
-            db_ra_path = os.path.join(install_path, "RAlocal.db")
-            ra_db = {}
-            if os.path.exists(db_ra_path):
-                try:
-                    with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
-                except Exception: pass
-            user_db = ra_db.get(usuario, {})
-            is_hardcore = getattr(self, "switch_hardcore", ctk.BooleanVar(value=False)).get() == 1
-            tag_modo = " (Hardcore)" if is_hardcore else ""
 
-            for base_name in sorted(jogos_agrupados.keys()):
-                arquivos_jogo = jogos_agrupados[base_name]
+            executor_capas = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+
+            for nome_exibicao in sorted(jogos_agrupados.keys()):
+                if filtro and filtro not in nome_exibicao.lower():
+                    continue
+                if getattr(self, "show_favorites_only", False) and nome_exibicao not in favs:
+                    continue
+
+                arquivos_jogo = jogos_agrupados[nome_exibicao]
                 jogo_ref = os.path.basename(arquivos_jogo[0])
                 roms_path_ref = os.path.dirname(arquivos_jogo[0])
                 nome_limpo_ref = os.path.splitext(jogo_ref)[0]
-                nome_exibicao = base_name
                 
                 card = ctk.CTkFrame(self.frame_grid_games, width=170, height=275, corner_radius=12, fg_color="#2b2b2b")
                 card.grid(row=row, column=col, padx=10, pady=10, sticky="n")
@@ -807,9 +1388,13 @@ def iniciar_gui():
 
                 if HAS_PIL:
                     caminhos_img = []
-                    if db_info and db_info.get("name"): nome_exibicao = db_info["name"]
                     if db_info and db_info.get("boxart_path"): caminhos_img.append(os.path.join(boxart_dir, db_info["boxart_path"]))
-                    caminhos_img.extend([os.path.join(boxart_dir, f"{jogo_ref}.png"), os.path.join(boxart_dir, f"{jogo_ref}.jpg"), os.path.join(boxart_dir, f"{nome_limpo_ref}.png"), os.path.join(boxart_dir, f"{nome_limpo_ref}.jpg"), os.path.join(roms_path_ref, f"{nome_limpo_ref}.png"), os.path.join(roms_path_ref, f"{nome_limpo_ref}.jpg")])
+                    caminhos_img.extend([
+                        os.path.join(boxart_dir, f"{jogo_ref}.png"), os.path.join(boxart_dir, f"{jogo_ref}.jpg"), 
+                        os.path.join(boxart_dir, f"{nome_limpo_ref}.png"), os.path.join(boxart_dir, f"{nome_limpo_ref}.jpg"),
+                        os.path.join(boxart_dir, f"{nome_exibicao}.png"), os.path.join(boxart_dir, f"{nome_exibicao}.jpg"),
+                        os.path.join(roms_path_ref, f"{nome_limpo_ref}.png"), os.path.join(roms_path_ref, f"{nome_limpo_ref}.jpg")
+                    ])
                     for img_p in caminhos_img:
                         if os.path.exists(img_p):
                             try:
@@ -823,54 +1408,75 @@ def iniciar_gui():
                 if not img_carregada:
                     texto_dl = self._("lbl_downloading_cover", default="🎮\n(Baixando...)") if HAS_PIL else "🎮\nFLYCAST"
                     capa_lbl = ctk.CTkLabel(card, text=texto_dl, width=150, height=150, fg_color="#1a1a1a", corner_radius=8, font=ctk.CTkFont(size=14, weight="bold"))
-                    if HAS_PIL: threading.Thread(target=self.baixar_capa_libretro, args=(base_name, boxart_dir, capa_lbl), daemon=True).start()
+                    if HAS_PIL: executor_capas.submit(self.baixar_capa_libretro, nome_exibicao, boxart_dir, capa_lbl)
 
                 capa_lbl.pack(pady=(10, 5), padx=10)
-                capa_lbl.bind("<Double-Button-1>", lambda e, b=base_name, a=arquivos_jogo: self.selecionar_disco(b, a))
+                capa_lbl.bind("<Double-Button-1>", lambda e, b=nome_exibicao, a=arquivos_jogo: self.selecionar_disco(b, a))
 
                 nome_exibicao_curto = nome_exibicao[:18] + "..." if len(nome_exibicao) > 18 else nome_exibicao
                 lbl_nome = ctk.CTkLabel(card, text=nome_exibicao_curto, font=ctk.CTkFont(size=12, weight="bold"))
                 lbl_nome.pack(pady=(0, 2))
-                ToolTip(lbl_nome, nome_exibicao)
+                
+                # ANCÔRA 1: Tooltip do Título
+                lbl_nome._tooltip = ToolTip(lbl_nome, nome_exibicao)
 
-                # NOVO: Formatação que exibe PONTOS (Score) ao invés de Achievements
                 data_ra = user_db.get(nome_exibicao)
                 if data_ra:
                     pts = data_ra.get('score_hc', '0') if is_hardcore else data_ra.get('score', '0')
                     tot = data_ra.get('total_score', '0')
-                    texto_inicial_ra = f"🏆 {pts}/{tot} pts{tag_modo}"
-                    cor_ra = "gray" if pts == "0" else "#00FF7F"
+                    ach = int(data_ra.get('achieved_hc', '0')) if is_hardcore else int(data_ra.get('achieved', '0'))
+                    tot_ach = int(data_ra.get('total_achievements', '0'))
+                    
+                    if ach == tot_ach and tot_ach > 0:
+                        texto_inicial_ra = f"🌀 PLATINA{tag_modo}"
+                        cor_ra = "#00BFFF"
+                    else:
+                        texto_inicial_ra = f"🏆 {pts}/{tot} pts{tag_modo}"
+                        cor_ra = "gray" if pts == "0" else "#00FF7F"
                 else:
                     texto_inicial_ra = f"🏆 Buscando..."
                     cor_ra = "#FFD700"
 
                 lbl_ra = ctk.CTkLabel(card, text=texto_inicial_ra, font=ctk.CTkFont(size=10), text_color=cor_ra)
                 lbl_ra.pack(pady=(0, 2))
-                self.ra_labels[base_name] = (lbl_ra, nome_exibicao)
+                self.ra_labels[nome_exibicao] = (lbl_ra, nome_exibicao)
 
-                total_segundos = playtime_db.get(base_name, 0)
+                total_segundos = playtime_db.get(nome_exibicao, 0)
                 horas, minutos = total_segundos // 3600, (total_segundos % 3600) // 60
-                if horas > 0: str_tempo = f"{horas}h {minutos}m"
-                elif minutos > 0: str_tempo = f"{minutos}m"
-                else: str_tempo = self._("playtime_new", default="Novo") if total_segundos == 0 else self._("playtime_less_1m", default="< 1m")
+                if horas > 0: str_tempo = f"⏱️ {horas}h {minutos}m"
+                elif minutos > 0: str_tempo = f"⏱️ {minutos}m"
+                else: str_tempo = f"⏱️ {self._('playtime_new', default='Novo')}"
 
-                lbl_tempo = ctk.CTkLabel(card, text=f"⏱️ {str_tempo}", font=ctk.CTkFont(size=10), text_color="gray")
+                lbl_tempo = ctk.CTkLabel(card, text=str_tempo, font=ctk.CTkFont(size=10), text_color="gray")
                 lbl_tempo.pack(pady=(0, 2))
 
                 btn_frame = ctk.CTkFrame(card, fg_color="transparent")
                 btn_frame.pack(pady=(2, 10))
-                btn_play = ctk.CTkButton(btn_frame, text="▶️ Jogar", width=85, height=26, fg_color="#4169E1", hover_color="#1E90FF", command=lambda b=base_name, a=arquivos_jogo: self.selecionar_disco(b, a))
+
+                cor_fav = "#FFD700" if nome_exibicao in favs else "gray"
+                btn_fav = ctk.CTkButton(btn_frame, text="⭐", width=26, height=26, fg_color="transparent", text_color=cor_fav, hover_color="#333333")
+                btn_fav.configure(command=lambda b=nome_exibicao, bw=btn_fav: self.toggle_favorito(b, bw))
+                btn_fav.pack(side="left", padx=(0, 5))
+                
+                # ANCÔRA 2: Tooltip do Botão Favoritar
+                btn_fav._tooltip = ToolTip(btn_fav, "Adicionar aos Favoritos")
+
+                btn_play = ctk.CTkButton(btn_frame, text="▶️ Jogar", width=85, height=26, fg_color="#4169E1", hover_color="#1E90FF", command=lambda b=nome_exibicao, a=arquivos_jogo: self.selecionar_disco(b, a))
                 btn_play.pack(side="left", padx=(0, 5))
-                btn_info = ctk.CTkButton(btn_frame, text="ℹ️", width=26, height=26, fg_color="#555555", hover_color="#777777", command=lambda b=base_name, n=nome_exibicao, d=db_info: self.mostrar_info_jogo(b, n, d))
+
+                btn_info = ctk.CTkButton(btn_frame, text="ℹ️", width=26, height=26, fg_color="#555555", hover_color="#777777", command=lambda b=nome_exibicao, d=db_info: self.mostrar_info_jogo(b, d))
                 btn_info.pack(side="left")
+                
+                # ANCÔRA 3: Tooltip do Botão Informações
+                btn_info._tooltip = ToolTip(btn_info, "Ver Detalhes, Diário e Saves")
 
                 col += 1
                 if col >= max_cols:
                     col = 0
                     row += 1
 
-            if self.ra_labels: threading.Thread(target=self.sincronizar_retroachievements, daemon=True).start()
-        
+            if self.ra_labels and not filtro: threading.Thread(target=self.sincronizar_retroachievements, daemon=True).start()
+
         def atualizar_lista_ui_roms(self):
             for widget in self.frame_roms_list.winfo_children(): widget.destroy()
             for p in self.rom_paths_list:
@@ -1022,6 +1628,7 @@ def iniciar_gui():
             
             if self.config_atual.get("streamer_mode", False):
                 self.switch_streamer.select()
+                self.after(200, self.ao_trocar_streamer)
 
             self.frame_divisor4 = ctk.CTkFrame(self.tab_qol, height=2, fg_color="#444")
             self.frame_divisor4.pack(fill="x", padx=10, pady=(15, 15))
@@ -1186,11 +1793,12 @@ def iniciar_gui():
             self.frame_divisor = ctk.CTkFrame(self.tab_saves, height=2, fg_color="#444")
             self.frame_divisor.pack(fill="x", padx=10, pady=(5, 10))
 
+            # --- SESSÃO DE SAVES DE JOGOS ---
             self.label_saves_title = ctk.CTkLabel(self.tab_saves, text=self._("lbl_saves_title"), font=ctk.CTkFont(size=14, weight="bold"))
             self.label_saves_title.pack(anchor="w", padx=10, pady=(5, 5))
             
             self.label_saves_desc = ctk.CTkLabel(self.tab_saves, text=self._("lbl_saves_desc"), text_color="gray", justify="left")
-            self.label_saves_desc.pack(anchor="w", padx=10, pady=(0, 10))
+            self.label_saves_desc.pack(anchor="w", padx=10, pady=(0, 5))
 
             self.frame_saves_list = ctk.CTkFrame(self.tab_saves, fg_color="transparent")
             self.frame_saves_list.pack(fill="x", padx=10, pady=5)
@@ -1203,14 +1811,54 @@ def iniciar_gui():
             self.combo_backups.set(self._("combo_saves_def"))
 
             self.btn_restaurar_save = ctk.CTkButton(self.tab_saves, text=self._("btn_extract"), width=280, height=35, font=ctk.CTkFont(weight="bold"), fg_color="#228B22", hover_color="#006400", command=self.restaurar_backup_selecionado)
-            self.btn_restaurar_save.pack(pady=(20, 10))
+            self.btn_restaurar_save.pack(pady=(10, 10))
             self.btn_restaurar_save.configure(state="disabled")
             self.arquivos_backup_encontrados = {}
+
+            # --- NOVA SESSÃO: BACKUP DE CONFIGURAÇÕES ---
+            self.frame_divisor_cfg = ctk.CTkFrame(self.tab_saves, height=2, fg_color="#444")
+            self.frame_divisor_cfg.pack(fill="x", padx=10, pady=(15, 10))
+
+            self.lbl_cfg_bkp_title = ctk.CTkLabel(self.tab_saves, text=self._("lbl_cfg_bkp_title", default="Backup de Arquivos de Configuração"), font=ctk.CTkFont(size=14, weight="bold"))
+            self.lbl_cfg_bkp_title.pack(anchor="w", padx=10, pady=(5, 5))
+
+            self.frame_switches_cfg = ctk.CTkFrame(self.tab_saves, fg_color="transparent")
+            self.frame_switches_cfg.pack(fill="x", padx=10, pady=0)
+
+            self.sw_bkp_emu = ctk.CTkSwitch(self.frame_switches_cfg, text=self._("sw_bkp_emu", default="Emulador (emu.cfg)"), command=self.salvar_estado_atual)
+            self.sw_bkp_emu.grid(row=0, column=0, sticky="w", padx=(0, 15), pady=5)
+            if self.config_atual.get("backup_cfg_emu", True): self.sw_bkp_emu.select()
+
+            self.sw_bkp_upd = ctk.CTkSwitch(self.frame_switches_cfg, text=self._("sw_bkp_upd", default="Updater (config.json)"), command=self.salvar_estado_atual)
+            self.sw_bkp_upd.grid(row=0, column=1, sticky="w", padx=(0, 15), pady=5)
+            if self.config_atual.get("backup_cfg_upd", True): self.sw_bkp_upd.select()
+
+            self.sw_bkp_ra = ctk.CTkSwitch(self.frame_switches_cfg, text=self._("sw_bkp_ra", default="Banco RA (RAlocal.db)"), command=self.salvar_estado_atual)
+            self.sw_bkp_ra.grid(row=0, column=2, sticky="w", pady=5)
+            if self.config_atual.get("backup_cfg_ra", True): self.sw_bkp_ra.select()
+
+            self.btn_do_bkp_cfg = ctk.CTkButton(self.tab_saves, text=self._("btn_do_bkp_cfg", default="💾 Fazer Backup de Configurações Agora"), width=280, height=30, command=self.realizar_backup_configs)
+            self.btn_do_bkp_cfg.pack(pady=(10, 15))
+
+            self.frame_cfg_list = ctk.CTkFrame(self.tab_saves, fg_color="transparent")
+            self.frame_cfg_list.pack(fill="x", padx=10, pady=5)
+
+            self.btn_buscar_cfg = ctk.CTkButton(self.frame_cfg_list, text=self._("btn_search_cfg", default="🔄 Buscar Configs"), width=140, command=self.buscar_backups_configs)
+            self.btn_buscar_cfg.pack(side="left", padx=(0, 10))
+
+            self.combo_backups_cfg = ctk.CTkComboBox(self.frame_cfg_list, values=[self._("combo_cfg_def", default="Clique em Buscar Configs...")], width=350, state="readonly")
+            self.combo_backups_cfg.pack(side="left", fill="x", expand=True)
+            self.combo_backups_cfg.set(self._("combo_cfg_def", default="Clique em Buscar Configs..."))
+
+            self.btn_restaurar_cfg = ctk.CTkButton(self.tab_saves, text=self._("btn_extract_cfg", default="📥 Restaurar Configurações"), width=280, height=35, font=ctk.CTkFont(weight="bold"), fg_color="#1E90FF", hover_color="#4169E1", command=self.restaurar_backup_configs)
+            self.btn_restaurar_cfg.pack(pady=(10, 10))
+            self.btn_restaurar_cfg.configure(state="disabled")
+            self.arquivos_cfg_encontrados = {}
 
         def resolver_bios_mal_posicionada(self, path):
             if getattr(self, 'bios_prompt_done', False): return
             self.bios_prompt_done = True
-            resposta_mover = mb.askyesno("BIOS", "Os arquivos da BIOS foram encontrados na pasta raiz do emulador.\nO padrão é armazená-los na pasta 'data'. Mover automaticamente?", parent=self)
+            resposta_mover = mb.askyesno(self._("msg_bios_move_title"), self._("msg_bios_move_desc"), parent=self)
             if resposta_mover:
                 pasta_data = os.path.join(path, "data")
                 os.makedirs(pasta_data, exist_ok=True)
@@ -1221,7 +1869,7 @@ def iniciar_gui():
                     self.atualizar_status_diretorio(path)
                 except Exception: pass
             else:
-                resposta_config = mb.askyesno("BIOS", "Deseja registrar essa pasta raiz nas opções do emulador para resolver o aviso?", parent=self)
+                resposta_config = mb.askyesno("BIOS", self._("msg_bios_register_desc"), parent=self)
                 if resposta_config:
                     if atualizar_emu_cfg(install_path=path, bios_path=path):
                         self.atualizar_status_diretorio(path)
@@ -1332,6 +1980,135 @@ def iniciar_gui():
             except Exception as e:
                 mb.showerror("Erro", f"Erro na extração: {e}", parent=self)
 
+        def realizar_backup_configs(self):
+            cloud_prov = self.cloud_var.get()
+            if cloud_prov == "nenhum":
+                mb.showwarning("Aviso", "Selecione um provedor de nuvem (Google Drive ou OneDrive) no topo da aba primeiro.", parent=self)
+                return
+                
+            caminho_base = None
+            if cloud_prov == "gdrive" and cloud_saves: caminho_base = cloud_saves.get_gdrive_path()
+            elif cloud_prov == "onedrive" and cloud_saves: caminho_base = cloud_saves.get_onedrive_path()
+            
+            if not caminho_base or not os.path.exists(caminho_base):
+                mb.showerror("Erro", "Pasta da nuvem não foi encontrada no seu computador.", parent=self)
+                return
+
+            # Cria a pasta isolada para configs na nuvem
+            caminho_nuvem = os.path.join(caminho_base, "Flycast_Configs_Backup")
+            os.makedirs(caminho_nuvem, exist_ok=True)
+            
+            agora = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            zip_name = f"config_backup_{agora}.zip"
+            zip_path = os.path.join(caminho_nuvem, zip_name)
+            
+            install_path = self.entry_path.get()
+            arquivos_para_backup = []
+            
+            if hasattr(self, 'sw_bkp_emu') and self.sw_bkp_emu.get() == 1:
+                p1 = os.path.join(install_path, "emu.cfg")
+                p2 = os.path.join(install_path, "data", "emu.cfg")
+                if os.path.exists(p1): arquivos_para_backup.append((p1, "emu.cfg"))
+                if os.path.exists(p2): arquivos_para_backup.append((p2, "data/emu.cfg"))
+            
+            if hasattr(self, 'sw_bkp_upd') and self.sw_bkp_upd.get() == 1:
+                p_conf = CONFIG_FILE # Identifica dinamicamente o config.json / flycast_updater.json
+                if os.path.exists(p_conf): arquivos_para_backup.append((p_conf, os.path.basename(p_conf)))
+                
+            if hasattr(self, 'sw_bkp_ra') and self.sw_bkp_ra.get() == 1:
+                p_ra = os.path.join(install_path, "RAlocal.db")
+                if os.path.exists(p_ra): arquivos_para_backup.append((p_ra, "RAlocal.db"))
+                
+            if not arquivos_para_backup:
+                mb.showinfo("Aviso", "Nenhum arquivo encontrado para backup com os switches selecionados.", parent=self)
+                return
+                
+            try:
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    for filepath, arcname in arquivos_para_backup:
+                        zipf.write(filepath, arcname)
+                
+                self.log(f"💾 Backup de configurações criado na nuvem: {zip_name}")
+                mb.showinfo("Sucesso", "Backup de Configurações salvo na nuvem com sucesso!", parent=self)
+                self.buscar_backups_configs()
+            except Exception as e:
+                mb.showerror("Erro", f"Falha ao criar o arquivo Zip de backup: {e}", parent=self)
+
+        def buscar_backups_configs(self):
+            cloud_prov = self.cloud_var.get()
+            if cloud_prov == "nenhum": return
+            caminho_base = None
+            if cloud_prov == "gdrive" and cloud_saves: caminho_base = cloud_saves.get_gdrive_path()
+            elif cloud_prov == "onedrive" and cloud_saves: caminho_base = cloud_saves.get_onedrive_path()
+            if not caminho_base or not os.path.exists(caminho_base): return
+
+            caminho_nuvem = os.path.join(caminho_base, "Flycast_Configs_Backup")
+            if not os.path.exists(caminho_nuvem):
+                self.combo_backups_cfg.configure(values=[self._("log_not_found")])
+                self.combo_backups_cfg.set(self._("log_not_found"))
+                self.btn_restaurar_cfg.configure(state="disabled")
+                return
+
+            try:
+                arquivos_zip = [f for f in os.listdir(caminho_nuvem) if f.lower().endswith(".zip")]
+                if not arquivos_zip:
+                    self.combo_backups_cfg.configure(values=[self._("log_not_found")])
+                    self.combo_backups_cfg.set(self._("log_not_found"))
+                    self.btn_restaurar_cfg.configure(state="disabled")
+                    return
+
+                arquivos_zip.sort(key=lambda x: os.path.getmtime(os.path.join(caminho_nuvem, x)), reverse=True)
+                self.arquivos_cfg_encontrados = {}
+                nomes_exibicao = []
+                for f in arquivos_zip:
+                    caminho_completo = os.path.join(caminho_nuvem, f)
+                    data_mod = datetime.datetime.fromtimestamp(os.path.getmtime(caminho_completo)).strftime('%d/%m/%Y %H:%M')
+                    nome_exib = f"{f}  [{data_mod}]"
+                    nomes_exibicao.append(nome_exib)
+                    self.arquivos_cfg_encontrados[nome_exib] = caminho_completo
+
+                self.combo_backups_cfg.configure(values=nomes_exibicao)
+                self.combo_backups_cfg.set(nomes_exibicao[0])
+                self.btn_restaurar_cfg.configure(state="normal")
+            except Exception: pass
+
+        def restaurar_backup_configs(self):
+            selecionado = self.combo_backups_cfg.get()
+            caminho_zip = self.arquivos_cfg_encontrados.get(selecionado)
+            if not caminho_zip or not os.path.exists(caminho_zip): return
+            install_path = self.entry_path.get()
+            if not install_path or not os.path.exists(install_path): return
+            
+            if not mb.askyesno("Atenção - Sobrescrever Configurações", f"Extrair de:\n{selecionado}\n\nIsso irá substituir completamente as suas configurações atuais.\nTem certeza de que deseja continuar?", parent=self): return
+            
+            try:
+                with zipfile.ZipFile(caminho_zip, 'r') as zip_ref:
+                    for file_info in zip_ref.infolist():
+                        if file_info.filename.endswith('/'): continue
+                        
+                        if file_info.filename == os.path.basename(CONFIG_FILE):
+                            dest_path = os.path.join(os.getcwd(), CONFIG_FILE)
+                        elif file_info.filename == "emu.cfg":
+                            dest_path = os.path.join(install_path, "emu.cfg")
+                        elif file_info.filename == "data/emu.cfg":
+                            dest_path = os.path.join(install_path, "data", "emu.cfg")
+                            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                        elif file_info.filename == "RAlocal.db":
+                            dest_path = os.path.join(install_path, "RAlocal.db")
+                        else:
+                            continue
+                            
+                        with zip_ref.open(file_info.filename) as source, open(dest_path, "wb") as target:
+                            shutil.copyfileobj(source, target)
+                            
+                # Recarrega a UI inteira com as configs baixadas da nuvem
+                self.config_atual = carregar_configuracao()
+                self.carregar_dados_atuais_emu_cfg()
+                self.escanear_jogos()
+                mb.showinfo("Sucesso", "Configurações restauradas com sucesso!", parent=self)
+            except Exception as e:
+                mb.showerror("Erro", f"Erro crítico na restauração: {e}", parent=self)
+
         def construir_aba_logs(self):
             self.label_logs_title = ctk.CTkLabel(self.tab_logs, text=self._("lbl_logs_title"), font=ctk.CTkFont(size=16, weight="bold"))
             self.label_logs_title.pack(anchor="w", padx=10, pady=(10, 0))
@@ -1422,6 +2199,12 @@ def iniciar_gui():
             self.config_atual["backup_mappings"] = self.switch_mappings.get() == 1
             self.config_atual["backup_limit"] = self.combo_limit.get()
             self.config_atual["streamer_mode"] = getattr(self, "switch_streamer", ctk.BooleanVar(value=False)).get() == 1
+            
+            if hasattr(self, 'sw_bkp_emu'):
+                self.config_atual["backup_cfg_emu"] = self.sw_bkp_emu.get() == 1
+                self.config_atual["backup_cfg_upd"] = self.sw_bkp_upd.get() == 1
+                self.config_atual["backup_cfg_ra"] = self.sw_bkp_ra.get() == 1
+                
             salvar_configuracao(self.config_atual)
 
         def toggle_senha_visibility(self):
@@ -1437,7 +2220,7 @@ def iniciar_gui():
             recusado = self.config_atual.get("setup_declined", False)
             if not completo and not recusado:
                 self.log("🚀 Primeiro acesso detectado. Exibindo assistente de configuração.")
-                resposta = mb.askyesno("Bem-vindo", "Deseja ajuda para configurar rapidamente a pasta de ROMs e o RetroAchievements agora?", parent=self)
+                resposta = mb.askyesno(self._("msg_welcome_title"), self._("msg_welcome_desc"), parent=self)
                 if resposta:
                     self.tabview.set(self._("tab_emu"))
                     self.config_atual["setup_completed"] = True
@@ -1798,34 +2581,22 @@ def iniciar_gui():
 
         def abrir_janela_ajuda(self):
             win_ajuda = ctk.CTkToplevel(self)
-            win_ajuda.title("Sobre / About")
+            win_ajuda.title(self._("msg_about_title"))
             win_ajuda.geometry("550x550")
             win_ajuda.attributes("-topmost", True)
-            texto_ajuda = f"🌀 FLYCAST UPDATER - v{VERSION}\n\n• Branch Master: Lançamentos estáveis / Stable releases.\n• Branch Dev: Lançamentos diários / Daily builds.\n\n🖧 USO PELO TERMINAL (CLI) / COMMAND LINE:\n-nogui, -dev, -master, -rollback, -silent, -reset\n"
+            texto_ajuda = self._("msg_about_desc", version=VERSION)
             lbl_texto = ctk.CTkLabel(win_ajuda, text=texto_ajuda, justify="left", font=ctk.CTkFont(size=12))
             lbl_texto.pack(padx=20, pady=20, fill="both", expand=True)
 
         def abrir_ajuda_api_key(self):
             win_api = ctk.CTkToplevel(self)
-            win_api.title("Como obter a Web API Key?")
+            win_api.title(self._("msg_api_title"))
             win_api.geometry("500x320")
             win_api.attributes("-topmost", True)
-            
-            texto = (
-                "Para exibir seus pontos na interface, o sistema precisa da sua Web API Key.\n\n"
-                "Passo a Passo:\n"
-                "1. Clique no botão abaixo para abrir o site do RetroAchievements.\n"
-                "2. Faça o seu login normalmente (caso não esteja logado).\n"
-                "3. Na página que se abrir, acesse a aba 'Aplicações' no menu esquerdo.\n"
-                "4. Copie o código longo listado em 'Web API Key'.\n"
-                "5. Cole no campo do Flycast Updater e clique em Salvar."
-            )
-            
+            texto = self._("msg_api_desc")
             lbl_texto = ctk.CTkLabel(win_api, text=texto, justify="left", font=ctk.CTkFont(size=13), wraplength=460)
             lbl_texto.pack(padx=20, pady=(20, 10), fill="both", expand=True)
-            
-            # O link abaixo já manda o usuário direto para o painel de configurações (Control Panel)
-            btn_link = ctk.CTkButton(win_api, text="🌐 Abrir RetroAchievements", width=200, height=35, fg_color="#228B22", hover_color="#006400", font=ctk.CTkFont(weight="bold"), command=lambda: webbrowser.open("https://retroachievements.org/controlpanel.php"))
+            btn_link = ctk.CTkButton(win_api, text=self._("btn_api_link"), width=200, height=35, fg_color="#228B22", hover_color="#006400", font=ctk.CTkFont(weight="bold"), command=lambda: webbrowser.open("https://retroachievements.org/controlpanel.php"))
             btn_link.pack(pady=(0, 20))
 
         def preparar_motor(self, acao):
