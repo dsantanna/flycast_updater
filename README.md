@@ -14,8 +14,8 @@ O **Flycast Updater** transcendeu sua função original. Hoje ele atua como o ge
 - **Banco de Dados `RAlocal.db`:** Gerenciamento local inteligente que armazena o histórico completo de conquistas e pontuações normais/hardcore de forma estruturada[cite: 9].
 - **A Platina da SEGA:** O motor detecta o status de "Mastered" (100%) em um jogo e exibe uma recompensa visual exclusiva "🌀 PLATINA" em azul SEGA nos seus cards.
 - **Placar de Pontuação Dinâmico:** Os cards de jogos exibem de forma clara a pontuação exata obtida em relação ao total possível (ex: `7/401 pts`), adaptando-se automaticamente ao Modo Hardcore[cite: 9].
-- **Suporte Expandido a 20 Idiomas:** Arquitetura limpa com dicionário externo (`idiomas.py`) contemplando 20 localidades globais[cite: 9].
-- **Lançador de Jogos Rápido (Mini-Frontend):** Nova aba que exibe sua biblioteca de jogos em um elegante design de capas (cards), permitindo iniciar a emulação com apenas um duplo clique[cite: 9].
+- **Suporte Expandido a 10 Idiomas:** Arquitetura limpa com dicionário externo (`idiomas.py`) contemplando 10 localidades globais[cite: 9].
+- **Lançador de Jogos Rápido (Frontend):** Nova aba que exibe sua biblioteca de jogos em um elegante design de capas (cards), permitindo iniciar a emulação com apenas um duplo clique[cite: 9].
 - **Barra de Pesquisa e Favoritos:** Filtre sua biblioteca instantaneamente enquanto digita ou marque títulos com a "⭐" para criar sua coleção personalizada de favoritos.
 - **Auto-Scraper Inteligente (Multithread):** Integração livre com o repositório Libretro. Capas faltantes são procuradas e baixadas de forma paralela e ultrarrápida, sem travar a interface[cite: 9].
 - **Detecção de Múltiplos Discos e Regiões:** O motor interno une jogos multi-CD (como Shenmue) e funde ROMs duplicadas de regiões (USA/Japan) sob uma única capa, fornecendo um popup para a seleção no momento do carregamento[cite: 9].
