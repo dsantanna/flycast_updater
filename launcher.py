@@ -2,8 +2,19 @@ import os, sys, json, subprocess, time, urllib.request, urllib.parse, datetime, 
 import tkinter as tk 
 import tkinter.messagebox as mb
 import webbrowser
+
+# --- MÓDULOS LOCAIS (TODOS AQUI NO TOPO PARA O PYINSTALLER!) ---
 import bigpicture 
 import radio_flycast
+import retroachievements
+import sfx_manager
+import saves
+import qol
+import devices
+import discord_rpc
+import toast
+# ---------------------------------------------------------------
+
 from idiomas import TRANSLATIONS
 from game_launcher import GameLibraryManager
 
@@ -117,7 +128,12 @@ def atualizar_emu_cfg(install_path, roms_path=None, ra_enabled=None, ra_user=Non
     for section in ['achievements', 'config', 'audio', 'window']:
         if not config.has_section(section): config.add_section(section)
 
-    if ra_enabled is not None: config.set('achievements', 'Enabled', 'yes' if ra_enabled else 'no')
+    if ra_enabled is not None: 
+        config.set('achievements', 'Enabled', 'yes' if ra_enabled else 'no')
+        config.set('achievements', 'OsdEnabled', 'no') 
+        config.set('achievements', 'ChallengeModeOsd', 'no')
+        config.set('achievements', 'ShowProgressOsd', 'no')
+        
     if ra_hardcore is not None: config.set('achievements', 'HardcoreMode', 'yes' if ra_hardcore else 'no')
     if ra_user is not None: config.set('achievements', 'UserName', ra_user)
     if ra_pass is not None: config.set('achievements', 'Token', ra_pass)
@@ -327,38 +343,36 @@ def iniciar_gui():
             self.combo_lang = ctk.CTkComboBox(self.frame_top_right, values=list(self.lang_map.keys()), width=95, height=28, command=self.mudar_idioma)
             self.combo_lang.pack(side="left", padx=5)
             self.combo_lang.set(self.rev_lang_map.get(self.lang, "PT-BR"))
+            self.btn_donate = ctk.CTkButton(self.frame_top_right, text="💚 DOAR", width=70, height=28, fg_color="#228B22", hover_color="#006400", font=ctk.CTkFont(weight="bold"), command=self.abrir_janela_doacao)
+            self.btn_donate.pack(side="left", padx=(0, 5))
             self.btn_help = ctk.CTkButton(self.frame_top_right, text=self._("btn_help"), width=70, height=28, fg_color="#444", hover_color="#666", command=self.abrir_janela_ajuda)
             self.btn_help.pack(side="left")
 
             self.tabview = ctk.CTkTabview(self, width=620, height=680)
             self.tabview.pack(pady=5, padx=15, fill="both", expand=True)
             self.tab_jogos = self.tabview.add(self._("tab_games", default="🕹️ Launcher")) 
+            self.tab_ra_global = self.tabview.add("🏆 Perfil e Conquistas (Global)")
             self.tab_atualizador = self.tabview.add(self._("tab_cloud", default="🚀 BIOS e Emu"))
             self.tab_config = self.tabview.add(self._("tab_emu", default="⚙️ Configurações"))
             self.tab_qol = self.tabview.add(self._("tab_qol", default="🌟 QoL"))
             self.tab_video = self.tabview.add(self._("tab_vid", default="🖥️ Vídeo"))
-            self.tab_devices = self.tabview.add("🎮 Controles e VMU") # <-- NOME NOVO AQUI
+            self.tab_devices = self.tabview.add("🎮 Controles e VMU")
             self.tab_saves = self.tabview.add(self._("tab_saves", default="🔄 Saves"))
             self.tab_logs = self.tabview.add(self._("tab_logs", default="📝 Logs"))
             
             # --- CONEXÃO COM O MOTOR MODULAR ---
             self.game_manager = GameLibraryManager(self)
-            
-            import saves
+            self.ra_manager = retroachievements.RetroAchievementsManager(self)
             self.save_manager = saves.SaveManager(self)
-            
-            import qol
             self.qol_manager = qol.QoLManager(self)
-            
-            import devices
             self.devices_manager = devices.DevicesManager(self)
             
-            import discord_rpc
             self.discord = discord_rpc.DiscordManager(self)
             self.after(3000, self.discord.conectar) 
-            
+
             self.construir_aba_nuvem()
             self.construir_aba_jogos()   
+            self.ra_manager.construir_aba_global(self.tab_ra_global)
             self.construir_aba_emulador()
             self.construir_aba_qol()
             self.construir_aba_video()
@@ -406,15 +420,20 @@ def iniciar_gui():
             self.btn_radio_next = ctk.CTkButton(self.frame_player_controls, text="⏭", width=30, height=20, fg_color="transparent", hover_color="#333", command=self.radio_next)
             self.btn_radio_next.pack(side="left", padx=2)
 
-            # --- FRAME DO SEMÁFORO DE BACKUP ---
-            self.frame_backup_status = ctk.CTkFrame(self.frame_botoes, fg_color="#1a1a1a", corner_radius=8)
+            # --- FRAME DO SEMÁFORO DE BACKUP (AGORA INTERATIVO!) ---
+            self.frame_backup_status = ctk.CTkFrame(self.frame_botoes, fg_color="#1a1a1a", corner_radius=8, cursor="hand2")
             self.frame_backup_status.grid(row=0, column=3, padx=(20, 0), sticky="e")
+            self.frame_backup_status.bind("<Button-1>", self.forcar_backup_nuvem)
             
-            self.lbl_backup_status = ctk.CTkLabel(self.frame_backup_status, text="☁️ Backup: 🔴", font=ctk.CTkFont(size=11, weight="bold"))
+            self.lbl_backup_status = ctk.CTkLabel(self.frame_backup_status, text="☁️ Backup: 🔴", font=ctk.CTkFont(size=11, weight="bold"), cursor="hand2")
             self.lbl_backup_status.pack(side="top", padx=10, pady=(2, 0))
+            self.lbl_backup_status.bind("<Button-1>", self.forcar_backup_nuvem)
             
-            self.lbl_backup_date = ctk.CTkLabel(self.frame_backup_status, text="--/--/---- - --:--", font=ctk.CTkFont(size=10), text_color="gray")
+            self.lbl_backup_date = ctk.CTkLabel(self.frame_backup_status, text="--/--/---- - --:--", font=ctk.CTkFont(size=10), text_color="gray", cursor="hand2")
             self.lbl_backup_date.pack(side="bottom", padx=10, pady=(0, 2))
+            self.lbl_backup_date.bind("<Button-1>", self.forcar_backup_nuvem)
+            
+            self.frame_backup_status._tooltip = ToolTip(self.frame_backup_status, "Forçar Sincronização de Saves com a Nuvem agora")
             
             self.lbl_rodape = ctk.CTkLabel(self, text="Desenvolvido por DaniboySan & Geminix", text_color="#1E90FF", cursor="hand2", font=ctk.CTkFont(size=11, underline=True))
             self.lbl_rodape.pack(side="bottom", pady=(0, 5))
@@ -429,10 +448,11 @@ def iniciar_gui():
             self.after(1000, self.game_manager.escanear_jogos) 
             self.after(1100, self.aplicar_tema)
 
-            import sfx_manager
             self.sfx = sfx_manager.SFXManager(self.entry_path.get())
             self.after(1500, lambda: self.sfx.apply_hover_to_all_widgets(self))
             self.after(1600, self.checar_status_backup)
+            # --- AUTO-SYNC DO RETROACHIEVEMENTS GLOBAL ---
+            self.after(2500, lambda: self.ra_manager.carregar_dados_globais(silencioso=True))
 
         def iniciar_radio(self):
             if not HAS_PYGAME: return
@@ -508,15 +528,47 @@ def iniciar_gui():
             except Exception as e:
                 self.log(f"❌ Erro ao ler status da nuvem: {e}")
 
+        def forcar_backup_nuvem(self, event=None):
+            # 1. Verifica se o jogador tem o "Memory Card" (Nuvem) configurado
+            if self.cloud_var.get() == "nenhum":
+                self.mostrar_toast("Nuvem Desativada", "Selecione um provedor (Google Drive/OneDrive) na aba Saves primeiro.", "warning")
+                return
+            
+            # 2. Muda o status visual e toca o som épico de Save
+            self.lbl_backup_status.configure(text="☁️ Backup: ⏳ Upando...", text_color="cyan")
+            self.log("☁️ Iniciando sincronização forçada com a nuvem (Modo Manual)...")
+            if hasattr(self, 'sfx'): self.sfx.play("save")
+            
+            # 3. O motor gira em segundo plano para não congelar a interface (Thread)
+            def rotina():
+                try:
+                    self.salvar_estado_atual()
+                    exe_path = sys.executable if getattr(sys, 'frozen', False) else sys.argv[0]
+                    
+                    # Chama o nosso próprio Updater via CMD invisível usando a flag secreta '-backup'
+                    if getattr(sys, 'frozen', False):
+                        subprocess.run([exe_path, "-backup", "-silent"], creationflags=subprocess.CREATE_NO_WINDOW)
+                    else:
+                        subprocess.run([sys.executable, exe_path, "-backup", "-silent"], creationflags=subprocess.CREATE_NO_WINDOW)
+                    
+                    # 4. Atualiza as luzes para o Sinal Verde
+                    self.after(500, self.checar_status_backup)
+                    self.after(0, lambda: self.mostrar_toast("Save Completo", "Seus dados foram salvos na nuvem com sucesso!", "success"))
+                except Exception as e:
+                    self.log(f"❌ Erro no backup forçado: {e}")
+                    self.after(500, self.checar_status_backup)
+                    
+            threading.Thread(target=rotina, daemon=True).start()
+
         def toggle_radio(self):
             if self.switch_radio.get() == 1:
                 install_path = self.entry_path.get()
-                media_dir = os.path.join(install_path, "media")
+                media_dir = os.path.join(install_path, "media", "music")
                 
                 if not os.path.exists(media_dir):
                     try:
                         os.makedirs(media_dir, exist_ok=True)
-                        self.mostrar_toast("Rádio Ambiente", "A pasta 'media' foi criada! Copie suas músicas para lá.", "success")
+                        self.mostrar_toast("Rádio Ambiente", "A pasta 'media/music' foi criada! Copie suas músicas para lá.", "success")
                     except Exception: pass
                 
                 self.config_atual["radio_on"] = True
@@ -599,13 +651,13 @@ def iniciar_gui():
         def abrir_pasta_media(self):
             install_path = self.entry_path.get()
             if not install_path: return
-            media_dir = os.path.join(install_path, "media")
+            media_dir = os.path.join(install_path, "media", "music")
             os.makedirs(media_dir, exist_ok=True)
             try:
                 os.startfile(media_dir)
-                self.log("📁 Explorador de Arquivos aberto na pasta 'media'.")
+                self.log("📁 Explorador de Arquivos aberto na pasta 'media/music'.")
             except Exception as e:
-                self.log(f"❌ Erro ao abrir pasta media: {e}")
+                self.log(f"❌ Erro ao abrir pasta de música: {e}")
 
         def abrir_pasta_sfx(self):
             install_path = self.entry_path.get()
@@ -636,9 +688,7 @@ def iniciar_gui():
         def mostrar_toast(self, titulo, mensagem, tipo="info", duracao=3000):
             """Chama a notificação flutuante e atrela o SFX adequado."""
             try:
-                import toast
                 toast.ToastNotification(self, titulo, mensagem, tipo, duracao)
-                
                 if hasattr(self, 'sfx'):
                     if tipo == "success": self.sfx.play("success")
                     elif tipo in ["error", "warning"]: self.sfx.play("error")
@@ -995,20 +1045,24 @@ def iniciar_gui():
                 self.game_manager.escanear_jogos()
 
         def construir_aba_emulador(self):
-            self.label_roms_title = ctk.CTkLabel(self.tab_config, text=self._("lbl_roms"), font=ctk.CTkFont(weight="bold"))
+            # --- A MÁGICA DO AUTOFIT PARA A ABA CONFIGURAÇÕES! ---
+            self.scroll_config = ctk.CTkScrollableFrame(self.tab_config, fg_color="transparent")
+            self.scroll_config.pack(fill="both", expand=True)
+
+            self.label_roms_title = ctk.CTkLabel(self.scroll_config, text=self._("lbl_roms"), font=ctk.CTkFont(weight="bold"))
             self.label_roms_title.pack(anchor="w", padx=10, pady=(5, 2))
 
-            self.frame_roms_list = ctk.CTkScrollableFrame(self.tab_config, height=70, fg_color="#1a1a1a")
+            self.frame_roms_list = ctk.CTkScrollableFrame(self.scroll_config, height=70, fg_color="#1a1a1a")
             self.frame_roms_list.pack(fill="x", padx=10, pady=(0, 5))
             
-            self.btn_add_rom = ctk.CTkButton(self.tab_config, text=self._("btn_add_path"), width=150, fg_color="#228B22", hover_color="#006400", command=self.adicionar_diretorio_roms)
+            self.btn_add_rom = ctk.CTkButton(self.scroll_config, text=self._("btn_add_path"), width=150, fg_color="#228B22", hover_color="#006400", command=self.adicionar_diretorio_roms)
             self.btn_add_rom.pack(anchor="w", padx=10, pady=(0, 10))
 
             # Auto-save injetado!
-            self.switch_custom_paths = ctk.CTkSwitch(self.tab_config, text=self._("sw_custom_paths"), command=self.toggle_custom_paths)
+            self.switch_custom_paths = ctk.CTkSwitch(self.scroll_config, text=self._("sw_custom_paths"), command=self.toggle_custom_paths)
             self.switch_custom_paths.pack(anchor="w", padx=10, pady=(5, 5))
 
-            self.container_custom_paths = ctk.CTkFrame(self.tab_config, fg_color="transparent", height=0)
+            self.container_custom_paths = ctk.CTkFrame(self.scroll_config, fg_color="transparent", height=0)
             self.container_custom_paths.pack(fill="x", padx=0, pady=0)
 
             self.frame_custom_paths = ctk.CTkFrame(self.container_custom_paths, fg_color="#2b2b2b", corner_radius=6)
@@ -1056,17 +1110,17 @@ def iniciar_gui():
             self.btn_cheat_path = ctk.CTkButton(self.frame_custom_paths, text=self._("btn_browse"), width=50, height=24, command=lambda: self.escolher_dir_custom_path(self.entry_cheat_path))
             self.btn_cheat_path.grid(row=5, column=2, padx=(5, 10), pady=(2, 10))
 
-            self.frame_divisor = ctk.CTkFrame(self.tab_config, height=2, fg_color="#444")
+            self.frame_divisor = ctk.CTkFrame(self.scroll_config, height=2, fg_color="#444")
             self.frame_divisor.pack(fill="x", padx=10, pady=(5, 5))
 
-            self.label_ra_title = ctk.CTkLabel(self.tab_config, text=self._("lbl_ra"), font=ctk.CTkFont(weight="bold"))
+            self.label_ra_title = ctk.CTkLabel(self.scroll_config, text=self._("lbl_ra"), font=ctk.CTkFont(weight="bold"))
             self.label_ra_title.pack(anchor="w", padx=10, pady=(5, 2))
 
             # Auto-save injetado nos Switches RA!
-            self.switch_ra = ctk.CTkSwitch(self.tab_config, text=self._("sw_ra"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
+            self.switch_ra = ctk.CTkSwitch(self.scroll_config, text=self._("sw_ra"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
             self.switch_ra.pack(anchor="w", padx=10, pady=5)
 
-            self.frame_ra_cred = ctk.CTkFrame(self.tab_config, fg_color="transparent")
+            self.frame_ra_cred = ctk.CTkFrame(self.scroll_config, fg_color="transparent")
             self.frame_ra_cred.pack(fill="x", padx=10, pady=2)
             self.frame_ra_cred.columnconfigure(1, weight=1)
 
@@ -1092,17 +1146,26 @@ def iniciar_gui():
             self.btn_toggle_senha.grid(row=1, column=2, padx=(5, 0), pady=2)
 
             # Auto-save injetado!
-            self.switch_hardcore = ctk.CTkSwitch(self.tab_config, text=self._("sw_hard"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
+            self.switch_hardcore = ctk.CTkSwitch(self.scroll_config, text=self._("sw_hard"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
             self.switch_hardcore.pack(anchor="w", padx=10, pady=(5, 2))
             
-            self.lbl_hc_desc = ctk.CTkLabel(self.tab_config, text=self._("lbl_hc_desc"), text_color="gray", font=ctk.CTkFont(size=11), justify="left")
+            self.lbl_hc_desc = ctk.CTkLabel(self.scroll_config, text=self._("lbl_hc_desc"), text_color="gray", font=ctk.CTkFont(size=11), justify="left")
             self.lbl_hc_desc.pack(anchor="w", padx=45, pady=(0, 5))
 
-            self.frame_divisor2 = ctk.CTkFrame(self.tab_config, height=2, fg_color="#444")
+            self.lbl_overlay_pos = ctk.CTkLabel(self.scroll_config, text="Posição do Popup do RetroAchievements:", font=ctk.CTkFont(weight="bold"))
+            self.lbl_overlay_pos.pack(anchor="w", padx=10, pady=(5, 2))
+
+            self.combo_overlay_pos = ctk.CTkComboBox(self.scroll_config, values=[
+                "Cima-Esquerda", "Cima-Centro", "Cima-Direita", 
+                "Baixo-Esquerda", "Baixo-Centro", "Baixo-Direita"
+            ], width=200, state="readonly", command=lambda x: self.salvar_estado_atual())
+            self.combo_overlay_pos.pack(anchor="w", padx=10, pady=5)
+            self.combo_overlay_pos.set(self.config_atual.get("ra_overlay_pos", "Cima-Direita"))
+
+            self.frame_divisor2 = ctk.CTkFrame(self.scroll_config, height=2, fg_color="#444")
             self.frame_divisor2.pack(fill="x", padx=10, pady=(5, 5))
 
-            # Este botão continua aqui porque a aba de RA tem digitação de Senha e User
-            self.btn_salvar_config_emu = ctk.CTkButton(self.tab_config, text=self._("btn_save_emu"), width=280, height=35, font=ctk.CTkFont(weight="bold"), command=lambda: self.salvar_configuracoes_emulador(silencioso=False))
+            self.btn_salvar_config_emu = ctk.CTkButton(self.scroll_config, text=self._("btn_save_emu"), width=280, height=35, font=ctk.CTkFont(weight="bold"), command=lambda: self.salvar_configuracoes_emulador(silencioso=False))
             self.btn_salvar_config_emu.pack(anchor="center", pady=(10, 10))
 
         def construir_aba_qol(self):
@@ -1119,37 +1182,49 @@ def iniciar_gui():
             self.frame_qol = ctk.CTkFrame(self.tab_qol, fg_color="transparent")
             self.frame_qol.pack(fill="x", padx=10)
             self.frame_qol.columnconfigure(0, weight=1)
-            self.frame_qol.columnconfigure(1, weight=1)
 
-            # --- SWITCHES REMANESCENTES DE QOL ---
+            # --- SWITCHES REMANESCENTES DE QOL (ALINHADOS NA ESQUERDA) ---
             self.switch_boxart = ctk.CTkSwitch(self.frame_qol, text=self._("sw_box"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
             self.switch_boxart.grid(row=0, column=0, sticky="w", pady=10)
-            self.switch_vga = ctk.CTkSwitch(self.frame_qol, text=self._("sw_vga"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
-            self.switch_vga.grid(row=0, column=1, sticky="w", pady=10)
+            
             self.switch_discord = ctk.CTkSwitch(self.frame_qol, text=self._("sw_disc"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
             self.switch_discord.grid(row=1, column=0, sticky="w", pady=10)
 
-            # --- O NOVO QUADRO DE ÁUDIO E SFX (ZONA AZUL) ---
+            self.switch_vga = ctk.CTkSwitch(self.frame_qol, text=self._("sw_vga"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
+            self.switch_vga.grid(row=2, column=0, sticky="w", pady=10)
+
+            # --- O NOVO QUADRO DE ÁUDIO E SFX (ZONA AZUL - EMPURRADO PARA A LINHA 3) ---
             self.frame_audio_qol = ctk.CTkFrame(self.frame_qol, fg_color="transparent")
-            self.frame_audio_qol.grid(row=2, column=0, columnspan=2, sticky="w", pady=10)
+            self.frame_audio_qol.grid(row=3, column=0, sticky="w", pady=10)
 
             self.switch_radio = ctk.CTkSwitch(self.frame_audio_qol, text="🎵 Rádio Ambiente (BGM)", command=self.toggle_radio)
-            self.switch_radio.grid(row=0, column=0, sticky="w", pady=5)
+            self.switch_radio.grid(row=0, column=0, sticky="w", pady=(5, 0))
 
-            self.btn_open_media = ctk.CTkButton(self.frame_audio_qol, text="📁", width=28, height=24, fg_color="#555555", hover_color="#777777", command=self.abrir_pasta_media)
-            self.btn_open_media.grid(row=0, column=1, padx=(10, 0), pady=5)
-            self.btn_open_media._tooltip = ToolTip(self.btn_open_media, "Abrir pasta de Músicas")
+            # Botão 1 na linha de baixo (row=1) com recuo lateral (padx=35)
+            self.btn_open_media = ctk.CTkButton(self.frame_audio_qol, text="🎵 Abrir Pasta de Músicas", height=28, font=ctk.CTkFont(weight="bold"), fg_color="#1E90FF", hover_color="#4169E1", command=self.abrir_pasta_media)
+            self.btn_open_media.grid(row=1, column=0, sticky="w", padx=(35, 0), pady=(5, 10))
 
             if self.config_atual.get("radio_on", False): self.switch_radio.select()
 
-            # Muta os efeitos
+            # Muta os efeitos (Empurrado para row=2)
             self.switch_sfx = ctk.CTkSwitch(self.frame_audio_qol, text="🔇 Desativar Efeitos de Som (SFX) do Updater", command=self.salvar_estado_atual)
-            self.switch_sfx.grid(row=1, column=0, columnspan=2, sticky="w", pady=10)
+            self.switch_sfx.grid(row=2, column=0, sticky="w", pady=(5, 0))
             if self.config_atual.get("disable_sfx", False): self.switch_sfx.select()
 
-            # Personaliza os efeitos
+            # Personaliza os efeitos (Botão 2 empurrado para row=3 com recuo lateral)
             self.btn_custom_sfx = ctk.CTkButton(self.frame_audio_qol, text="🎧 Personalizar Efeitos Sonoros", height=28, font=ctk.CTkFont(weight="bold"), fg_color="#8B008B", hover_color="#A52A2A", command=self.abrir_pasta_sfx)
-            self.btn_custom_sfx.grid(row=2, column=0, columnspan=2, sticky="w", pady=(0, 10))
+            self.btn_custom_sfx.grid(row=3, column=0, sticky="w", padx=(35, 0), pady=(5, 5))
+
+            # Manual de Instruções do Sound Test (Empurrado para row=4)
+            texto_sfx = (
+                "ℹ️ Guia de Áudios Customizados (Apenas formato .wav suportado):\n"
+                "• nav.wav   -> Som curto ao navegar pelos botões da interface.\n"
+                "• start.wav -> Toca de forma épica na transição ao iniciar um jogo.\n"
+                "• save.wav  -> Toca ao salvar configurações com sucesso na nuvem ou emulador.\n"
+                "• error.wav -> Toca como alerta quando ocorre algum erro de processamento."
+            )
+            self.lbl_sfx_desc = ctk.CTkLabel(self.frame_audio_qol, text=texto_sfx, text_color="gray", font=ctk.CTkFont(size=11), justify="left")
+            self.lbl_sfx_desc.grid(row=4, column=0, sticky="w", padx=(35, 10), pady=(0, 10))
 
             # --- MODO STREAMER ---
             self.frame_divisor3 = ctk.CTkFrame(self.tab_qol, height=2, fg_color="#444")
@@ -1570,6 +1645,8 @@ def iniciar_gui():
         def resolver_bios_mal_posicionada(self, path):
             if getattr(self, 'bios_prompt_done', False): return
             self.bios_prompt_done = True
+            
+            # Pergunta 1: Deseja mover os arquivos para a pasta 'data'?
             resposta_mover = mb.askyesno(self._("msg_bios_move_title"), self._("msg_bios_move_desc"), parent=self)
             if resposta_mover:
                 pasta_data = os.path.join(path, "data")
@@ -1581,10 +1658,28 @@ def iniciar_gui():
                     self.atualizar_status_diretorio(path)
                 except Exception: pass
             else:
+                # Pergunta 2: Já que não quer mover, deseja registrar esse local no emu.cfg?
                 resposta_config = mb.askyesno("BIOS", self._("msg_bios_register_desc"), parent=self)
                 if resposta_config:
                     if atualizar_emu_cfg(install_path=path, bios_path=path):
                         self.atualizar_status_diretorio(path)
+                else:
+                    # Pergunta 3 (A Tática do HLE): O usuário recusou organizar os arquivos. Oferecemos o HLE!
+                    msg_hle = (
+                        "Como os arquivos não foram movidos nem registrados, o emulador poderá apresentar falhas ao iniciar.\n\n"
+                        "O Flycast possui um recurso avançado chamado 'BIOS HLE', que simula "
+                        "o sistema original e contorna o problema de localização dos arquivos.\n\n"
+                        "Deseja ativar a BIOS HLE agora para garantir o funcionamento do emulador?"
+                    )
+                    resposta_hle = mb.askyesno("Ativar BIOS HLE Automática?", msg_hle, parent=self)
+                    
+                    if resposta_hle:
+                        if hasattr(self, 'switch_hle'):
+                            self.switch_hle.select()
+                            self.ao_trocar_hle() # O motor salva no emu.cfg e pinta o semáforo de VERDE!
+                            self.mostrar_toast("HLE Ativado", "A BIOS HLE foi ativada com sucesso!", "success")
+                    else:
+                        self.log("⚠️ Usuário manteve a BIOS no local incorreto e recusou a ativação da emulação HLE.")
 
         def construir_aba_logs(self):
             self.label_logs_title = ctk.CTkLabel(self.tab_logs, text=self._("lbl_logs_title"), font=ctk.CTkFont(size=16, weight="bold"))
@@ -1609,7 +1704,7 @@ def iniciar_gui():
             def rotina():
                 gpus = obter_gpus_windows()
                 if not gpus:
-                    self.lbl_hw_info.configure(text=self._("msg_no_gpu"))
+                    self.after(0, lambda: self.lbl_hw_info.configure(text=self._("msg_no_gpu")))
                     return
                 texto = self._("msg_gpu_done")
                 fabricante_detectado = None
@@ -1628,8 +1723,12 @@ def iniciar_gui():
                         elif "intel" in nome_lower: fabricante_detectado = "intel"
                 
                 self.fabricante_gpu = fabricante_detectado
-                self.lbl_hw_info.configure(text=texto)
-                if fabricante_detectado: self.btn_driver.configure(state="normal")
+                
+                # O espião (Thread) entrega os dados para a interface principal pintar a tela de forma segura!
+                self.after(0, lambda: self.lbl_hw_info.configure(text=texto))
+                if fabricante_detectado: 
+                    self.after(0, lambda: self.btn_driver.configure(state="normal"))
+                    
             threading.Thread(target=rotina, daemon=True).start()
 
         def abrir_site_driver(self):
@@ -1670,15 +1769,29 @@ def iniciar_gui():
             self.config_atual["branch"] = self.branch_var.get()
             self.config_atual["create_startup"] = self.switch_startup.get() == 1
             self.config_atual["install_path"] = self.entry_path.get()
-            self.config_atual["cloud_provider"] = self.cloud_var.get() if self.cloud_var.get() != "nenhum" else None
+            
+            cloud_prov = self.cloud_var.get() if self.cloud_var.get() != "nenhum" else None
+            self.config_atual["cloud_provider"] = cloud_prov
+            
+            # --- A PEÇA QUE FALTAVA PRO MOTOR ACHAR A NUVEM! ---
+            if cloud_prov == "gdrive" and cloud_saves:
+                self.config_atual["cloud_path"] = cloud_saves.get_gdrive_path()
+            elif cloud_prov == "onedrive" and cloud_saves:
+                self.config_atual["cloud_path"] = cloud_saves.get_onedrive_path()
+            else:
+                self.config_atual["cloud_path"] = None
+            # ---------------------------------------------------
+                
             self.config_atual["language"] = self.lang
             self.config_atual["backup_mappings"] = self.switch_mappings.get() == 1
             self.config_atual["backup_limit"] = self.combo_limit.get()
             self.config_atual["streamer_mode"] = getattr(self, "switch_streamer", ctk.BooleanVar(value=False)).get() == 1
 
+            if hasattr(self, 'combo_overlay_pos'):
+                self.config_atual["ra_overlay_pos"] = self.combo_overlay_pos.get()
             if hasattr(self, 'entry_manual_path'):
                 self.config_atual["custom_manual_path"] = self.entry_manual_path.get() if self.switch_custom_paths.get() == 1 else ""
-            if hasattr(self, 'entry_cheat_path'): # NOVO
+            if hasattr(self, 'entry_cheat_path'):
                 self.config_atual["custom_cheat_path"] = self.entry_cheat_path.get() if self.switch_custom_paths.get() == 1 else ""
             if hasattr(self, 'combo_tema'):
                 self.config_atual["tema"] = self.combo_tema.get()
@@ -1691,8 +1804,6 @@ def iniciar_gui():
                 if hasattr(self, 'sfx'):
                     self.sfx.enabled = not self.config_atual["disable_sfx"] and HAS_PYGAME
                 
-            salvar_configuracao(self.config_atual)
-            self.checar_status_backup()    
             salvar_configuracao(self.config_atual)
             self.checar_status_backup()
 
@@ -1816,7 +1927,24 @@ def iniciar_gui():
             
             msg = self._("msg_bios_missing").format(files="\n- ".join(missing))
             resposta = mb.askyesno(self._("title_bios_missing"), msg, parent=self)
-            if resposta: self.procurar_e_instalar_bios(path, custom_bios_path)
+            
+            if resposta: 
+                self.procurar_e_instalar_bios(path, custom_bios_path)
+            else:
+                # O usuário recusou o envio manual. A Tática do HLE entra em ação!
+                msg_hle = (
+                    "Você optou por não fornecer os arquivos originais de BIOS.\n\n"
+                    "O Flycast possui um recurso de 'BIOS HLE', que simula o sistema original "
+                    "e permite iniciar os jogos sem os arquivos oficiais.\n\n"
+                    "Deseja ativar a BIOS HLE agora para garantir o funcionamento do emulador?"
+                )
+                resposta_hle = mb.askyesno("Ativar BIOS HLE Automática?", msg_hle, parent=self)
+                if resposta_hle:
+                    if hasattr(self, 'switch_hle'):
+                        self.switch_hle.select()
+                        self.ao_trocar_hle() # O motor salva e pinta a tela de verde automaticamente!
+                else:
+                    self.log("⚠️ Usuário recusou a BIOS oficial e a emulação HLE. Os jogos poderão não iniciar.")
 
         def carregar_dados_atuais_emu_cfg(self):
             install_path = os.path.normpath(self.entry_path.get())
@@ -1924,8 +2052,66 @@ def iniciar_gui():
             # --- CORREÇÃO: AGORA ELE CARREGA FORA DA BARREIRA! ---
             if hasattr(self, 'devices_manager'):
                 self.devices_manager.carregar_dispositivos()
-                
+
         def salvar_configuracoes_emulador(self, silencioso=True):
+            ra_on = self.switch_ra.get() == 1
+            api_key = getattr(self, "entry_ra_api", tk.Entry()).get().strip() if hasattr(self, "entry_ra_api") else ""
+
+            # Se o jogador tentou salvar manualmente, habilitou o RA, mas esqueceu a API Key:
+            if not silencioso and ra_on and not api_key:
+                self._dialogo_api_ausente()
+                return # Pausa o salvamento! O botão da janelinha que vai concluir o processo.
+            
+            self._efetivar_salvamento_emu(silencioso)
+            
+        def _dialogo_api_ausente(self):
+            dialog = ctk.CTkToplevel(self)
+            dialog.title("Atenção: Web API Key Necessária")
+            dialog.geometry("600x260")
+            dialog.attributes("-topmost", True)
+            dialog.grab_set()
+
+            texto = (
+                "Uma das mecânicas mais legais do Flycast Updater é a sua integração com o RetroAchievements!\n\n"
+                "Mas para que ela atinja seu Blast Processing máximo (trazendo o Painel Global, Big Picture "
+                "e Popups na tela), é preciso que a sua Web API Key seja configurada junto com o usuário e senha.\n\n"
+                "Deseja pegar a sua chave agora?"
+            )
+            
+            lbl = ctk.CTkLabel(dialog, text=texto, justify="center", wraplength=550, font=ctk.CTkFont(size=14))
+            lbl.pack(pady=20, padx=20)
+
+            frame_botoes = ctk.CTkFrame(dialog, fg_color="transparent")
+            frame_botoes.pack(pady=10)
+
+            def ao_sim():
+                dialog.destroy()
+                self.abrir_ajuda_api_key(com_contador=True)
+
+            def ao_nao():
+                dialog.destroy()
+                msg_nao = (
+                    "OK! Você pode plugar essa informação a qualquer momento aqui na aba de Configurações.\n\n"
+                    "Fique tranquilo: suas conquistas continuarão a ser liberadas no seu perfil normalmente. "
+                    "Apenas as novas funcionalidades visuais no Big Picture, Launcher e aba de Conquistas "
+                    "não irão operar.\n\nBoa jogatina!"
+                )
+                mb.showinfo("Boa Jogatina!", msg_nao, parent=self)
+                self._efetivar_salvamento_emu(silencioso=False)
+
+            btn_sim = ctk.CTkButton(frame_botoes, text="Sim, configurar agora", width=180, fg_color="#228B22", hover_color="#006400", command=ao_sim)
+            btn_sim.pack(side="left", padx=15)
+
+            btn_nao = ctk.CTkButton(frame_botoes, text="Não, salvar assim mesmo", width=180, fg_color="#8B0000", hover_color="#A52A2A", command=ao_nao)
+            btn_nao.pack(side="left", padx=15)
+
+        # A sua função original que faz o trabalho sujo de salvar no emu.cfg fica aqui!
+        def _efetivar_salvamento_emu(self, silencioso=True):
+            install_path = self.entry_path.get()
+            ra_on = self.switch_ra.get() == 1
+            # ... todo o resto do seu código original de salvamento segue intacto daqui pra baixo ...
+                
+        def _efetivar_salvamento_emu(self, silencioso=True):
             install_path = self.entry_path.get()
             ra_on = self.switch_ra.get() == 1
             ra_user = self.entry_ra_user.get().strip()
@@ -2029,6 +2215,12 @@ def iniciar_gui():
             self.salvar_configuracoes_emulador(silencioso=True)
             estado = "ATIVADA" if self.switch_hle.get() == 1 else "DESATIVADA"
             self.log(f"⚙️ BIOS HLE foi {estado}.")
+            
+            # Se o usuário desligou o HLE, destravamos os alertas de BIOS para ele procurar de novo!
+            if self.switch_hle.get() == 0:
+                self.bios_prompt_done = False
+                
+            self.atualizar_status_diretorio(self.entry_path.get())
 
         def toggle_bios_arcade(self, sistema, arquivo_esperado, switch_widget):
             install_path = self.entry_path.get()
@@ -2153,8 +2345,16 @@ def iniciar_gui():
             threading.Thread(target=rotina, daemon=True).start()
 
         def atualizar_status_diretorio(self, path):
+            # 1º LUGAR: Verifica se o HLE está ativado antes de qualquer outra coisa!
+            hle_ativo = hasattr(self, 'switch_hle') and self.switch_hle.get() == 1
+
             if not path or not os.path.exists(path):
-                self.lbl_bios.configure(text=self._("bios_error"), text_color="#FF4C4C")
+                # Se a pasta estiver com erro, mas o HLE estiver ligado, o semáforo de BIOS prevalece VERDE!
+                if hle_ativo:
+                    self.lbl_bios.configure(text="BIOS: 🟢 HLE OK", text_color="#00FF7F")
+                else:
+                    self.lbl_bios.configure(text=self._("bios_error"), text_color="#FF4C4C")
+                    
                 self.lbl_emulador_status.configure(text=self._("emu_status_error"), text_color="#FF4C4C")
                 self.btn_rollback.configure(state="disabled")
                 self.btn_atualizar.configure(text=f"🚀 {self._('btn_install_act')}")
@@ -2195,7 +2395,10 @@ def iniciar_gui():
                     boot_custom = os.path.exists(os.path.join(custom_bios_path, "dc_boot.bin"))
                     flash_custom = os.path.exists(os.path.join(custom_bios_path, "dc_flash.bin"))
 
-            if boot_data and flash_data:
+            # --- HLE: Intercepta a leitura antes de dar Erro ou Ausente! ---
+            if hle_ativo:
+                self.lbl_bios.configure(text="BIOS: 🟢 HLE OK", text_color="#00FF7F")
+            elif boot_data and flash_data:
                 self.lbl_bios.configure(text=self._("bios_ok"), text_color="#00FF7F")
             elif custom_bios_path and boot_custom and flash_custom:
                 self.lbl_bios.configure(text=self._("bios_custom"), text_color="#00FF7F")
@@ -2236,13 +2439,28 @@ def iniciar_gui():
             dir_escolhido = ctk.filedialog.askdirectory()
             if dir_escolhido:
                 dir_escolhido = os.path.normpath(dir_escolhido)
+                
+                # 1. Força a criação da pasta física se ela ainda não existir no Windows
+                os.makedirs(dir_escolhido, exist_ok=True)
+                
                 self.entry_path.configure(state="normal")
                 self.entry_path.delete(0, 'end')
                 self.entry_path.insert(0, dir_escolhido)
                 self.entry_path.configure(state="readonly")
+                
+                # 2. Salva o caminho imediatamente no config.json do Updater
+                self.config_atual["install_path"] = dir_escolhido
+                self.salvar_estado_atual()
+                
+                # 3. Se for uma pasta que já tem o Flycast, tentamos ler os dados dela
+                self.carregar_dados_atuais_emu_cfg()
+                
+                # 4. A SUA IDEIA APLICADA: Gera o emu.cfg e a estrutura base ANTES da interface validar os semáforos!
+                self.salvar_configuracoes_emulador(silencioso=True)
+                
+                # 5. Só agora liberamos a interface para pintar as luzes de verde ou vermelho
                 self.bios_prompt_done = False 
                 self.atualizar_status_diretorio(dir_escolhido)
-                self.carregar_dados_atuais_emu_cfg()
 
         def criar_atalho_desktop_limpo(self):
             try:
@@ -2266,24 +2484,100 @@ def iniciar_gui():
                 self.log(f"❌ Erro ao criar atalho na Área de Trabalho: {e}")
 
         def abrir_janela_ajuda(self):
-            win_ajuda = ctk.CTkToplevel(self)
-            win_ajuda.title(self._("msg_about_title"))
-            win_ajuda.geometry("550x550")
-            win_ajuda.attributes("-topmost", True)
-            texto_ajuda = self._("msg_about_desc", version=VERSION)
-            lbl_texto = ctk.CTkLabel(win_ajuda, text=texto_ajuda, justify="left", font=ctk.CTkFont(size=12))
-            lbl_texto.pack(padx=20, pady=20, fill="both", expand=True)
+            # A função geral que havia sido deletada acidentalmente!
+            msg = (
+                "Flycast Updater (Big Blue)\n\n"
+                "Para tutoriais, suporte técnico e novidades sobre o projeto, "
+                "visite o nosso repositório oficial no GitHub."
+            )
+            mb.showinfo(self._("btn_help"), msg, parent=self)
+            webbrowser.open(f"https://github.com/{REPO_UPDATER}")
 
-        def abrir_ajuda_api_key(self):
+        def abrir_janela_doacao(self):
+            win_doar = ctk.CTkToplevel(self)
+            win_doar.title("Apoie o Projeto")
+            win_doar.geometry("520x380")
+            win_doar.attributes("-topmost", True)
+            win_doar.grab_set()
+
+            lbl_title = ctk.CTkLabel(win_doar, text="💚 Inserir Coin (Continue)", font=ctk.CTkFont(size=22, weight="bold"), text_color="#00FF7F")
+            lbl_title.pack(pady=(20, 10))
+
+            texto = (
+                "O Flycast Updater (Big Blue) é, e sempre será, um projeto livre, de código aberto "
+                "e totalmente sem fins lucrativos.\n\n"
+                "Nossa missão principal é preservar e elevar o legado do Dreamcast, entregando a "
+                "melhor experiência possível sem cobrar nenhuma argola dourada por isso.\n\n"
+                "Porém, se esse projeto ajudou a reviver clássicos na sua tela e você deseja apoiar o "
+                "desenvolvimento de forma voluntária, qualquer doação é como coletar uma Esmeralda do "
+                "Caos para nós! Ela ajuda a manter os servidores ativos e o café do criador rodando a cravados 60 FPS."
+            )
+
+            lbl_texto = ctk.CTkLabel(win_doar, text=texto, justify="center", font=ctk.CTkFont(size=13), wraplength=460)
+            lbl_texto.pack(padx=20, pady=(0, 15))
+
+            frame_pix = ctk.CTkFrame(win_doar, fg_color="#1a1a1a", corner_radius=10)
+            frame_pix.pack(fill="x", padx=50, pady=(0, 20))
+
+            lbl_pix_title = ctk.CTkLabel(frame_pix, text="Chave PIX (E-mail):", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray")
+            lbl_pix_title.pack(pady=(10, 0))
+
+            entry_pix = ctk.CTkEntry(frame_pix, justify="center", font=ctk.CTkFont(size=16, weight="bold"), text_color="#FFD700", border_width=0, fg_color="transparent")
+            entry_pix.pack(fill="x", padx=20, pady=(5, 10))
+            entry_pix.insert(0, "danielboysangames@gmail.com")
+            entry_pix.configure(state="readonly")
+
+            def copiar_pix():
+                self.clipboard_clear()
+                self.clipboard_append("danielboysangames@gmail.com")
+                self.mostrar_toast("PIX Copiado!", "Chave copiada com sucesso para a área de transferência. Muito obrigado pelo apoio!", "success")
+                win_doar.after(500, win_doar.destroy)
+
+            btn_copiar = ctk.CTkButton(win_doar, text="📋 Copiar Chave PIX", width=200, height=35, fg_color="#1E90FF", hover_color="#4169E1", font=ctk.CTkFont(weight="bold"), command=copiar_pix)
+            btn_copiar.pack(pady=(0, 20))
+
+        def abrir_janela_ajuda(self):
+            # A função geral que havia sido deletada acidentalmente!
+            msg = (
+                "Flycast Updater (Big Blue)\n\n"
+                "Para tutoriais, suporte técnico e novidades sobre o projeto, "
+                "visite o nosso repositório oficial no GitHub."
+            )
+            mb.showinfo(self._("btn_help"), msg, parent=self)
+            webbrowser.open(f"https://github.com/{REPO_UPDATER}")
+
+        def abrir_ajuda_api_key(self, com_contador=False):
+            # A nossa nova função da API do RA com o atalho estilo Sonic!
             win_api = ctk.CTkToplevel(self)
             win_api.title(self._("msg_api_title"))
-            win_api.geometry("500x320")
+            win_api.geometry("500x340")
             win_api.attributes("-topmost", True)
             texto = self._("msg_api_desc")
             lbl_texto = ctk.CTkLabel(win_api, text=texto, justify="left", font=ctk.CTkFont(size=13), wraplength=460)
             lbl_texto.pack(padx=20, pady=(20, 10), fill="both", expand=True)
-            btn_link = ctk.CTkButton(win_api, text=self._("btn_api_link"), width=200, height=35, fg_color="#228B22", hover_color="#006400", font=ctk.CTkFont(weight="bold"), command=lambda: webbrowser.open("https://retroachievements.org/controlpanel.php"))
-            btn_link.pack(pady=(0, 20))
+            
+            btn_link = ctk.CTkButton(win_api, text=self._("btn_api_link"), width=200, height=35, fg_color="#228B22", hover_color="#006400", font=ctk.CTkFont(weight="bold"), command=lambda: webbrowser.open("https://retroachievements.org/settings?tab=applications"))
+            btn_link.pack(pady=(0, 10))
+
+            if com_contador:
+                self.tempo_restante_api = 10
+                lbl_contador = ctk.CTkLabel(win_api, text=f"Abrindo o site automaticamente em {self.tempo_restante_api}...", text_color="#FFD700", font=ctk.CTkFont(size=12, weight="bold"))
+                lbl_contador.pack(pady=(0, 15))
+
+                def atualizar_contador():
+                    if not win_api.winfo_exists(): return
+                    self.tempo_restante_api -= 1
+                    if self.tempo_restante_api > 0:
+                        lbl_contador.configure(text=f"Abrindo o site automaticamente em {self.tempo_restante_api}...")
+                        win_api.after(1000, atualizar_contador)
+                    else:
+                        lbl_contador.configure(text="Iniciando a conexão...")
+                        webbrowser.open("https://retroachievements.org/settings?tab=applications")
+                        win_api.after(1500, win_api.destroy)
+
+                win_api.after(1000, atualizar_contador)
+            else:
+                btn_link.pack(pady=(0, 20))
 
         def preparar_motor(self, acao):
             texto_atual = self.btn_atualizar.cget("text")

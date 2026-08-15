@@ -509,6 +509,20 @@ class GameLibraryManager:
                 
                 # 3. TOCA O SOM ÉPICO E LANÇA O JOGO
                 if hasattr(self.app, 'sfx'): self.app.sfx.play("start")
+
+                # --- O OVERLAY INICIA AQUI! ---
+                if hasattr(self.app, 'ra_manager'):
+                    self.app.ra_manager.iniciar_rastreio_em_gameplay(nome_jogo)
+                # --------------------------------------
+
+                processo = subprocess.Popen(args_lancamento, cwd=install_path)
+                processo.wait() # <--- Fica aqui até o cara fechar o emulador
+
+                # --- O OVERLAY TERMINA AQUI! ---
+                if hasattr(self.app, 'ra_manager'):
+                    self.app.ra_manager.parar_rastreio()
+                # ----------------------------------------
+
                 # Avisa o Discord que a gameplay começou!
                 if hasattr(self.app, 'discord'): self.app.discord.atualizar_jogo(nome_jogo)
 
@@ -540,12 +554,18 @@ class GameLibraryManager:
                 if hasattr(self.app, 'janela_bp') and self.app.janela_bp and self.app.janela_bp.winfo_exists():
                     self.app.janela_bp.deiconify()
                     self.app.janela_bp.focus_force()
+                    
+                    # --- O PARRY FINAL NO GHOST INPUT ---
+                    try:
+                        import pygame
+                        pygame.event.clear()
+                    except: pass
+                    # 1.5 segundos de bloqueio TOTAL de botões na interface!
+                    self.app.janela_bp.tempo_desbloqueio = time.time() + 1.5
+                    # ----------------------------------------------
+
                     self.app.janela_bp.jogo_em_execucao = False
-                    self.app.janela_bp.radio.play() 
-                else:
-                    self.app.after(0, self.app.deiconify)
-                    if hasattr(self.app, 'is_paused') and self.app.is_paused:
-                        self.app.radio_play_pause() 
+                    self.app.janela_bp.radio.play()
                         
                 self.app.after(0, self.escanear_jogos)
 

@@ -44,10 +44,29 @@ class ModoBigPicture(ctk.CTkToplevel):
                     break
         # -----------------------------------------------------------
         
+        # --- MÁGICA DO MULTI-MONITOR BLINDADA ---
         self.title("Big Blue - TV Mode")
-        self.attributes("-fullscreen", True)
-        self.attributes("-topmost", True)
         self.configure(fg_color="#050508")
+        self.attributes("-topmost", True)
+        
+        monitor_str = self.app.combo_monitor.get() if hasattr(self.app, 'combo_monitor') else ""
+        alinhado_secundario = False
+        
+        if hasattr(self.app, 'lista_monitores'):
+            for m in self.app.lista_monitores:
+                if m['nome'] == monitor_str:
+                    try:
+                        # Extrai a resolução exata do nome "Monitor 2 (1920x1080)"
+                        dim = m['nome'].split('(')[1].split(')')[0]
+                        w, h = dim.split('x')
+                        self.geometry(f"{w}x{h}+{m['left']}+{m['top']}")
+                        self.overrideredirect(True) # Arranca as bordas e domina o monitor escolhido!
+                        alinhado_secundario = True
+                    except: pass
+                    break
+        
+        if not alinhado_secundario:
+            self.attributes("-fullscreen", True) # Fallback seguro para o Monitor 1
         
         self.bind("<Escape>", lambda e: self.sair())
         self.bind("<Right>", self.proximo_jogo)
@@ -91,8 +110,17 @@ class ModoBigPicture(ctk.CTkToplevel):
     def verificar_controle(self):
         if not self.leitura_controle_ativa or not self.winfo_exists(): return
         
-        # O FANTASMA EXORCIZADO: Se o jogo tá rodando, descartamos a fila do controle. 
-        # Assim ele não fecha o Big Picture quando você aperta B/ESC para sair do emulador!
+        agora = time.time()
+        
+        # --- A MAGIA: I-FRAMES DE INVENCIBILIDADE ---
+        # Se a interface acabou de acordar, destrói qualquer input residual (Ghost Input)
+        if agora < getattr(self, 'tempo_desbloqueio', 0):
+            try: pygame.event.clear()
+            except: pass
+            self.after(50, self.verificar_controle)
+            return
+
+        # O FANTASMA EXORCIZADO: Se o jogo tá rodando, descartamos a fila.
         if self.jogo_em_execucao or not self.winfo_viewable():
             try: pygame.event.clear()
             except: pass
@@ -100,13 +128,12 @@ class ModoBigPicture(ctk.CTkToplevel):
             try:
                 for event in pygame.event.get():
                     if event.type == pygame.JOYHATMOTION:
-                        if event.value[0] == 1: self.proximo_jogo()       # Direita
-                        elif event.value[0] == -1: self.jogo_anterior()   # Esquerda
-                        elif event.value[1] == 1: self.navegar_menu(-1)   # Cima
-                        elif event.value[1] == -1: self.navegar_menu(1)   # Baixo
+                        if event.value[0] == 1: self.proximo_jogo()       
+                        elif event.value[0] == -1: self.jogo_anterior()   
+                        elif event.value[1] == 1: self.navegar_menu(-1)   
+                        elif event.value[1] == -1: self.navegar_menu(1)   
                         
                     elif event.type == pygame.JOYAXISMOTION:
-                        agora = time.time()
                         if agora - self.ultimo_input > 0.2:
                             if event.axis == 0:
                                 if event.value > 0.7: 
@@ -135,12 +162,11 @@ class ModoBigPicture(ctk.CTkToplevel):
                         elif event.button in botoes_voltar: self.sair()
                         elif event.button == 14: self.proximo_jogo()
                         elif event.button == 13: self.jogo_anterior()
-                        # --- CONTROLE DE VOLUME NOS BUMPERS (L1 / R1) ---
-                        elif event.button == 4: # L1 / LB
+                        elif event.button == 4: 
                             novo_vol = max(0.0, self.slider_volume.get() - 0.1)
                             self.slider_volume.set(novo_vol)
                             self.mudar_volume(novo_vol)
-                        elif event.button == 5: # R1 / RB
+                        elif event.button == 5: 
                             novo_vol = min(1.0, self.slider_volume.get() + 0.1)
                             self.slider_volume.set(novo_vol)
                             self.mudar_volume(novo_vol)
@@ -480,7 +506,8 @@ class ModoBigPicture(ctk.CTkToplevel):
             except: pass
 
     def abrir_conquistas(self):
-        self.game_manager.exibir_janela_conquistas(self.jogos[self.index_atual])
+        nome_jogo = self.jogos[self.index_atual]
+        self.game_manager.exibir_janela_conquistas(nome_jogo)
 
     def abrir_netplay(self):
         import netplay

@@ -1,14 +1,22 @@
 import os
+import sys
+import customtkinter as ctk
+
 try:
     import pygame
     HAS_PYGAME = True
 except ImportError:
     HAS_PYGAME = False
-import customtkinter as ctk
+
+def obter_caminho_base():
+    """Retorna o diretório mágico do PyInstaller ou a pasta local do projeto."""
+    if getattr(sys, 'frozen', False):
+        return sys._MEIPASS 
+    return os.path.dirname(os.path.abspath(__file__)) 
 
 class SFXManager:
     def __init__(self, install_path):
-        self.sfx_dir = os.path.join(install_path, "media", "sfx")
+        self.install_path = install_path
         self.enabled = HAS_PYGAME
         self.sounds = {}
         
@@ -21,23 +29,32 @@ class SFXManager:
                 self.enabled = False
 
     def _load_sounds(self):
-        # Garante que a pasta exista para o usuário colocar os sons
-        os.makedirs(self.sfx_dir, exist_ok=True)
+        # Pasta Customizada (onde o emulador está instalado)
+        custom_dir = os.path.join(self.install_path, "media", "sfx")
+        # Pasta Embutida (dentro do executável)
+        bundled_dir = os.path.join(obter_caminho_base(), "media", "sfx")
         
-        # Mapeia os arquivos esperados
+        # Garante que a pasta customizada exista para o usuário
+        os.makedirs(custom_dir, exist_ok=True)
+        
         sfx_files = {
-            "hover": "nav.wav",      # Passar o mouse / Mover controle
-            "success": "save.wav",   # Som de moeda ou confirmar
-            "error": "error.wav",    # Som de bloqueio / erro
-            "start": "start.wav"     # Som épico ao iniciar o jogo
+            "hover": "nav.wav",      
+            "success": "save.wav",   
+            "error": "error.wav",    
+            "start": "start.wav"     
         }
         
         for name, filename in sfx_files.items():
-            filepath = os.path.join(self.sfx_dir, filename)
+            custom_path = os.path.join(custom_dir, filename)
+            bundled_path = os.path.join(bundled_dir, filename)
+            
+            # MAGIA DO FALLBACK: Tenta o customizado primeiro. Se não existir, pega o oficial embutido!
+            filepath = custom_path if os.path.exists(custom_path) else bundled_path
+            
             if os.path.exists(filepath):
                 try:
                     self.sounds[name] = pygame.mixer.Sound(filepath)
-                    self.sounds[name].set_volume(0.5) # Volume padrão
+                    self.sounds[name].set_volume(0.5) 
                 except: pass
 
     def play(self, sound_name):
@@ -54,16 +71,12 @@ class SFXManager:
         
         def varrer_widgets(pai):
             for widget in pai.winfo_children():
-                # Injeta som em Botões
                 if isinstance(widget, ctk.CTkButton):
                     if widget.cget("text") not in botoes_ignorados:
                         widget.bind("<Enter>", lambda e: self.play("hover"), add="+")
-                
-                # Injeta som em Switches e Radio Buttons
                 elif isinstance(widget, ctk.CTkSwitch) or isinstance(widget, ctk.CTkRadioButton):
                     widget.bind("<Enter>", lambda e: self.play("hover"), add="+")
                 
-                # Busca recursiva para entrar nos Frames
                 varrer_widgets(widget) 
                 
         varrer_widgets(widget_root)
