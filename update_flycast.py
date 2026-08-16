@@ -123,35 +123,45 @@ def create_startup_shortcut(branch_choice, dest_script_path):
         pass
 
 def get_stable_release():
-    print("Consultando a API do GitHub pela última Release Estável (Master)...")
+    msg = "Consultando a API do GitHub pela última Release Estável (Master)..."
+    print(msg)
+    log_event(msg)
     api_url = "https://api.github.com/repos/flyinghead/flycast/releases/latest"
     req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
     try:
         with urllib.request.urlopen(req) as response:
             release = json.loads(response.read().decode('utf-8'))
-    except Exception: return None, None
+    except Exception as e: 
+        log_event(f"Erro ao consultar API da Master: {e}")
+        return None, None
     remote_version = release.get("tag_name")
     for asset in release.get("assets", []):
         name = asset["name"].lower()
         if ("win" in name or "windows" in name) and ("debug" not in name) and name.endswith(".zip"):
+            log_event(f"Pacote Master localizado: {remote_version}")
             return asset["browser_download_url"], remote_version
     return None, None
 
 def get_dev_release():
-    print("Buscando histórico de código da branch 'DEV'...")
+    msg = "Buscando histórico de código da branch 'DEV'..."
+    print(msg)
+    log_event(msg)
     api_url = "https://api.github.com/repos/flyinghead/flycast/commits?sha=dev&per_page=15"
     req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
     try:
         with urllib.request.urlopen(req) as response:
             commits = json.loads(response.read().decode('utf-8'))
             commit_hashes = [commit["sha"] for commit in commits]
-    except Exception: return None, None
+    except Exception as e: 
+        log_event(f"Erro ao consultar API da Dev: {e}")
+        return None, None
     for commit in commit_hashes:
         for bucket in S3_BUCKETS:
             url = f"{bucket}/win/heads/dev-{commit}/flycast.zip"
             try:
                 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'}, method='HEAD')
                 urllib.request.urlopen(req)
+                log_event(f"Pacote Dev localizado no commit: {commit[:10]}")
                 return url, commit
             except (HTTPError, URLError):
                 continue
@@ -174,36 +184,45 @@ def verificar_bios_local(install_dir):
             arquivos_faltantes.append(arquivo)
     if arquivos_faltantes:
         print(f"\n[!] Aviso de BIOS: Arquivos não detectados ({', '.join(arquivos_faltantes)}).")
+        log_event(f"Aviso de BIOS: Arquivos não detectados ({', '.join(arquivos_faltantes)}).")
     else:
         print(f"\n[✓] Verificação de BIOS: OK.")
+        log_event("Verificação de BIOS: OK.")
 
 def criar_backup(install_dir):
     backup_path = os.path.join(install_dir, "flycast_backup.zip")
-    print("\n[*] Criando backup de segurança da versão atual...")
+    flycast_exe = os.path.join(install_dir, "flycast.exe")
+    
+    print("\n[*] Criando backup de segurança do emulador (flycast.exe)...")
     try:
-        with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk(install_dir):
-                for file in files:
-                    ext = os.path.splitext(file)[1].lower()
-                    if file not in ["flycast_backup.zip", "flycast_update.zip", "flycast_updater.log"] and ext not in ['.chd', '.gdi', '.cdi', '.iso']:
-                        file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, install_dir)
-                        zipf.write(file_path, arcname)
-        log_event("Backup criado com sucesso.")
-    except Exception:
-        pass
+        # Só cria o backup se o executável do emulador realmente existir
+        if os.path.exists(flycast_exe):
+            with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # Grava APENAS o flycast.exe, com o nome limpo na raiz do ZIP
+                zipf.write(flycast_exe, "flycast.exe")
+            log_event("Backup do emulador (flycast.exe) criado com sucesso.")
+        else:
+            print("[-] flycast.exe não encontrado. Backup ignorado.")
+    except Exception as e:
+        print(f"[-] Erro ao criar backup: {e}")
 
 def restaurar_backup():
     backup_path = os.path.join(INSTALL_DIR, "flycast_backup.zip")
     if not os.path.exists(backup_path):
         print(f"\n[-] Nenhum arquivo de backup encontrado.")
         return
-    print(f"\n[*] Iniciando Rollback: Restaurando versão anterior...")
+        
+    print(f"\n[*] Iniciando Rollback: Restaurando apenas o executável do emulador...")
     try:
         with zipfile.ZipFile(backup_path, 'r') as zip_ref:
-            zip_ref.extractall(INSTALL_DIR)
-        print("[+] Rollback concluído! Versão restaurada.")
-        log_event("Rollback executado com sucesso.")
+            # Verifica se o flycast.exe está dentro do ZIP antes de extrair
+            if "flycast.exe" in zip_ref.namelist():
+                zip_ref.extract("flycast.exe", INSTALL_DIR)
+                print("[+] Rollback concluído! Versão do emulador restaurada.")
+                log_event("Rollback do flycast.exe executado com sucesso.")
+            else:
+                print("[-] O arquivo de backup é inválido (não contém flycast.exe).")
+                log_event("Erro: Arquivo flycast.exe ausente no backup.")
     except Exception as e:
         print(f"[-] Erro crítico durante rollback: {e}")
 
@@ -226,7 +245,7 @@ def acionar_backup_nuvem():
             log_event(f"Cloud Save (Falha/Aviso): {mensagem}")
 
 def main():
-    log_event("--- Script iniciado ---")
+    log_event("--- Script de Atualização Iniciado ---")
     dest_script_path = get_dest_script_path()
     
     if '-rollback' in args_lower:
@@ -238,13 +257,16 @@ def main():
             acionar_backup_nuvem()
         else:
             print("[-] Nenhuma nuvem configurada para backup.")
+            log_event("Backup abortado: Nenhuma nuvem configurada.")
         return
 
     branch_choice = get_user_preference()
+    log_event(f"Iniciando rotina de verificação para a branch: {branch_choice.upper()}")
     download_url, remote_version = get_stable_release() if branch_choice == 'master' else get_dev_release()
         
     if not download_url:
         print(f"Erro: Não foi possível localizar os arquivos para {branch_choice.upper()}.")
+        log_event(f"Erro Crítico: Download URL não localizada para {branch_choice.upper()}.")
         return
 
     print(f"Pacote localizado! (Commit: {remote_version[:10]})")
@@ -255,6 +277,7 @@ def main():
 
     if local_version == remote_version:
         print(f"O Flycast ({branch_choice.upper()}) já está atualizado!")
+        log_event(f"Validação: A versão instalada ({local_version[:10]}) já é a mais recente.")
         if SHOULD_CREATE_SHORTCUT: create_desktop_shortcut(branch_choice, dest_script_path)
         if SHOULD_CREATE_STARTUP: create_startup_shortcut(branch_choice, dest_script_path)
         acionar_backup_nuvem() 
@@ -262,6 +285,7 @@ def main():
         return
 
     print(f"Nova versão detectada. Iniciando download...")
+    log_event(f"Nova versão detectada ({remote_version[:10]}). Iniciando o download do arquivo ZIP...")
     download_path = os.path.join(INSTALL_DIR, "flycast_update.zip")
     
     try:
@@ -295,24 +319,33 @@ def main():
                     sys.stdout.write(f'\r[*] Progresso: |{barra}| {porcentagem}% ({mb_baixado:.1f}MB / {mb_total:.1f}MB)')
                     sys.stdout.flush()
                 print("\n")
+        log_event("Download do pacote de atualização concluído com sucesso.")
     except Exception as e:
         print(f"\nErro no download: {e}")
+        log_event(f"Erro Crítico durante o download: {e}")
         return
 
     print("Extraindo arquivos e substituindo a versão antiga...")
+    log_event("Iniciando rotina de extração de arquivos...")
     criar_backup(INSTALL_DIR)
     try:
         with zipfile.ZipFile(download_path, 'r') as zip_ref:
             zip_ref.extractall(INSTALL_DIR)
+        log_event("Extração concluída e arquivos substituídos.")
     except Exception as e:
         print(f"Erro na extração: {e}")
+        log_event(f"Erro Crítico durante a extração: {e}")
     finally:
         if os.path.exists(download_path): os.remove(download_path)
 
     with open(VERSION_FILE, "w") as f: f.write(remote_version)
+    log_event("Arquivo version.txt atualizado.")
+    
     verificar_bios_local(INSTALL_DIR)
 
     print(f"Sucesso! Flycast atualizado.")
+    log_event(f"Ciclo de Atualização concluído com sucesso. Emulador pronto.")
+    
     if SHOULD_CREATE_SHORTCUT: create_desktop_shortcut(branch_choice, dest_script_path)
     if SHOULD_CREATE_STARTUP: create_startup_shortcut(branch_choice, dest_script_path)
     

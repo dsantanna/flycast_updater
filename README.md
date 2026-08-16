@@ -11,6 +11,20 @@
 O **Flycast Updater** transcendeu completamente sua função original de atualizador[cite: 5]. Hoje ele atua como a suíte definitiva de gerenciamento, integração em nuvem e interface gráfica avançada para elevar a sua experiência de emulação no **Flycast** (Sega Dreamcast / Naomi / Atomiswave) no Windows a um patamar profissional[cite: 5].
 
 ---
+## 🎬 Novidades da Versão 6.1 & Funcionalidades Principais[cite: 5]
+
+- **Comportamento Customizável do Botão "JOGAR":** Escolha na aba de BIOS e Emu se o botão principal deve levar à aba do Launcher, abrir o Big Picture ou iniciar o Flycast diretamente.
+- **Botão "Ignorar e Jogar":** Um atalho laranja dinâmico que aparece entre as opções principais quando há atualizações pendentes, permitindo iniciar a jogatina sem obrigatoriedade de patch imediato.
+- **Datas de Lançamento Dinâmicas:** Acompanhe o dia exato das últimas compilações (`DD/MM/YYYY`) diretamente sob os seletores da branch Dev e Master.
+- **Rollback Cirúrgico (`flycast.exe`):** Restauração instantânea e segura focada apenas no binário do emulador, evitando travas de permissão do Windows e economizando espaço em disco.
+- **Persistência de Sessão:** A interface gráfica não se encerra mais ao concluir uma rotina de verificação/atualização bem-sucedida, mantendo o ecossistema ativo de forma fluida.
+- **Logs Aprimorados (Verbose em Camada Dupla):** Rastreamento completo de eventos tanto na interface quanto no motor em segundo plano (`update_flycast.py`).
+- **Modo Big Picture (Interface de TV Fullscreen):** Experiência cinematográfica imersiva com reprodução automática de Video Snaps (`video_snaps.py`)[cite: 5].
+- **Galeria de Conquistas do RetroAchievements (Vitrine Gold):** Conquistas detalhadas por jogo com cache local e insígnias originais[cite: 5].
+- **Overlay Animado de Troféus:** Popups holográficos e sonorizados em tempo real ao desbloquear conquistas.
+- **Sincronização de Saves Sob Demanda (One-Click Sync):** Upload imediato de VMU para o Google Drive ou OneDrive sem fechar o emulador[cite: 5].
+- **Rádio Ambiente Modular (`radio_flycast.py`) & Leitor ID3:** Mini-player integrado com metadados ID3 reais e controle de volume[cite: 5].
+
 ## 🎬 Funcionalidades Principais (v6.0 - Big Blue)[cite: 5]
 
 - **Modo Big Picture (Interface de TV Fullscreen):** Uma experiência cinematográfica imersiva em tela cheia que cobre a área de trabalho, permitindo navegação fluida por teclado e controle pelas capas dos jogos, com reprodução automática e dinâmica de Video Snaps (`video_snaps.py`)[cite: 5].

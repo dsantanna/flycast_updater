@@ -2,6 +2,17 @@
        FLYCAST UPDATER - CHANGELOG
 ========================================[cite: 4]
 
+Versão 6.1 (Big Blue - QoL & Workflow Refinements)
+----------------------------------------
+- **Comportamento Customizável do Botão "JOGAR":** Novo ComboBox na aba "BIOS e Emu" que permite configurar a ação do botão principal entre três opções: Utilizar o Launcher, Abrir o Big Picture ou Iniciar o Flycast diretamente.
+- **Botão "Ignorar e Jogar":** Atalho dinâmico exibido ao lado do botão de atualização quando o emulador está desatualizado, permitindo que o usuário entre na partida imediatamente sem precisar aguardar o download da nova build.
+- **Datas de Lançamento Dinâmicas:** Consulta em tempo real via API para exibir a data exata do último commit (Dev) e do último release (Master) no formato `DD/MM/YYYY` diretamente abaixo de cada branch.
+- **Rollback Cirúrgico e Seguro:** O sistema de reversão foi reestruturado para realizar backup e restaurar exclusivamente o executável (`flycast.exe`), eliminando o risco de erros de permissão do Windows (`Permission Denied`) e evitando o armazenamento de arquivos pesados (como ROMs).
+- **Persistência da Interface Pós-Atualização:** O utilitário de atualização não fecha mais a aplicação automaticamente ao finalizar uma rotina bem-sucedida, mantendo o launcher aberto e pronto para uso.
+- **Sistema de Logs "Tagarela" (Verbose):** Expansão profunda das mensagens registradas no `flycast_updater.log` tanto no Launcher quanto no motor de atualização (`update_flycast.py`), facilitando auditorias e diagnósticos.
+- **Polimento Visual e Ícones Temáticos:** Inserção do redemoinho clássico do Dreamcast (`🌀`) e do ícone de arcade/fliperama (`🕹️`) na seção de BIOS.
+- **Exceções de Tema VIP:** Proteção das cores originais dos botões do cabeçalho (Doar, Big Picture e Atualizador do App) contra sobreposições indesejadas ao trocar de tema visual.
+
 Versão 6.0 (Big Blue)[cite: 4]
 ----------------------------------------
 - **Modo Big Picture (Interface de TV Fullscreen):** Nova experiência imersiva de TV em tela cheia que cobre a área de trabalho, permitindo navegação por teclado e controle pelas capas dos jogos, com reprodução automática de Video Snaps (`video_snaps.py`)[cite: 4].

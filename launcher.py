@@ -3,7 +3,7 @@ import tkinter as tk
 import tkinter.messagebox as mb
 import webbrowser
 
-# --- MÓDULOS LOCAIS (TODOS AQUI NO TOPO PARA O PYINSTALLER!) ---
+# --- MÓDULOS LOCAIS  ---
 import bigpicture 
 import radio_flycast
 import retroachievements
@@ -32,11 +32,11 @@ try:
 except ImportError: HAS_PYGAME = False
 
 # ==========================================
-# Flycast Updater - Launcher v6.0 (Big Blue)
+# Flycast Updater - Launcher v6.1 (Big Blue)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
 
-VERSION = "6.0"
+VERSION = "6.1"
 CONFIG_FILE = "config.json"
 REPO_UPDATER = "dsantanna/flycast_updater"
 
@@ -327,6 +327,18 @@ def iniciar_gui():
             }
             self.rev_lang_map = {v: k for k, v in self.lang_map.items()}
 
+            # --- NOVO BOTÃO DE ATUALIZAR O UPDATER (Oculto por padrão) ---
+            self.btn_update_app = ctk.CTkButton(
+                self.frame_top_right, 
+                text="🌟 Atualizar Flycast Updater", 
+                width=140, 
+                height=28, 
+                fg_color="#FFD700", 
+                hover_color="#DAA520", 
+                text_color="black",
+                font=ctk.CTkFont(weight="bold")
+            )
+
             self.btn_bigpicture_top = ctk.CTkButton(
                 self.frame_top_right, 
                 text="📺 Big Picture", 
@@ -394,13 +406,23 @@ def iniciar_gui():
 
             self.frame_botoes = ctk.CTkFrame(self, fg_color="transparent")
             self.frame_botoes.pack(pady=(0, 10))
+            
+            # Coluna 0: Atualizar / Jogar
             self.btn_atualizar = ctk.CTkButton(self.frame_botoes, text=self._("btn_verify", default="VERIFICANDO..."), width=220, height=38, font=ctk.CTkFont(weight="bold"), command=lambda: self.preparar_motor("atualizar"))
             self.btn_atualizar.grid(row=0, column=0, padx=10)
-            self.btn_rollback = ctk.CTkButton(self.frame_botoes, text=self._("btn_rollback", default="REVERTER"), width=180, height=38, fg_color="#8B0000", hover_color="#A52A2A", font=ctk.CTkFont(weight="bold"), command=lambda: self.preparar_motor("rollback"))
-            self.btn_rollback.grid(row=0, column=1, padx=10)
 
+            # Coluna 1: O NOVO BOTÃO (Nasce invisível)
+            self.btn_ignorar = ctk.CTkButton(self.frame_botoes, text="⏩ Ignorar e Jogar", width=160, height=38, fg_color="#FF8C00", hover_color="#CD853F", font=ctk.CTkFont(weight="bold"), command=self.executar_comportamento_jogar)
+            self.btn_ignorar.grid(row=0, column=1, padx=(0, 10))
+            self.btn_ignorar.grid_remove() # Oculta o botão da tela inicialmente
+
+            # Coluna 2: Reverter
+            self.btn_rollback = ctk.CTkButton(self.frame_botoes, text=self._("btn_rollback", default="REVERTER"), width=180, height=38, fg_color="#8B0000", hover_color="#A52A2A", font=ctk.CTkFont(weight="bold"), command=lambda: self.preparar_motor("rollback"))
+            self.btn_rollback.grid(row=0, column=2, padx=(0, 10))
+
+            # Coluna 3: Rádio Player
             self.frame_player = ctk.CTkFrame(self.frame_botoes, fg_color="#1a1a1a", corner_radius=8)
-            self.frame_player.grid(row=0, column=2, padx=(20, 0), sticky="e")
+            self.frame_player.grid(row=0, column=3, padx=(10, 0), sticky="e")
             
             self.lbl_now_playing = ctk.CTkLabel(self.frame_player, text="🎵 Rádio Parada", font=ctk.CTkFont(size=11), width=160, anchor="center")
             self.lbl_now_playing.pack(side="top", padx=10, pady=(2, 0))
@@ -420,10 +442,9 @@ def iniciar_gui():
             self.btn_radio_next = ctk.CTkButton(self.frame_player_controls, text="⏭", width=30, height=20, fg_color="transparent", hover_color="#333", command=self.radio_next)
             self.btn_radio_next.pack(side="left", padx=2)
 
-            # --- FRAME DO SEMÁFORO DE BACKUP (AGORA INTERATIVO!) ---
+            # Coluna 4: Status do Backup
             self.frame_backup_status = ctk.CTkFrame(self.frame_botoes, fg_color="#1a1a1a", corner_radius=8, cursor="hand2")
-            self.frame_backup_status.grid(row=0, column=3, padx=(20, 0), sticky="e")
-            self.frame_backup_status.bind("<Button-1>", self.forcar_backup_nuvem)
+            self.frame_backup_status.grid(row=0, column=4, padx=(20, 0), sticky="e")
             
             self.lbl_backup_status = ctk.CTkLabel(self.frame_backup_status, text="☁️ Backup: 🔴", font=ctk.CTkFont(size=11, weight="bold"), cursor="hand2")
             self.lbl_backup_status.pack(side="top", padx=10, pady=(2, 0))
@@ -453,6 +474,8 @@ def iniciar_gui():
             self.after(1600, self.checar_status_backup)
             # --- AUTO-SYNC DO RETROACHIEVEMENTS GLOBAL ---
             self.after(2500, lambda: self.ra_manager.carregar_dados_globais(silencioso=True))
+            # --- RADAR DE ATUALIZAÇÕES DO UPDATER ---
+            self.after(4000, self.checar_atualizacao_updater_bg)
 
         def iniciar_radio(self):
             if not HAS_PYGAME: return
@@ -781,14 +804,15 @@ def iniciar_gui():
             self.btn_clear_log.configure(text=self._("btn_log_clear"))
 
         def construir_aba_nuvem(self):
-            self.frame_path_title = ctk.CTkFrame(self.tab_atualizador, fg_color="transparent")
-            self.frame_path_title.pack(fill="x", padx=10, pady=(10, 2))
-            self.label_path = ctk.CTkLabel(self.frame_path_title, text=self._("lbl_path"), font=ctk.CTkFont(weight="bold"))
-            self.label_path.pack(side="left")
-            self.lbl_bios = ctk.CTkLabel(self.frame_path_title, text="BIOS: ...", font=ctk.CTkFont(size=12, weight="bold"))
-            self.lbl_bios.pack(side="right")
+            # --- A MÁGICA DO AUTOFIT PARA A ABA BIOS E EMU ---
+            self.scroll_emu = ctk.CTkScrollableFrame(self.tab_atualizador, fg_color="transparent")
+            self.scroll_emu.pack(fill="both", expand=True)
 
-            self.frame_path = ctk.CTkFrame(self.tab_atualizador, fg_color="transparent")
+            # --- BLOCO 1: EMULADOR (Local, Versão e Atalhos) ---
+            self.label_path = ctk.CTkLabel(self.scroll_emu, text=self._("lbl_path"), font=ctk.CTkFont(weight="bold"))
+            self.label_path.pack(anchor="w", padx=10, pady=(10, 2))
+
+            self.frame_path = ctk.CTkFrame(self.scroll_emu, fg_color="transparent")
             self.frame_path.pack(fill="x", padx=10, pady=(0, 10))
             self.frame_path.columnconfigure(0, weight=1) 
 
@@ -799,35 +823,57 @@ def iniciar_gui():
             self.btn_path = ctk.CTkButton(self.frame_path, text=self._("btn_browse"), width=80, command=self.escolher_diretorio)
             self.btn_path.grid(row=0, column=1)
 
-            self.label_branch = ctk.CTkLabel(self.tab_atualizador, text=self._("lbl_branch"), font=ctk.CTkFont(weight="bold"))
+            self.label_branch = ctk.CTkLabel(self.scroll_emu, text=self._("lbl_branch"), font=ctk.CTkFont(weight="bold"))
             self.label_branch.pack(anchor="w", padx=10, pady=(5, 2))
 
             self.branch_var = ctk.StringVar(value=self.config_atual.get("branch", "dev").lower())
-            self.frame_branches = ctk.CTkFrame(self.tab_atualizador, fg_color="transparent")
+            
+            self.frame_branches = ctk.CTkFrame(self.scroll_emu, fg_color="transparent")
             self.frame_branches.pack(fill="x", padx=10, pady=(0, 10))
 
+            # --- BRANCH DEV ---
             self.rb_dev = ctk.CTkRadioButton(self.frame_branches, text="Branch Dev", font=ctk.CTkFont(weight="bold"), variable=self.branch_var, value="dev", command=self.ao_trocar_branch)
             self.rb_dev.grid(row=0, column=0, sticky="w", padx=(0, 50))
             self.lbl_dev_desc = ctk.CTkLabel(self.frame_branches, text=self._("rb_dev_desc"), text_color="gray", font=ctk.CTkFont(size=11), justify="left")
             self.lbl_dev_desc.grid(row=1, column=0, sticky="nw", padx=(28, 50))
+            
+            # Etiqueta de Data Dev
+            self.lbl_dev_date = ctk.CTkLabel(self.frame_branches, text="Lançado em: Buscando...", text_color="#1E90FF", font=ctk.CTkFont(size=10, weight="bold"))
+            self.lbl_dev_date.grid(row=2, column=0, sticky="nw", padx=(28, 50), pady=(2, 0))
 
+            # --- BRANCH MASTER ---
             self.rb_master = ctk.CTkRadioButton(self.frame_branches, text="Branch Master", font=ctk.CTkFont(weight="bold"), variable=self.branch_var, value="master", command=self.ao_trocar_branch)
             self.rb_master.grid(row=0, column=1, sticky="w", padx=(0, 10))
             self.lbl_master_desc = ctk.CTkLabel(self.frame_branches, text=self._("rb_master_desc"), text_color="gray", font=ctk.CTkFont(size=11), justify="left")
             self.lbl_master_desc.grid(row=1, column=1, sticky="nw", padx=(28, 0)) 
+            
+            # Etiqueta de Data Master
+            self.lbl_master_date = ctk.CTkLabel(self.frame_branches, text="Lançado em: Buscando...", text_color="#1E90FF", font=ctk.CTkFont(size=10, weight="bold"))
+            self.lbl_master_date.grid(row=2, column=1, sticky="nw", padx=(28, 0), pady=(2, 0))
 
-            self.btn_desktop_shortcut = ctk.CTkButton(self.tab_atualizador, text="🖥️ Criar Atalho no Desktop", width=220, height=28, command=self.abrir_janela_atalho)
+            self.btn_desktop_shortcut = ctk.CTkButton(self.scroll_emu, text="🖥️ Criar Atalho no Desktop", width=220, height=28, command=self.abrir_janela_atalho)
             self.btn_desktop_shortcut.pack(anchor="w", padx=10, pady=(15, 5))
 
             # Auto-save injetado no Switch!
-            self.switch_startup = ctk.CTkSwitch(self.tab_atualizador, text=self._("sw_start"), command=self.salvar_estado_atual)
+            self.switch_startup = ctk.CTkSwitch(self.scroll_emu, text=self._("sw_start"), command=self.salvar_estado_atual)
             self.switch_startup.pack(anchor="w", padx=10, pady=5)
             if self.config_atual.get("create_startup", False): self.switch_startup.select()
-            # --- DREAMCAST ---
-            self.lbl_dc_title = ctk.CTkLabel(self.tab_atualizador, text="🕹️ Dreamcast", font=ctk.CTkFont(size=14, weight="bold"))
-            self.lbl_dc_title.pack(anchor="w", padx=10, pady=(15, 2))
 
-            self.switch_hle = ctk.CTkSwitch(self.tab_atualizador, text="Ativar BIOS HLE", command=self.ao_trocar_hle)
+            # --- SEPARADOR 1 (LINHA AMARELA) ---
+            self.frame_divisor_emu = ctk.CTkFrame(self.scroll_emu, height=2, fg_color="#444")
+            self.frame_divisor_emu.pack(fill="x", padx=10, pady=(15, 10))
+
+            # --- BLOCO 2: QUADRO BIOS (DREAMCAST & ARCADE) ---
+            self.frame_bios_title = ctk.CTkFrame(self.scroll_emu, fg_color="transparent")
+            self.frame_bios_title.pack(fill="x", padx=10, pady=(5, 5))
+            
+            self.lbl_dc_title = ctk.CTkLabel(self.frame_bios_title, text="🌀 Dreamcast", font=ctk.CTkFont(size=14, weight="bold"))
+            self.lbl_dc_title.pack(side="left")
+
+            self.lbl_bios = ctk.CTkLabel(self.frame_bios_title, text="BIOS: ...", font=ctk.CTkFont(size=12, weight="bold"))
+            self.lbl_bios.pack(side="right")
+
+            self.switch_hle = ctk.CTkSwitch(self.scroll_emu, text="Ativar BIOS HLE", command=self.ao_trocar_hle)
             self.switch_hle.pack(anchor="w", padx=20, pady=(5, 2))
             
             texto_hle = (
@@ -836,17 +882,14 @@ def iniciar_gui():
                 "(dc_boot.bin). Alguns jogos independentes e homebrews recentes (como o clássico\n"
                 "RPG Pier Solar) SÓ funcionam se esta opção estiver ATIVADA."
             )
-            self.lbl_hle_desc = ctk.CTkLabel(self.tab_atualizador, text=texto_hle, text_color="gray", font=ctk.CTkFont(size=11), justify="left")
+            self.lbl_hle_desc = ctk.CTkLabel(self.scroll_emu, text=texto_hle, text_color="gray", font=ctk.CTkFont(size=11), justify="left")
             self.lbl_hle_desc.pack(anchor="w", padx=55, pady=(0, 15))
 
             # --- OUTROS SISTEMAS (ARCADE) ---
-            self.frame_divisor_arcade = ctk.CTkFrame(self.tab_atualizador, height=2, fg_color="#444")
-            self.frame_divisor_arcade.pack(fill="x", padx=10, pady=(5, 10))
-
-            self.lbl_arcade_title = ctk.CTkLabel(self.tab_atualizador, text="👾 Outros Sistemas (Arcade)", font=ctk.CTkFont(size=14, weight="bold"))
+            self.lbl_arcade_title = ctk.CTkLabel(self.scroll_emu, text="🕹️ Outros Sistemas (Arcade)", font=ctk.CTkFont(size=14, weight="bold"))
             self.lbl_arcade_title.pack(anchor="w", padx=10, pady=(5, 10))
 
-            self.frame_arcade_switches = ctk.CTkFrame(self.tab_atualizador, fg_color="transparent")
+            self.frame_arcade_switches = ctk.CTkFrame(self.scroll_emu, fg_color="transparent")
             self.frame_arcade_switches.pack(fill="x", padx=20)
 
             self.switch_naomi = ctk.CTkSwitch(self.frame_arcade_switches, text="BIOS Naomi", command=lambda: self.toggle_bios_arcade("Naomi", "naomi.zip", self.switch_naomi))
@@ -857,7 +900,29 @@ def iniciar_gui():
 
             self.switch_atomiswave = ctk.CTkSwitch(self.frame_arcade_switches, text="BIOS Atomiswave", command=lambda: self.toggle_bios_arcade("Atomiswave", "awbios.zip", self.switch_atomiswave))
             self.switch_atomiswave.grid(row=0, column=2, sticky="w", pady=5)
-            # --------------------------------------------------
+
+            # --- SEPARADOR 2 (APÓS QUADRO BIOS) ---
+            self.frame_divisor_bios = ctk.CTkFrame(self.scroll_emu, height=2, fg_color="#444")
+            self.frame_divisor_bios.pack(fill="x", padx=10, pady=(15, 10))
+
+            # --- BLOCO 3: COMPORTAMENTO DO BOTÃO JOGAR ---
+            self.lbl_play_behavior = ctk.CTkLabel(self.scroll_emu, text="⚙️ Comportamento do Botão Principal (JOGAR)", font=ctk.CTkFont(size=14, weight="bold"))
+            self.lbl_play_behavior.pack(anchor="w", padx=10, pady=(5, 5))
+            
+            self.combo_play_behavior = ctk.CTkComboBox(
+                self.scroll_emu, 
+                values=["Utilizar o Flycast Updater Launcher", "Abrir Bigpicture", "Abrir Flycast"], 
+                width=300, 
+                state="readonly", 
+                command=lambda x: self.salvar_estado_atual()
+            )
+            self.combo_play_behavior.pack(anchor="w", padx=20, pady=(0, 20))
+            
+            # Carrega a preferência salva ou define "Abrir Flycast" como padrão
+            self.combo_play_behavior.set(self.config_atual.get("play_behavior", "Abrir Flycast"))
+
+            # Aciona o radar de datas assim que a aba termina de ser construída
+            self.after(2000, self.buscar_datas_versoes_bg)
 
         def abrir_janela_atalho(self):
             win_atalho = ctk.CTkToplevel(self)
@@ -963,6 +1028,7 @@ def iniciar_gui():
             self.salvar_estado_atual() # Salva a escolha silenciosamente
 
         def abrir_big_picture(self):
+            self.log("📺 Inicializando interface Big Picture (Tela Cheia)...")
             # Salva a referência da janela para podermos minimizá-la depois!
             self.janela_bp = bigpicture.ModoBigPicture(self, self.game_manager)
 
@@ -1789,6 +1855,8 @@ def iniciar_gui():
 
             if hasattr(self, 'combo_overlay_pos'):
                 self.config_atual["ra_overlay_pos"] = self.combo_overlay_pos.get()
+            if hasattr(self, 'combo_play_behavior'):
+                self.config_atual["play_behavior"] = self.combo_play_behavior.get()
             if hasattr(self, 'entry_manual_path'):
                 self.config_atual["custom_manual_path"] = self.entry_manual_path.get() if self.switch_custom_paths.get() == 1 else ""
             if hasattr(self, 'entry_cheat_path'):
@@ -1814,7 +1882,18 @@ def iniciar_gui():
             hover = tema["hover"]
             texto = tema["text"]
 
-            botoes_excecao = [getattr(self, 'btn_rollback', None), getattr(self, 'btn_reconfig', None), getattr(self, 'btn_clear_log', None), getattr(self, 'btn_filter_fav', None), getattr(self, 'btn_toggle_senha', None)]
+            # --- AQUI ESTÁ A MÁGICA: Os botões do cabeçalho entraram na lista VIP! ---
+            botoes_excecao = [
+                getattr(self, 'btn_rollback', None), 
+                getattr(self, 'btn_ignorar', None),
+                getattr(self, 'btn_donate', None),          # Protege o botão DOAR (Verde)
+                getattr(self, 'btn_bigpicture_top', None),  # Protege o Big Picture (Laranja)
+                getattr(self, 'btn_update_app', None),      # Protege a notificação de nova versão do Updater (Dourado)
+                getattr(self, 'btn_reconfig', None), 
+                getattr(self, 'btn_clear_log', None), 
+                getattr(self, 'btn_filter_fav', None), 
+                getattr(self, 'btn_toggle_senha', None)
+            ]
 
             try:
                 self.tabview.configure(segmented_button_selected_color=primaria, segmented_button_selected_hover_color=hover)
@@ -2207,6 +2286,8 @@ def iniciar_gui():
             else: self.log("❌ Vídeo: Erro ao auto-salvar configurações.")
 
         def ao_trocar_branch(self):
+            nova_branch = self.branch_var.get()
+            self.log(f"🌿 Branch alterada pelo usuário para: {nova_branch.upper()}")
             self.salvar_estado_atual()
             self.atualizar_status_diretorio(self.entry_path.get())
 
@@ -2266,6 +2347,46 @@ def iniciar_gui():
                     else:
                         switch_widget.select()
 
+        def buscar_datas_versoes_bg(self):
+            def rotina():
+                headers_api = {'User-Agent': f'FlycastUpdater/{VERSION}'}
+                token = self.config_atual.get("github_token", "")
+                if token: headers_api['Authorization'] = f'token {token}'
+
+                # --- 1. LÓGICA DEV: Pescando pelo último Commit (A mais recente do servidor) ---
+                try:
+                    url_dev = "https://api.github.com/repos/flyinghead/flycast/commits?sha=dev&per_page=1"
+                    req_dev = urllib.request.Request(url_dev, headers=headers_api)
+                    with urllib.request.urlopen(req_dev, timeout=5) as response:
+                        dados_dev = json.loads(response.read().decode('utf-8'))
+                        if dados_dev:
+                            data_iso_dev = dados_dev[0]["commit"]["author"]["date"] # Formato: YYYY-MM-DDTHH:MM:SSZ
+                            data_format_dev = datetime.datetime.strptime(data_iso_dev[:10], "%Y-%m-%d").strftime("%d/%m/%Y")
+                            try: self.after(0, lambda: self.lbl_dev_date.configure(text=f"Lançado em: {data_format_dev}"))
+                            except: pass
+                except Exception as e:
+                    self.log(f"⚠️ Erro ao buscar data Dev: {e}")
+                    try: self.after(0, lambda: self.lbl_dev_date.configure(text="Lançado em: Indisponível"))
+                    except: pass
+
+                # --- 2. LÓGICA MASTER: Pescando pelo último Release Oficial (Igual ao motor) ---
+                try:
+                    url_master = "https://api.github.com/repos/flyinghead/flycast/releases/latest"
+                    req_master = urllib.request.Request(url_master, headers=headers_api)
+                    with urllib.request.urlopen(req_master, timeout=5) as response:
+                        dados_master = json.loads(response.read().decode('utf-8'))
+                        data_iso_master = dados_master.get("published_at", "") # Formato: 2023-10-25T12:00:00Z
+                        if data_iso_master:
+                            data_format_master = datetime.datetime.strptime(data_iso_master[:10], "%Y-%m-%d").strftime("%d/%m/%Y")
+                            try: self.after(0, lambda: self.lbl_master_date.configure(text=f"Lançado em: {data_format_master}"))
+                            except: pass
+                except Exception as e:
+                    self.log(f"⚠️ Erro ao buscar data Master: {e}")
+                    try: self.after(0, lambda: self.lbl_master_date.configure(text="Lançado em: Indisponível"))
+                    except: pass
+
+            # Dispara a busca invisível (Thread)
+            threading.Thread(target=rotina, daemon=True).start()
 
         def verificar_versao_em_background(self, path, branch):
             def rotina():
@@ -2336,11 +2457,17 @@ def iniciar_gui():
                         return
 
                 if remote_version and (local_version == remote_version or local_version.startswith(remote_version)):
-                    self.lbl_emulador_status.configure(text=self._("emu_status_updated"), text_color="#00FF7F")
-                    self.btn_atualizar.configure(text=f"🚀 {self._('btn_play')}")
+                    self.after(0, lambda: self.lbl_emulador_status.configure(text=self._("emu_status_updated"), text_color="#00FF7F"))
+                    self.after(0, lambda: self.btn_atualizar.configure(text=f"🚀 {self._('btn_play')}"))
+                    # EMULADOR ATUALIZADO = ESCONDE O BOTÃO IGNORAR
+                    self.after(0, lambda: self.btn_ignorar.grid_remove() if hasattr(self, 'btn_ignorar') else None)
                 else:
-                    self.lbl_emulador_status.configure(text=self._("emu_status_outdated"), text_color="#FFD700")
-                    self.btn_atualizar.configure(text=f"🚀 {self._('btn_update_act')}")
+                    self.after(0, lambda: self.lbl_emulador_status.configure(text=self._("emu_status_outdated"), text_color="#FFD700"))
+                    self.after(0, lambda: self.btn_atualizar.configure(text=f"🚀 {self._('btn_update_act')}"))
+                    # EMULADOR DESATUALIZADO = MOSTRA O BOTÃO IGNORAR COM COORDENADAS EXATAS
+                    self.after(0, lambda: self.btn_ignorar.grid(row=0, column=1, padx=(0, 10)) if hasattr(self, 'btn_ignorar') else None)
+
+            threading.Thread(target=rotina, daemon=True).start()
 
             threading.Thread(target=rotina, daemon=True).start()
 
@@ -2418,6 +2545,7 @@ def iniciar_gui():
             else:
                 self.lbl_emulador_status.configure(text=self._("emu_status_missing"), text_color="#FF4C4C")
                 self.btn_atualizar.configure(text=f"🚀 {self._('btn_install_act')}")
+                if hasattr(self, 'btn_ignorar'): self.btn_ignorar.grid_remove() # <-- Oculta aqui também
 
             backup_path = os.path.join(path, "flycast_backup.zip")
             if os.path.exists(backup_path): self.btn_rollback.configure(state="normal")
@@ -2579,23 +2707,125 @@ def iniciar_gui():
             else:
                 btn_link.pack(pady=(0, 20))
 
+        def executar_comportamento_jogar(self):
+            comportamento = getattr(self, 'combo_play_behavior', None)
+            if comportamento:
+                escolha = comportamento.get()
+                if escolha == "Utilizar o Flycast Updater Launcher":
+                    self.log("➡️ Redirecionando para a aba Launcher (Escolha do Jogador).")
+                    self.tabview.set(self._("tab_games", default="🕹️ Launcher"))
+                    return
+                elif escolha == "Abrir Bigpicture":
+                    self.log("📺 Transição para o modo Big Picture ativada!")
+                    self.abrir_big_picture()
+                    return
+            
+            # Comportamento Padrão: Abrir Flycast
+            self.log("🚀 Iniciando emulador via comportamento padrão (Fast Boot).")
+            self.btn_atualizar.configure(state="disabled", text=self._("btn_starting"))
+            self.btn_rollback.configure(state="disabled")
+            if hasattr(self, 'btn_ignorar'): self.btn_ignorar.configure(state="disabled")
+            
+            self.progressbar.pack(pady=(2, 0))
+            self.label_status.pack(pady=(2, 5))
+            threading.Thread(target=self.rodar_motor, args=("jogar",), daemon=True).start()
+
         def preparar_motor(self, acao):
             texto_atual = self.btn_atualizar.cget("text")
+            
+            # Se a ação for "Atualizar" mas o texto for "JOGAR", delega para a função central:
+            if acao == "atualizar" and self._("btn_play") in texto_atual: 
+                self.executar_comportamento_jogar()
+                return
+                
             self.btn_atualizar.configure(state="disabled")
             self.btn_rollback.configure(state="disabled")
+            if hasattr(self, 'btn_ignorar'): self.btn_ignorar.configure(state="disabled")
             
             if acao == "atualizar": 
-                if self._("btn_play") in texto_atual: 
-                    self.btn_atualizar.configure(text=self._("btn_starting"))
-                    acao = "jogar"  # Altera a ação interna para Fast Boot
-                else: 
-                    self.btn_atualizar.configure(text=self._("btn_processing"))
+                self.btn_atualizar.configure(text=self._("btn_processing"))
             else: 
                 self.btn_rollback.configure(text=self._("btn_reverting"))
 
             self.progressbar.pack(pady=(2, 0))
             self.label_status.pack(pady=(2, 5))
             threading.Thread(target=self.rodar_motor, args=(acao,), daemon=True).start()
+
+        def checar_atualizacao_updater_bg(self):
+            def rotina():
+                api_url = f"https://api.github.com/repos/{REPO_UPDATER}/releases/latest"
+                try:
+                    req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, timeout=5) as response:
+                        dados = json.loads(response.read().decode())
+                    
+                    versao_remota = dados.get("tag_name", "").replace("v", "")
+                    if versao_remota and versao_remota > VERSION:
+                        for asset in dados.get("assets", []):
+                            if asset["name"].endswith(".exe"):
+                                download_url = asset["browser_download_url"]
+                                # Encontrou versão nova! Desenha o botão magicamente na tela.
+                                self.after(0, lambda u=download_url, v=versao_remota: self.exibir_botao_atualizacao(u, v))
+                                break
+                except Exception:
+                    pass # Se estiver sem internet ou o GitHub bloquear, falha silenciosamente sem incomodar.
+            threading.Thread(target=rotina, daemon=True).start()
+
+        def exibir_botao_atualizacao(self, url, versao):
+            self.btn_update_app.configure(command=lambda: self.iniciar_atualizacao_app(url, versao))
+            # O truque de Level Design: "before=" empurra o botão para a esquerda do Big Picture!
+            self.btn_update_app.pack(side="left", padx=(0, 5), before=self.btn_bigpicture_top)
+            self.btn_update_app._tooltip = ToolTip(self.btn_update_app, f"Nova versão v{versao} disponível!")
+
+        def iniciar_atualizacao_app(self, url, versao):
+            resposta = mb.askyesno("Atualização Disponível", f"A nova versão v{versao} do Flycast Updater está disponível!\n\nDeseja baixar e reiniciar o aplicativo agora?", parent=self)
+            if not resposta: return
+
+            self.btn_update_app.configure(text="⏳ Baixando...", state="disabled")
+            self.progressbar.set(0)
+            self.label_status.configure(text=f"Baixando nova versão v{versao}...", text_color="#FFD700")
+
+            def download_e_atualizar():
+                exe_atual = sys.executable
+                dir_atual = os.path.dirname(exe_atual)
+                exe_novo = os.path.join(dir_atual, "FlycastUpdater_novo.exe")
+                script_bat = os.path.join(dir_atual, "atualiza_updater.bat")
+
+                try:
+                    urllib.request.urlretrieve(url, exe_novo)
+
+                    # Confirmação triunfal!
+                    self.after(0, lambda: mb.showinfo("Download Concluído", "A atualização foi baixada com sucesso!\n\nO aplicativo será reiniciado automaticamente em instantes para aplicar a nova versão.", parent=self))
+
+                    if os.name == 'nt':
+                        nome_exe = os.path.basename(exe_atual)
+                        conteudo_bat = f"""@echo off
+cd /d "{dir_atual}"
+:wait
+timeout /t 1 /nobreak > NUL
+del "{nome_exe}"
+if exist "{nome_exe}" goto wait
+ren "FlycastUpdater_novo.exe" "{nome_exe}"
+start "" "{nome_exe}"
+(goto) 2>nul & del "%~f0"
+"""
+                        with open(script_bat, "w", encoding="utf-8") as f:
+                            f.write(conteudo_bat)
+
+                        # Executa o .bat de forma 100% invisível (0x08000000 = CREATE_NO_WINDOW)
+                        subprocess.Popen(script_bat, shell=True, cwd=dir_atual, creationflags=0x08000000)
+                    
+                    self.after(1000, self.destroy)
+                    time.sleep(1)
+                    os._exit(0)
+
+                except Exception as e:
+                    if os.path.exists(exe_novo): os.remove(exe_novo)
+                    self.after(0, lambda: mb.showerror("Erro de Download", f"Ocorreu um erro ao baixar a atualização:\n{e}", parent=self))
+                    self.after(0, lambda: self.btn_update_app.configure(text="🌟 Atualizar Big Blue", state="normal"))
+                    self.after(0, lambda: self.label_status.configure(text="Erro ao atualizar.", text_color="red"))
+
+            threading.Thread(target=download_e_atualizar, daemon=True).start()
 
         def rodar_motor(self, acao):
             terminal_original = sys.stdout
@@ -2616,9 +2846,6 @@ def iniciar_gui():
                         self.after(2000, self.destroy)
                     return
                 # ---------------------------------
-
-                if getattr(sys, 'frozen', False) and acao != "rollback":
-                    if verificar_atualizacao_updater(install_path, modo_gui=True, app_gui=self): return 
 
                 branch_escolhida = self.branch_var.get()
                 criar_startup = self.switch_startup.get() == 1
@@ -2646,18 +2873,39 @@ def iniciar_gui():
                 update_flycast.get_user_preference = lambda: branch_escolhida
                 update_flycast.BACKUP_MAPPINGS = self.switch_mappings.get() == 1
                 
+                # --- O GRANDE TRUQUE NINJA ---
+                # Enganamos o motor reescrevendo a função 'launch_emulator' dele em tempo real!
+                # Agora, ao invés de abrir o emulador na marra, ele apenas escreve no log.
+                update_flycast.launch_emulator = lambda: self.log("✅ Rotina concluída. Auto-launch suprimido pela interface do Big Blue.")
+                
                 update_flycast.main()
-                self.limpar_backups_antigos()
-                self.after(2000, self.destroy)
+                
+                if hasattr(self, 'limpar_backups_antigos'):
+                    self.limpar_backups_antigos()
+                
+                # Mostra o sucesso na tela (e não fecha mais o app!)
+                self.after(0, self.mostrar_toast, "Processo Concluído", "O emulador foi atualizado e verificado com sucesso!", "success")
+
             except SystemExit:
-                self.limpar_backups_antigos()
-                self.after(2000, self.destroy)
+                if hasattr(self, 'limpar_backups_antigos'):
+                    self.limpar_backups_antigos()
             except Exception as e:
-                self.after(0, self.label_status.configure, {"text": f"Erro crítico: {e}", "text_color": "red"})
+                self.after(0, lambda err=e: self.label_status.configure(text=f"Erro crítico: {err}", text_color="red"))
             finally:
                 sys.stdout = terminal_original
-                self.after(0, self.btn_atualizar.configure, {"state": "normal"})
-                self.after(0, self.atualizar_status_diretorio, self.entry_path.get())
+                
+                # --- A CURA (CLEANUP DA INTERFACE) ---
+                self.after(0, lambda: self.btn_atualizar.configure(state="normal"))
+                
+                # Devolve a vida e o texto original do botão Reverter
+                self.after(0, lambda: self.btn_rollback.configure(state="normal", text=self._("btn_rollback", default="REVERTER")))
+                
+                # Esconde a barra de progresso
+                self.after(0, self.progressbar.pack_forget)
+                self.after(0, self.label_status.pack_forget)
+                if hasattr(self, 'btn_ignorar'): self.after(0, lambda: self.btn_ignorar.configure(state="normal"))
+                
+                self.after(500, lambda: self.atualizar_status_diretorio(self.entry_path.get()))
 
     app = FlycastUpdaterApp()
     app.mainloop()
