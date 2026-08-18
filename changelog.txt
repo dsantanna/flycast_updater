@@ -1,8 +1,19 @@
 ========================================
        FLYCAST UPDATER - CHANGELOG
-========================================[cite: 4]
+========================================
 
-Versão 6.1 (Big Blue - QoL & Workflow Refinements)
+Versão 6.2 (Big Blue - Modularização & Ferramentas)
+----------------------------------------
+- **Nova Aba de Ferramentas (CHDMAN):** Interface dedicada para compressão de ROMs (.GDI/.CUE para .CHD) e extração reversa. Economize espaço no HD em lote com interface gráfica amigável.
+- **Instalação Portátil de Ferramentas:** O `chdman.exe` agora é gerenciado automaticamente numa pasta local `/tools/`, com direito a botão de download direto e um "Semáforo Visual" indicando se a ferramenta está pronta para uso (🔴 Ausente / 🟢 Instalado).
+- **Barra de Progresso em Tempo Real:** Acompanhe a porcentagem exata da compressão/extração dos seus jogos através de uma barra de progresso nativa na interface do Launcher, com leitura assíncrona do terminal via expressões regulares (Regex), dispensando as janelas pretas do CMD.
+- **Filtro Dinâmico por Sistema:** Novos botões estilizados `[ Todos ] [ Dreamcast ] [ Arcade ]` na aba de jogos. Filtre sua biblioteca instantaneamente com heurística avançada (separação inteligente de formatos zip/7z vs chd/gdi), sem recarregar a interface principal.
+- **Passe VIP para arquivos GDI/CUE:** Corrigido o filtro de lixo eletrônico do escaneador que acidentalmente ignorava os arquivos descritores (.gdi/.cue) recém-convertidos ou descompactados por serem menores que 1MB.
+- **Refatoração Arquitetural Intensiva (Clean Code):** Redução drástica de centenas de linhas do arquivo principal (`launcher.py`), delegando lógicas vitais de rede, saves, nuvem e autenticação para módulos independentes (`saves.py`, `retroachievements.py`, `tools.py`).
+- **Correção da API de Login do RetroAchievements:** Restaurado o método de autenticação legado (`dorequest.php`) via protocolo GET no novo módulo isolado, garantindo compatibilidade e geração correta do Token Seguro.
+- **Correção de Escala do Windows (DPI Bugfix):** O aplicativo agora se adapta e renderiza perfeitamente em monitores e sistemas operacionais utilizando escalas de 125%, 150% ou superiores, sem quebrar o layout.
+
+Versão 6.1 (Big Blue - Melhoria de Qualidade de Vida e Refinamentos de Usabilidade)
 ----------------------------------------
 - **Comportamento Customizável do Botão "JOGAR":** Novo ComboBox na aba "BIOS e Emu" que permite configurar a ação do botão principal entre três opções: Utilizar o Launcher, Abrir o Big Picture ou Iniciar o Flycast diretamente.
 - **Botão "Ignorar e Jogar":** Atalho dinâmico exibido ao lado do botão de atualização quando o emulador está desatualizado, permitindo que o usuário entre na partida imediatamente sem precisar aguardar o download da nova build.
@@ -13,55 +24,54 @@ Versão 6.1 (Big Blue - QoL & Workflow Refinements)
 - **Polimento Visual e Ícones Temáticos:** Inserção do redemoinho clássico do Dreamcast (`🌀`) e do ícone de arcade/fliperama (`🕹️`) na seção de BIOS.
 - **Exceções de Tema VIP:** Proteção das cores originais dos botões do cabeçalho (Doar, Big Picture e Atualizador do App) contra sobreposições indesejadas ao trocar de tema visual.
 
-Versão 6.0 (Big Blue)[cite: 4]
+Versão 6.0 (Big Blue)
 ----------------------------------------
-- **Modo Big Picture (Interface de TV Fullscreen):** Nova experiência imersiva de TV em tela cheia que cobre a área de trabalho, permitindo navegação por teclado e controle pelas capas dos jogos, com reprodução automática de Video Snaps (`video_snaps.py`)[cite: 4].
-- **Galeria de Conquistas do RetroAchievements (Vitrine Gold):** Implementação completa da tela interativa de conquistas detalhadas por jogo, exibindo insígnias originais (com cache local e suporte a ícones de bloqueado/desbloqueado), barra de progresso global em tempo real e carimbo de data/hora dos troféus obtidos[cite: 4].
+- **Modo Big Picture (Interface de TV Fullscreen):** Nova experiência imersiva de TV em tela cheia que cobre a área de trabalho, permitindo navegação por teclado e controle pelas capas dos jogos, com reprodução automática de Video Snaps (`video_snaps.py`).
+- **Galeria de Conquistas do RetroAchievements (Vitrine Gold):** Implementação completa da tela interativa de conquistas detalhadas por jogo, exibindo insígnias originais (com cache local e suporte a ícones de bloqueado/desbloqueado), barra de progresso global em tempo real e carimbo de data/hora dos troféus obtidos.
 - **Overlay Animado de Troféus (Estilo Console):** Rastreador invisível e assíncrono que detecta e exibe popups customizados e sonorizados em tempo real sempre que uma conquista é desbloqueada no RetroAchievements. Suporta multi-monitores e personalização de posicionamento nos cantos da tela.
-- **Gestão Consolidada de Controles e VMU:** Unificação das abas de mapeamento e portas virtuais em um painel fluido com rolagem automática (Autofit), detecção dinâmica de dispositivos físicos (via `devices.py`) e seletor RGB de cor para a mira da pistola de luz[cite: 4].
+- **Gestão Consolidada de Controles e VMU:** Unificação das abas de mapeamento e portas virtuais em um painel fluido com rolagem automática (Autofit), detecção dinâmica de dispositivos físicos (via `devices.py`) e seletor RGB de cor para a mira da pistola de luz.
 - **Força-Tarefa de Backup (One-Click Sync):** O semáforo de status da nuvem evoluiu para um botão interativo. Com apenas um clique, o motor força o upload imediato dos seus saves (VMU) para o Google Drive ou OneDrive sem precisar reiniciar o emulador.
 - **Apoio Voluntário (Insert Coin):** Novo botão de "Doar" amigavelmente integrado ao topo da interface (via chave PIX), reforçando a filosofia de software livre, aberto e sem fins lucrativos do projeto e permitindo o apoio da comunidade.
-- **Rádio Ambiente Modular (`radio_flycast.py`) & Leitor ID3:** Motor de áudio refatorado em módulo independente[cite: 4]. O Mini-Player e o Big Picture extraem metadados ID3 reais (títulos das faixas MP3) direto dos arquivos de áudio, exibindo a música atual com dicas de ferramentas e controle de volume em tempo real[cite: 4].
+- **Rádio Ambiente Modular (`radio_flycast.py`) & Leitor ID3:** Motor de áudio refatorado em módulo independente. O Mini-Player e o Big Picture extraem metadados ID3 reais (títulos das faixas MP3) direto dos arquivos de áudio, exibindo a música atual com dicas de ferramentas e controle de volume em tempo real.
 - **Sound Test e Reestruturação de QoL:** Organização visual hierárquica da aba de Qualidade de Vida (QoL) com atalhos inteligentes para a nova estrutura de pastas (`/media/music` e `/media/sfx`) e um guia interno detalhado para customização dos arquivos de áudio do sistema (`nav.wav`, `start.wav`, `save.wav`, `error.wav`).
-- **Gestor de Netplay & Rollback (GGPO):** Nova aba de Multiplayer online integrada diretamente na interface e no Big Picture, permitindo gerenciar salas (Host) ou conectar a amigos (Join) com controle total de portas de rede[cite: 4].
-- **Enciclopédia de Metadados XML (`DC-game.xml`):** Integração com o banco de dados oficial de metadados do Dreamcast, exibindo avaliações estelares (★), produtoras oficiais (`manufacturer`), classificações indicativas e quantidade de jogadores[cite: 4].
-- **Motor Tradutor Silencioso (PT-BR Automático):** Tradução em tempo real das sinopses em inglês para o Português do Brasil com base nas configurações globais do aplicativo[cite: 4].
-- **Suporte Expandido a Placas Arcade (Naomi, Naomi 2 & Atomiswave):** Inclusão de seletores dedicados na aba de BIOS e Emu para gerenciar, compactar e instalar as BIOS de Arcade exigidas pelo Flycast[cite: 4].
-- **Atalhos de Lançamento e Manuais Inteligentes no Big Picture:** Adicionado um botão dedicado para iniciar títulos instantaneamente e um atalho de leitura de manuais que minimiza o Big Picture de forma otimizada[cite: 4].
-- **Forçamento Temporário de Fullscreen (QoL):** O Big Picture injeta automaticamente o comando de tela cheia no `emu.cfg` e via argumentos de linha de comando no boot do jogo, revertendo a preferência original ao fechar a emulação[cite: 4].
-- **Temas Visuais Dinâmicos:** Suporte à personalização cromática em tempo real (Padrão DARK, Sonic The Hedgehog, Crazy Taxi, Shenmue e Marvel vs Capcom 2)[cite: 4].
-- **Hall da Fama (Top 5) & Roleta de Jogos (🎲):** Exibição dos 5 jogos mais jogados no Tooltip do Dashboard baseados no Playtime Tracker e ferramenta de sorteio aleatório de títulos[cite: 4].
-- **Refatoração Estrutural e Arquitetura Modular:** Separação completa em módulos independentes (`bigpicture.py`, `radio_flycast.py`, `game_launcher.py`, `netplay.py`, `dc_gamesdb.py`, `devices.py`, `video_snaps.py`), eliminando redundâncias e elevando a estabilidade da aplicação em nível profissional[cite: 4].
+- **Gestor de Netplay & Rollback (GGPO):** Nova aba de Multiplayer online integrada diretamente na interface e no Big Picture, permitindo gerenciar salas (Host) ou conectar a amigos (Join) com controle total de portas de rede.
+- **Enciclopédia de Metadados XML (`DC-game.xml`):** Integração com o banco de dados oficial de metadados do Dreamcast, exibindo avaliações estelares (★), produtoras oficiais (`manufacturer`), classificações indicativas e quantidade de jogadores.
+- **Motor Tradutor Silencioso (PT-BR Automático):** Tradução em tempo real das sinopses em inglês para o Português do Brasil com base nas configurações globais do aplicativo.
+- **Suporte Expandido a Placas Arcade (Naomi, Naomi 2 & Atomiswave):** Inclusão de seletores dedicados na aba de BIOS e Emu para gerenciar, compactar e instalar as BIOS de Arcade exigidas pelo Flycast.
+- **Atalhos de Lançamento e Manuais Inteligentes no Big Picture:** Adicionado um botão dedicado para iniciar títulos instantaneamente e um atalho de leitura de manuais que minimiza o Big Picture de forma otimizada.
+- **Forçamento Temporário de Fullscreen (QoL):** O Big Picture injeta automaticamente o comando de tela cheia no `emu.cfg` e via argumentos de linha de comando no boot do jogo, revertendo a preferência original ao fechar a emulação.
+- **Temas Visuais Dinâmicos:** Suporte à personalização cromática em tempo real (Padrão DARK, Sonic The Hedgehog, Crazy Taxi, Shenmue e Marvel vs Capcom 2).
+- **Hall da Fama (Top 5) & Roleta de Jogos (🎲):** Exibição dos 5 jogos mais jogados no Tooltip do Dashboard baseados no Playtime Tracker e ferramenta de sorteio aleatório de títulos.
+- **Refatoração Estrutural e Arquitetura Modular:** Separação completa em módulos independentes (`bigpicture.py`, `radio_flycast.py`, `game_launcher.py`, `netplay.py`, `dc_gamesdb.py`, `devices.py`, `video_snaps.py`), eliminando redundâncias e elevando a estabilidade da aplicação em nível profissional.
 
-
-Versão 5.1 (Director's Cut - Official API & The Ultimate QoL Update)[cite: 4]
+Versão 5.1 (Director's Cut - Official API & The Ultimate QoL Update)
 ----------------------------------------
-- **API Oficial do RetroAchievements:** Integração via REST API (`API_GetUserRecentlyPlayedGames.php`) substituindo o antigo scraping e contornando bloqueios de firewall/Cloudflare[cite: 4].
-- **Banco de Dados RAlocal.db:** O antigo cache local foi renomeado e expandido para armazenar dados completos por usuário (pontuações normais e hardcore, contagem de conquistas ganhas e totais)[cite: 4].
-- **Exibição de Pontuação Real:** A interface dos cards de jogos agora exibe dinamicamente a pontuação oficial obtida em relação ao total possível do jogo (ex: 7/401 pts), respeitando o estado do Modo Hardcore[cite: 4].
-- **Janela de Ajuda da API Key:** Adicionado um botão de ajuda dedicado ("?") na aba de configurações do RetroAchievements com passo a passo ilustrado e redirecionamento direto para a aba de Aplicações no site oficial[cite: 4].
-- **Expansão Global para 20 Idiomas:** O sistema de internacionalização (i18n) foi modularizado para um arquivo externo (`idiomas.py`) e expandido para suportar 20 dos idiomas mais falados do mundo[cite: 4].
-- **Dashboard Gamer:** Placar global de estatísticas fixado no topo da aba Launcher, somando o total de horas jogadas e a pontuação consolidada do RetroAchievements[cite: 4].
-- **Barra de Pesquisa em Tempo Real:** Motor de filtro instantâneo que organiza os cards dos jogos enquanto o usuário digita[cite: 4].
-- **Agrupamento Inteligente de Biblioteca:** O sistema agora funde automaticamente versões duplicadas de regiões (USA, Japan, Europe) num único card, permitindo a seleção da ROM no momento do clique[cite: 4].
-- **Gerenciador Visual de Save States:** A janela de informações agora possui uma galeria de imagens horizontal que resgata as "fotos" automáticas tiradas pelos Save States, mostrando data, hora e tamanho do arquivo[cite: 4].
-- **Diário de Bordo do Criador:** Aba de Bloco de Notas dedicada por jogo para redigir roteiros, scripts e registrar timestamps para vídeos, salvos nativamente no banco de dados local[cite: 4].
-- **Sistema de Coleções (Favoritos):** Adicionado suporte para favoritar jogos com uma estrela (⭐) e um botão de filtro master para exibir apenas o acervo selecionado[cite: 4].
-- **A Platina da SEGA:** O motor reconhece contas que atingiram 100% de conquistas (Mastered) e substitui o placar padrão por um reluzente "🌀 PLATINA" em Azul SEGA[cite: 4].
-- **Backup Cloud de Configurações:** Nova arquitetura na aba de Saves que permite fazer backup e restaurar não só saves, mas também o `emu.cfg`, `config.json` e `RAlocal.db` direto no Google Drive ou OneDrive com recarregamento dinâmico da UI[cite: 4].
-- **Modo Streamer Profissional:**[cite: 4]
-  - *Integração OBS:* Gera arquivos de texto (`jogo_atual.txt`, `tempo_jogado.txt`, `pontos_ra.txt`) para leitura dinâmica em overlays de stream[cite: 4].
-  - *Anti-Leak (Privacidade):* Sobreposição holográfica oculta o nome de usuário e os caminhos de diretórios privados durante a gravação[cite: 4].
-  - *Widget Chroma Key:* Gera uma janela verde limpa e sem bordas exibindo a capa do jogo e as estatísticas, ideal para capturas de janela[cite: 4].
-- **Auto-Ocultar (Clean Desktop):** O Launcher agora desaparece automaticamente ao iniciar qualquer jogo, mantendo a Área de Trabalho limpa, e ressurge magicamente ao fechar a emulação[cite: 4].
-- **Motor Multithread e Info de Desenvolvedora:** As capas são baixadas simultaneamente sem travar a interface, e o sistema consulta a API do RA para descobrir e exibir a empresa desenvolvedora oficial de cada título[cite: 4].
+- **API Oficial do RetroAchievements:** Integração via REST API (`API_GetUserRecentlyPlayedGames.php`) substituindo o antigo scraping e contornando bloqueios de firewall/Cloudflare.
+- **Banco de Dados RAlocal.db:** O antigo cache local foi renomeado e expandido para armazenar dados completos por usuário (pontuações normais e hardcore, contagem de conquistas ganhas e totais).
+- **Exibição de Pontuação Real:** A interface dos cards de jogos agora exibe dinamicamente a pontuação oficial obtida em relação ao total possível do jogo (ex: 7/401 pts), respeitando o estado do Modo Hardcore.
+- **Janela de Ajuda da API Key:** Adicionado um botão de ajuda dedicado ("?") na aba de configurações do RetroAchievements com passo a passo ilustrado e redirecionamento direto para a aba de Aplicações no site oficial.
+- **Expansão Global para 20 Idiomas:** O sistema de internacionalização (i18n) foi modularizado para um arquivo externo (`idiomas.py`) e expandido para suportar 20 dos idiomas mais falados do mundo.
+- **Dashboard Gamer:** Placar global de estatísticas fixado no topo da aba Launcher, somando o total de horas jogadas e a pontuação consolidada do RetroAchievements.
+- **Barra de Pesquisa em Tempo Real:** Motor de filtro instantâneo que organiza os cards dos jogos enquanto o usuário digita.
+- **Agrupamento Inteligente de Biblioteca:** O sistema agora funde automaticamente versões duplicadas de regiões (USA, Japan, Europe) num único card, permitindo a seleção da ROM no momento do clique.
+- **Gerenciador Visual de Save States:** A janela de informações agora possui uma galeria de imagens horizontal que resgata as "fotos" automáticas tiradas pelos Save States, mostrando data, hora e tamanho do arquivo.
+- **Diário de Bordo do Criador:** Aba de Bloco de Notas dedicada por jogo para redigir roteiros, scripts e registrar timestamps para vídeos, salvos nativamente no banco de dados local.
+- **Sistema de Coleções (Favoritos):** Adicionado suporte para favoritar jogos com uma estrela (⭐) e um botão de filtro master para exibir apenas o acervo selecionado.
+- **A Platina da SEGA:** O motor reconhece contas que atingiram 100% de conquistas (Mastered) e substitui o placar padrão por um reluzente "🌀 PLATINA" em Azul SEGA.
+- **Backup Cloud de Configurações:** Nova arquitetura na aba de Saves que permite fazer backup e restaurar não só saves, mas também o `emu.cfg`, `config.json` e `RAlocal.db` direto no Google Drive ou OneDrive com recarregamento dinâmico da UI.
+- **Modo Streamer Profissional:**
+  - *Integração OBS:* Gera arquivos de texto (`jogo_atual.txt`, `tempo_jogado.txt`, `pontos_ra.txt`) para leitura dinâmica em overlays de stream.
+  - *Anti-Leak (Privacidade):* Sobreposição holográfica oculta o nome de usuário e os caminhos de diretórios privados durante a gravação.
+  - *Widget Chroma Key:* Gera uma janela verde limpa e sem bordas exibindo a capa do jogo e as estatísticas, ideal para capturas de janela.
+- **Auto-Ocultar (Clean Desktop):** O Launcher agora desaparece automaticamente ao iniciar qualquer jogo, mantendo a Área de Trabalho limpa, e ressurge magicamente ao fechar a emulação.
+- **Motor Multithread e Info de Desenvolvedora:** As capas são baixadas simultaneamente sem travar a interface, e o sistema consulta a API do RA para descobrir e exibir a empresa desenvolvedora oficial de cada título.
 
-Versão 5.0 (Director's Cut - Major Release)[cite: 4]
+Versão 5.0 (Director's Cut - Major Release)
 ----------------------------------------
-- **Lançador de Jogos Rápido (Mini-Frontend):** Nova aba "Launcher" com um design em grade (cards)[cite: 4]. O sistema escaneia sua pasta de ROMs e exibe os jogos com capas originais[cite: 4]. Permite o lançamento instantâneo (via duplo clique) contornando a interface padrão do Flycast[cite: 4].
-- **Auto-Scraper de Capas na Nuvem:** Integração nativa e gratuita com o repositório Libretro[cite: 4]. Se a capa do jogo não for encontrada localmente, o utilitário fará o download silencioso da arte em plano de fundo[cite: 4].
-- **Detecção de Múltiplos Discos (Regex Engine):** O scanner de ROMs agrupa automaticamente jogos de vários discos sob uma única capa (ex: Shenmue, Resident Evil)[cite: 4]. Ao lançar o título, um pop-up minimalista permite escolher qual disco injetar no emulador[cite: 4].
-- **Playtime Tracker (Estatísticas):** O sistema agora monitora os processos do emulador, cronometra suas jogatinas e exibe o tempo total acumulado diretamente na capa de cada jogo[cite: 4].
-- **Injeção de Perfis de Controle (Auto-Mapping):** Aba "Controles" para injeção instantânea de arquivos `.cfg` de Xbox, PlayStation e 8BitDo[cite: 4].
-- **Injeção de Cheats & Widescreen Hacks:** Ativação de Widescreen Hacks e Cheats no `emu.cfg` antes do boot[cite: 4].
-- **Janela de Informações e Overview:** Botão "ℹ️" nos cards para capturar a descrição completa (`overview`) do banco de dados do Flycast[cite: 4].
+- **Lançador de Jogos Rápido (Mini-Frontend):** Nova aba "Launcher" com um design em grade (cards). O sistema escaneia sua pasta de ROMs e exibe os jogos com capas originais. Permite o lançamento instantâneo (via duplo clique) contornando a interface padrão do Flycast.
+- **Auto-Scraper de Capas na Nuvem:** Integração nativa e gratuita com o repositório Libretro. Se a capa do jogo não for encontrada localmente, o utilitário fará o download silencioso da arte em plano de fundo.
+- **Detecção de Múltiplos Discos (Regex Engine):** O scanner de ROMs agrupa automaticamente jogos de vários discos sob uma única capa (ex: Shenmue, Resident Evil). Ao lançar o título, um pop-up minimalista permite escolher qual disco injetar no emulador.
+- **Playtime Tracker (Estatísticas):** O sistema agora monitora os processos do emulador, cronometra suas jogatinas e exibe o tempo total acumulado diretamente na capa de cada jogo.
+- **Injeção de Perfis de Controle (Auto-Mapping):** Aba "Controles" para injeção instantânea de arquivos `.cfg` de Xbox, PlayStation e 8BitDo.
+- **Injeção de Cheats & Widescreen Hacks:** Ativação de Widescreen Hacks e Cheats no `emu.cfg` antes do boot.
+- **Janela de Informações e Overview:** Botão "ℹ️" nos cards para capturar a descrição completa (`overview`) do banco de dados do Flycast.

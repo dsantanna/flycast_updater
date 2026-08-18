@@ -450,3 +450,33 @@ class RetroAchievementsManager:
                 overlay.destroy()
 
         fade_in()
+
+def obter_token_retroachievements(usuario, senha_ou_hash):
+    """
+    Bate no endpoint oficial legado do RetroAchievements para validar as 
+    credenciais e gerar o Token de acesso seguro de longa duração.
+    """
+    import urllib.request
+    import urllib.parse
+    import json
+    
+    # Puxa a versão em tempo real direto do arquivo principal para o cabeçalho
+    try:
+        from launcher import VERSION
+    except ImportError:
+        VERSION = "6.2"
+
+    # A URL exata e consagrada que você usava no launcher!
+    url = f"https://retroachievements.org/dorequest.php?r=login&u={urllib.parse.quote(usuario)}&p={urllib.parse.quote(senha_ou_hash)}"
+    
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
+        with urllib.request.urlopen(req, timeout=6) as response:
+            resposta = json.loads(response.read().decode('utf-8'))
+            
+            # Valida o sucesso do login e extrai o Token de persistência
+            if isinstance(resposta, dict) and resposta.get("Success") is True:
+                return resposta.get("Token")
+    except Exception:
+        pass
+    return None

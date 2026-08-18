@@ -331,3 +331,98 @@ class SaveManager:
             self.buscar_backups_saves() # Atualiza a lista na UI caso a aba esteja aberta
         except Exception as e:
             self.app.log(f"❌ Auto-Sync: Erro ao fazer backup automático: {e}")
+
+def checar_status_backup(app_instance):
+    """
+    Auto-Diagnóstico: Inspeciona o cofre de saves na nuvem e atualiza os indicadores visuais.
+    """
+    import os
+    import time
+    import datetime
+    
+    app_instance.log("🔍 Auto-Diagnóstico: Inspecionando o cofre de saves na nuvem...")
+    cloud_prov = app_instance.config_atual.get("cloud_provider", "nenhum")
+    
+    if not cloud_prov or cloud_prov == "nenhum":
+        app_instance.lbl_backup_status.configure(text="☁️ Backup: 🔴 Desativado", text_color="#FF4C4C")
+        app_instance.lbl_backup_date.configure(text="Nenhuma nuvem selecionada")
+        app_instance.log("⚠️ Defesa Aberta: A nuvem está desativada. Seus saves estão vulneráveis!")
+        return
+
+    caminho_base = app_instance.config_atual.get("cloud_path")
+
+    if not caminho_base or not os.path.exists(caminho_base):
+        app_instance.lbl_backup_status.configure(text="☁️ Backup: 🔴 Erro", text_color="#FF4C4C")
+        app_instance.lbl_backup_date.configure(text="Pasta da nuvem inalcançável")
+        app_instance.log(f"❌ Falha de Conexão: A pasta do provedor '{cloud_prov}' não foi localizada no sistema.")
+        return
+
+    caminho_nuvem = os.path.join(caminho_base, "Flycast_Saves_Backup")
+    
+    if not os.path.exists(caminho_nuvem):
+        app_instance.lbl_backup_status.configure(text="☁️ Backup: 🔴 Vazio", text_color="#FF4C4C")
+        app_instance.lbl_backup_date.configure(text="Nenhum arquivo encontrado")
+        app_instance.log("⚠️ Alerta: A pasta na nuvem existe, mas o cofre de backups está completamente vazio.")
+        return
+
+    try:
+        arquivos_zip = [f for f in os.listdir(caminho_nuvem) if f.lower().endswith(".zip") and f != "flycast_backup.zip"]
+        if not arquivos_zip:
+            app_instance.lbl_backup_status.configure(text="☁️ Backup: 🔴 Vazio", text_color="#FF4C4C")
+            app_instance.lbl_backup_date.configure(text="Nenhum backup realizado")
+            app_instance.log("⚠️ Alerta: Nenhum arquivo .zip de save foi encontrado no cofre.")
+            return
+
+        caminho_completo = max([os.path.join(caminho_nuvem, f) for f in arquivos_zip], key=os.path.getmtime)
+        mtime = os.path.getmtime(caminho_completo)
+        data_formatada = datetime.datetime.fromtimestamp(mtime).strftime('%d/%m/%Y-%H:%M')
+        
+        agora = time.time()
+        idade_segundos = agora - mtime
+        horas_idade = idade_segundos / 3600
+
+        if horas_idade <= 24: 
+            app_instance.lbl_backup_status.configure(text="☁️ Backup: 🟢 Em dia", text_color="#00FF7F")
+            app_instance.log(f"✅ Zaga Sólida! Último backup validado na nuvem. Idade: {int(horas_idade)} hora(s).")
+        else: 
+            app_instance.lbl_backup_status.configure(text="☁️ Backup: 🟡 Antigo", text_color="#FFD700")
+            app_instance.log(f"⚠️ Atenção: Seu último backup tem {int(horas_idade // 24)} dias de idade.")
+
+        app_instance.lbl_backup_date.configure(text=data_formatada)
+
+    except Exception as e:
+        app_instance.log(f"❌ Erro ao ler status da nuvem: {e}")
+
+def forcar_backup_nuvem(app_instance, event=None):
+    """
+    Gatilha o processo invisível de empacotamento e upload dos saves para a nuvem.
+    """
+    import os
+    import sys
+    import subprocess
+    import threading
+    
+    if app_instance.cloud_var.get() == "nenhum":
+        app_instance.mostrar_toast("Nuvem Desativada", "Selecione um provedor na aba Saves primeiro.", "warning")
+        return
+    
+    app_instance.lbl_backup_status.configure(text="☁️ Backup: ⏳ Upando...", text_color="cyan")
+    app_instance.log("☁️ Sincronizando saves com a nuvem (Modo Manual)...")
+    if hasattr(app_instance, 'sfx'): app_instance.sfx.play("save")            
+    app_instance.salvar_estado_atual()
+    
+    def rotina():
+        try:
+            exe_path = sys.executable if getattr(sys, 'frozen', False) else sys.argv[0]
+            if getattr(sys, 'frozen', False):
+                subprocess.run([exe_path, "-backup", "-silent"], creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                subprocess.run([sys.executable, exe_path, "-backup", "-silent"], creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            app_instance.after(500, lambda: checar_status_backup(app_instance))
+            app_instance.after(0, lambda: app_instance.mostrar_toast("Save Completo", "Seus dados foram salvos na nuvem!", "success"))
+        except Exception as e:
+            app_instance.log(f"❌ Erro no backup forçado: {e}")
+            app_instance.after(500, lambda: checar_status_backup(app_instance))
+            
+    threading.Thread(target=rotina, daemon=True).start()

@@ -4,6 +4,8 @@ import tkinter.messagebox as mb
 import webbrowser
 
 # --- MÓDULOS LOCAIS  ---
+import about
+import tools
 import bigpicture 
 import radio_flycast
 import retroachievements
@@ -13,8 +15,13 @@ import qol
 import devices
 import discord_rpc
 import toast
-# ---------------------------------------------------------------
+import config_manager
+import arcade_core
+import hardware_utils
+import updater_core
 
+# ---------------------------------------------------------------
+from updater_core import VERSION, REPO_UPDATER
 from idiomas import TRANSLATIONS
 from game_launcher import GameLibraryManager
 
@@ -32,13 +39,9 @@ try:
 except ImportError: HAS_PYGAME = False
 
 # ==========================================
-# Flycast Updater - Launcher v6.1 (Big Blue)
+# Flycast Updater - Launcher v6.2 (Big Blue)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
-
-VERSION = "6.1"
-CONFIG_FILE = "config.json"
-REPO_UPDATER = "dsantanna/flycast_updater"
 
 PERFIS_CONTROLES = {
     "Xbox (360 / One / Series)": {"arquivo": "XInput Controller.cfg", "conteudo": "[emulator]\nmapping_name = XInput Controller\n\n[dreamcast]\nbtn_a = 0\nbtn_b = 1\nbtn_x = 2\nbtn_y = 3\nbtn_start = 7\nbtn_dpad1_up = 11\nbtn_dpad1_down = 12\nbtn_dpad1_left = 13\nbtn_dpad1_right = 14\naxis_x = 0\naxis_y = 1\naxis_trigger_left = 4\naxis_trigger_right = 5\n"},
@@ -53,182 +56,6 @@ THEMES = {
     "Shenmue": {"primary": "#5D9B9B", "hover": "#4A7C7C", "text": "white"},
     "Marvel vs Capcom 2": {"primary": "#FF007F", "hover": "#CC0066", "text": "white"}
 }
-
-def carregar_configuracao():
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f: return json.load(f)
-        except Exception: pass
-    return {}
-
-def salvar_configuracao(dados):
-    try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f: json.dump(dados, f, indent=4, ensure_ascii=False)
-    except Exception: pass
-
-def obter_token_retroachievements(usuario, senha):
-    url = f"https://retroachievements.org/dorequest.php?r=login&u={urllib.parse.quote(usuario)}&p={urllib.parse.quote(senha)}"
-    try:
-        req = urllib.request.Request(url, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            resposta = json.loads(response.read().decode('utf-8'))
-            if resposta.get("Success"): return resposta.get("Token")
-    except Exception: pass
-    return None
-
-def obter_gpus_windows():
-    if os.name != 'nt': return []
-    try:
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        cmd = 'powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object Name, DriverVersion | ConvertTo-Json"'
-        result = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
-        if result.stdout.strip():
-            data = json.loads(result.stdout)
-            if isinstance(data, dict): data = [data]
-            return [{"nome": g.get("Name", "Desconhecida"), "driver": g.get("DriverVersion", "Desconhecido")} for g in data if g.get("Name")]
-    except Exception: pass
-    return []
-
-def obter_monitores_windows():
-    if os.name != 'nt': return [{"nome": "Monitor Padrão", "left": 0, "top": 0}]
-    import ctypes
-    monitores = []
-    try:
-        user32 = ctypes.windll.user32
-        class RECT(ctypes.Structure):
-            _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long), ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
-        def _callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
-            r = lprcMonitor.contents
-            idx = len(monitores) + 1
-            nome = f"Monitor {idx} ({r.right - r.left}x{r.bottom - r.top})"
-            if r.left == 0 and r.top == 0: nome += " [Principal]"
-            monitores.append({"nome": nome, "left": r.left, "top": r.top})
-            return 1
-        MonitorEnumProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(RECT), ctypes.c_void_p)
-        user32.EnumDisplayMonitors(0, None, MonitorEnumProc(_callback), 0)
-    except Exception:
-        monitores.append({"nome": "Monitor Padrão", "left": 0, "top": 0})
-    return monitores
-
-def atualizar_emu_cfg(install_path, roms_path=None, ra_enabled=None, ra_user=None, ra_pass=None, ra_hardcore=None, 
-                      vmu_individual=None, fetch_boxart=None, vga_cable=None, discord_presence=None,
-                      show_osd_vmu=None, vmu_sound=None, bios_path=None, vmu_path=None, state_path=None, save_path=None,
-                      vid_api=None, vid_res=None, vid_full=None, vid_int=None, vid_lin=None, vid_vsync=None,
-                      streamer_mode=None, cheat_enable=None, window_left=None, window_top=None, widescreen_hack=None, use_hle=None):
-    caminhos_possiveis = [os.path.join(install_path, "emu.cfg"), os.path.join(install_path, "data", "emu.cfg")]
-    cfg_path = next((p for p in caminhos_possiveis if os.path.exists(p)), os.path.join(install_path, "emu.cfg"))
-
-    config = configparser.RawConfigParser(strict=False)
-    config.optionxform = str 
-    if os.path.exists(cfg_path):
-        try: config.read(cfg_path, encoding='utf-8')
-        except Exception: return False
-
-    for section in ['achievements', 'config', 'audio', 'window']:
-        if not config.has_section(section): config.add_section(section)
-
-    if ra_enabled is not None: 
-        config.set('achievements', 'Enabled', 'yes' if ra_enabled else 'no')
-        config.set('achievements', 'OsdEnabled', 'no') 
-        config.set('achievements', 'ChallengeModeOsd', 'no')
-        config.set('achievements', 'ShowProgressOsd', 'no')
-        
-    if ra_hardcore is not None: config.set('achievements', 'HardcoreMode', 'yes' if ra_hardcore else 'no')
-    if ra_user is not None: config.set('achievements', 'UserName', ra_user)
-    if ra_pass is not None: config.set('achievements', 'Token', ra_pass)
-
-    if roms_path is not None: 
-        if isinstance(roms_path, list):
-            caminhos_formatados = ";".join([p.replace("/", "\\") for p in roms_path])
-            config.set('config', 'Dreamcast.ContentPath', caminhos_formatados)
-        else:
-            config.set('config', 'Dreamcast.ContentPath', roms_path.replace("/", "\\"))
-
-    if vmu_individual is not None: config.set('config', 'PerGameVmu', 'yes' if vmu_individual else 'no')
-    if fetch_boxart is not None:
-        config.set('config', 'FetchBoxart', 'yes' if fetch_boxart else 'no')
-        config.set('config', 'BoxartDisplayMode', 'yes' if fetch_boxart else 'no')
-    if vga_cable is not None: config.set('config', 'Dreamcast.Cable', '0' if vga_cable else '3') 
-    if discord_presence is not None: config.set('config', 'DiscordPresence', 'yes' if discord_presence else 'no')
-    if show_osd_vmu is not None: 
-        config.set('config', 'ShowOsdVmu', 'yes' if show_osd_vmu else 'no')
-        config.set('config', 'rend.FloatVMUs', 'yes' if show_osd_vmu else 'no')
-    if streamer_mode is not None: config.set('config', 'OsdMessages', 'no' if streamer_mode else 'yes')
-    if cheat_enable is not None: config.set('config', 'Cheat', 'yes' if cheat_enable else 'no')
-    if use_hle is not None: config.set('config', 'UseReios', 'yes' if use_hle else 'no')
-
-    def _set_or_remove(sec, k, val):
-        if val: config.set(sec, k, val.replace("/", "\\"))
-        elif config.has_option(sec, k): config.remove_option(sec, k)
-
-    if bios_path is not None: 
-        if bios_path: os.makedirs(bios_path, exist_ok=True)
-        _set_or_remove('config', 'Dreamcast.BiosPath', bios_path)
-    if vmu_path is not None: 
-        if vmu_path: os.makedirs(vmu_path, exist_ok=True)
-        _set_or_remove('config', 'Dreamcast.VmuPath', vmu_path)
-    if state_path is not None: 
-        if state_path: os.makedirs(state_path, exist_ok=True)
-        _set_or_remove('config', 'Dreamcast.SavestatePath', state_path)
-    if save_path is not None: 
-        if save_path: os.makedirs(save_path, exist_ok=True)
-        _set_or_remove('config', 'Dreamcast.SavePath', save_path)
-
-    if vid_api is not None:
-        api_map = {"OpenGL": "0", "DirectX 9": "1", "DirectX 11": "2", "Vulkan": "4"}
-        config.set('config', 'pvr.rend', api_map.get(vid_api, "4"))
-    if vid_res is not None: config.set('config', 'rend.Resolution', vid_res)
-    if vid_int is not None: config.set('config', 'rend.IntegerScale', 'yes' if vid_int else 'no')
-    if vid_lin is not None: config.set('config', 'rend.LinearInterpolation', 'yes' if vid_lin else 'no')
-    if vid_vsync is not None: config.set('config', 'rend.vsync', 'yes' if vid_vsync else 'no')
-    if vid_full is not None: config.set('window', 'fullscreen', 'yes' if vid_full else 'no')
-    if vmu_sound is not None: config.set('audio', 'VmuSound', 'yes' if vmu_sound else 'no')
-    if widescreen_hack is not None: config.set('config', 'WidescreenGameHacks', 'yes' if widescreen_hack else 'no')
-
-    if window_left is not None: config.set('window', 'left', str(window_left))
-    if window_top is not None: config.set('window', 'top', str(window_top))
-
-    try:
-        os.makedirs(os.path.dirname(os.path.abspath(cfg_path)), exist_ok=True)
-        with open(cfg_path, 'w', encoding='utf-8') as f: config.write(f, space_around_delimiters=True)
-        return True
-    except Exception: return False
-
-def aplicar_auto_atualizacao(url_download, install_path, modo_gui=False, app_gui=None):
-    exe_atual = sys.executable
-    dir_atual = os.path.dirname(exe_atual)
-    exe_novo = os.path.join(dir_atual, "FlycastUpdater_novo.exe")
-    script_bat = os.path.join(dir_atual, "atualiza_updater.bat")
-    if modo_gui and app_gui: app_gui.after(0, app_gui.label_status.configure, {"text": "Baixando nova versão do Atualizador...", "text_color": "orange"})
-    try:
-        urllib.request.urlretrieve(url_download, exe_novo)
-        nome_exe = os.path.basename(exe_atual)
-        conteudo_bat = f"""@echo off\ncd /d "{dir_atual}"\n:wait\ntimeout /t 1 /nobreak > NUL\ndel "{nome_exe}"\nif exist "{nome_exe}" goto wait\nren "FlycastUpdater_novo.exe" "{nome_exe}"\nstart "" "{nome_exe}"\n(goto) 2>nul & del "%~f0"\n"""
-        with open(script_bat, "w", encoding="utf-8") as f: f.write(conteudo_bat)
-        subprocess.Popen(script_bat, shell=True, cwd=dir_atual)
-        if modo_gui and app_gui: app_gui.after(0, app_gui.destroy)
-        time.sleep(0.5)
-        os._exit(0)
-    except Exception:
-        if os.path.exists(exe_novo): os.remove(exe_novo)
-
-def verificar_atualizacao_updater(install_path, modo_gui=False, app_gui=None):
-    api_url = f"https://api.github.com/repos/{REPO_UPDATER}/releases/latest"
-    try:
-        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            dados = json.loads(response.read().decode())
-        versao_remota = dados.get("tag_name", "").replace("v", "")
-        if versao_remota and versao_remota > VERSION:
-            if modo_gui and app_gui:
-                mb.showinfo("Flycast Updater", app_gui._("msg_updater_update"), parent=app_gui)
-            for asset in dados.get("assets", []):
-                if asset["name"].endswith(".exe"):
-                    aplicar_auto_atualizacao(asset["browser_download_url"], install_path, modo_gui, app_gui)
-                    return True
-    except Exception: pass
-    return False
 
 class ToolTip:
     def __init__(self, widget, text):
@@ -289,7 +116,7 @@ def iniciar_gui():
     class FlycastUpdaterApp(ctk.CTk):
         def __init__(self):
             super().__init__()
-            self.config_atual = carregar_configuracao()
+            self.config_atual = config_manager.carregar_configuracao()
             self.lang = self.config_atual.get("language", "pt")
 
             if HAS_PYGAME:
@@ -360,8 +187,10 @@ def iniciar_gui():
             self.btn_help = ctk.CTkButton(self.frame_top_right, text=self._("btn_help"), width=70, height=28, fg_color="#444", hover_color="#666", command=self.abrir_janela_ajuda)
             self.btn_help.pack(side="left")
 
-            self.tabview = ctk.CTkTabview(self, width=620, height=680)
+            # --- CRIAÇÃO DAS ABAS ---
+            self.tabview = ctk.CTkTabview(self)
             self.tabview.pack(pady=5, padx=15, fill="both", expand=True)
+            
             self.tab_jogos = self.tabview.add(self._("tab_games", default="🕹️ Launcher")) 
             self.tab_ra_global = self.tabview.add("🏆 Perfil e Conquistas (Global)")
             self.tab_atualizador = self.tabview.add(self._("tab_cloud", default="🚀 BIOS e Emu"))
@@ -370,6 +199,9 @@ def iniciar_gui():
             self.tab_video = self.tabview.add(self._("tab_vid", default="🖥️ Vídeo"))
             self.tab_devices = self.tabview.add("🎮 Controles e VMU")
             self.tab_saves = self.tabview.add(self._("tab_saves", default="🔄 Saves"))
+            
+            self.tab_tools = self.tabview.add("🛠️ Ferramentas") # <-- ABA CRIADA AQUI!
+            
             self.tab_logs = self.tabview.add(self._("tab_logs", default="📝 Logs"))
             
             # --- CONEXÃO COM O MOTOR MODULAR ---
@@ -379,9 +211,12 @@ def iniciar_gui():
             self.qol_manager = qol.QoLManager(self)
             self.devices_manager = devices.DevicesManager(self)
             
+            self.tools_manager = tools.ToolsManager(self) # <-- MANAGER INSTANCIADO AQUI!
+            
             self.discord = discord_rpc.DiscordManager(self)
             self.after(3000, self.discord.conectar) 
 
+            # --- CONSTRUÇÃO DO CONTEÚDO DAS ABAS ---
             self.construir_aba_nuvem()
             self.construir_aba_jogos()   
             self.ra_manager.construir_aba_global(self.tab_ra_global)
@@ -390,6 +225,9 @@ def iniciar_gui():
             self.construir_aba_video()
             self.construir_aba_dispositivos()
             self.construir_aba_saves()
+            
+            self.tools_manager.construir_aba_ferramentas(self.tab_tools) # <-- TELA SENDO DESENHADA AQUI!
+            
             self.construir_aba_logs()
 
             caminho_inicial = os.path.normpath(self.config_atual.get("install_path", os.getcwd()))
@@ -448,11 +286,11 @@ def iniciar_gui():
             
             self.lbl_backup_status = ctk.CTkLabel(self.frame_backup_status, text="☁️ Backup: 🔴", font=ctk.CTkFont(size=11, weight="bold"), cursor="hand2")
             self.lbl_backup_status.pack(side="top", padx=10, pady=(2, 0))
-            self.lbl_backup_status.bind("<Button-1>", self.forcar_backup_nuvem)
+            self.lbl_backup_status.bind("<Button-1>", lambda e: saves.forcar_backup_nuvem(self))
             
             self.lbl_backup_date = ctk.CTkLabel(self.frame_backup_status, text="--/--/---- - --:--", font=ctk.CTkFont(size=10), text_color="gray", cursor="hand2")
             self.lbl_backup_date.pack(side="bottom", padx=10, pady=(0, 2))
-            self.lbl_backup_date.bind("<Button-1>", self.forcar_backup_nuvem)
+            self.lbl_backup_date.bind("<Button-1>", lambda e: saves.forcar_backup_nuvem(self))
             
             self.frame_backup_status._tooltip = ToolTip(self.frame_backup_status, "Forçar Sincronização de Saves com a Nuvem agora")
             
@@ -463,19 +301,23 @@ def iniciar_gui():
             self.carregar_dados_atuais_emu_cfg()
 
             self.log(f"🚀 Flycast Updater v{VERSION} iniciado.")
-            self.atualizar_status_diretorio(self.entry_path.get())
-            self.after(200, self.verificar_primeiro_acesso)
-            self.after(800, self.carregar_gpus) 
-            self.after(1000, self.game_manager.escanear_jogos) 
-            self.after(1100, self.aplicar_tema)
+            # Atraso de 100ms: Garante que a interface nasceu antes de acionar as threads!
+            self.after(500, lambda: self.atualizar_status_diretorio(self.entry_path.get()))
+            self.after(600, self.verificar_primeiro_acesso)
+            self.after(1500, self.carregar_gpus) 
+            self.after(1800, self.game_manager.escanear_jogos) 
+            self.after(2000, self.aplicar_tema)
 
             self.sfx = sfx_manager.SFXManager(self.entry_path.get())
             self.after(1500, lambda: self.sfx.apply_hover_to_all_widgets(self))
-            self.after(1600, self.checar_status_backup)
+            self.after(1600, lambda: saves.checar_status_backup(self))
             # --- AUTO-SYNC DO RETROACHIEVEMENTS GLOBAL ---
             self.after(2500, lambda: self.ra_manager.carregar_dados_globais(silencioso=True))
             # --- RADAR DE ATUALIZAÇÕES DO UPDATER ---
             self.after(4000, self.checar_atualizacao_updater_bg)
+            # --- MONITOR HOT-PLUG NATIVO (WINDOWS) ---
+            if os.name == 'nt':
+                self.after(2000, self.configurar_escuta_hotplug_windows)
 
         def iniciar_radio(self):
             if not HAS_PYGAME: return
@@ -487,102 +329,7 @@ def iniciar_gui():
                 self.bgm_playing = True
                 self.log("📻 Rádio Ambiente (Modulada) iniciada.")
                 self.atualizar_interface_radio()
-
-        def checar_status_backup(self):
-            self.log("🔍 Auto-Diagnóstico: Inspecionando o cofre de saves na nuvem...")
-            cloud_prov = self.config_atual.get("cloud_provider", "nenhum")
-            
-            # Regra 1: Nuvem Desligada
-            if not cloud_prov or cloud_prov == "nenhum":
-                self.lbl_backup_status.configure(text="☁️ Backup: 🔴 Desativado", text_color="#FF4C4C")
-                self.lbl_backup_date.configure(text="Nenhuma nuvem selecionada")
-                self.log("⚠️ Defesa Aberta: A nuvem está desativada. Seus saves estão vulneráveis!")
-                return
-
-            caminho_base = None
-            if cloud_prov == "gdrive" and cloud_saves: caminho_base = cloud_saves.get_gdrive_path()
-            elif cloud_prov == "onedrive" and cloud_saves: caminho_base = cloud_saves.get_onedrive_path()
-
-            # Regra 2: Erro de Diretório
-            if not caminho_base or not os.path.exists(caminho_base):
-                self.lbl_backup_status.configure(text="☁️ Backup: 🔴 Erro", text_color="#FF4C4C")
-                self.lbl_backup_date.configure(text="Pasta da nuvem inalcançável")
-                self.log(f"❌ Falha de Conexão: A pasta do provedor '{cloud_prov}' não foi localizada no sistema.")
-                return
-
-            caminho_nuvem = os.path.join(caminho_base, "Flycast_Saves_Backup")
-            
-            # Regra 3: Cofre Vazio
-            if not os.path.exists(caminho_nuvem):
-                self.lbl_backup_status.configure(text="☁️ Backup: 🔴 Vazio", text_color="#FF4C4C")
-                self.lbl_backup_date.configure(text="Nenhum arquivo encontrado")
-                self.log("⚠️ Alerta: A pasta na nuvem existe, mas o cofre de backups está completamente vazio.")
-                return
-
-            try:
-                arquivos_zip = [f for f in os.listdir(caminho_nuvem) if f.lower().endswith(".zip") and f != "flycast_backup.zip"]
-                if not arquivos_zip:
-                    self.lbl_backup_status.configure(text="☁️ Backup: 🔴 Vazio", text_color="#FF4C4C")
-                    self.lbl_backup_date.configure(text="Nenhum backup realizado")
-                    self.log("⚠️ Alerta: Nenhum arquivo .zip de save foi encontrado no cofre.")
-                    return
-
-                # Localiza o arquivo mais recente pela data de modificação do Windows
-                caminho_completo = max([os.path.join(caminho_nuvem, f) for f in arquivos_zip], key=os.path.getmtime)
-                mtime = os.path.getmtime(caminho_completo)
-                data_formatada = datetime.datetime.fromtimestamp(mtime).strftime('%d/%m/%Y-%H:%M')
-                
-                # O Juiz apita a regra do tempo:
-                agora = time.time()
-                idade_segundos = agora - mtime
-                horas_idade = idade_segundos / 3600
-
-                if horas_idade <= 24: 
-                    # Sinal Verde: Backup com menos de 24 horas
-                    self.lbl_backup_status.configure(text="☁️ Backup: 🟢 Em dia", text_color="#00FF7F")
-                    self.log(f"✅ Zaga Sólida! Último backup validado na nuvem. Idade: {int(horas_idade)} hora(s).")
-                else: 
-                    # Sinal Amarelo: Backup com mais de 24 horas
-                    self.lbl_backup_status.configure(text="☁️ Backup: 🟡 Antigo", text_color="#FFD700")
-                    self.log(f"⚠️ Atenção: Seu último backup tem {int(horas_idade // 24)} dias de idade. Jogue uma partida para ativar o Auto-Sync!")
-
-                self.lbl_backup_date.configure(text=data_formatada)
-
-            except Exception as e:
-                self.log(f"❌ Erro ao ler status da nuvem: {e}")
-
-        def forcar_backup_nuvem(self, event=None):
-            # 1. Verifica se o jogador tem o "Memory Card" (Nuvem) configurado
-            if self.cloud_var.get() == "nenhum":
-                self.mostrar_toast("Nuvem Desativada", "Selecione um provedor (Google Drive/OneDrive) na aba Saves primeiro.", "warning")
-                return
-            
-            # 2. Muda o status visual e toca o som épico de Save
-            self.lbl_backup_status.configure(text="☁️ Backup: ⏳ Upando...", text_color="cyan")
-            self.log("☁️ Iniciando sincronização forçada com a nuvem (Modo Manual)...")
-            if hasattr(self, 'sfx'): self.sfx.play("save")
-            
-            # 3. O motor gira em segundo plano para não congelar a interface (Thread)
-            def rotina():
-                try:
-                    self.salvar_estado_atual()
-                    exe_path = sys.executable if getattr(sys, 'frozen', False) else sys.argv[0]
-                    
-                    # Chama o nosso próprio Updater via CMD invisível usando a flag secreta '-backup'
-                    if getattr(sys, 'frozen', False):
-                        subprocess.run([exe_path, "-backup", "-silent"], creationflags=subprocess.CREATE_NO_WINDOW)
-                    else:
-                        subprocess.run([sys.executable, exe_path, "-backup", "-silent"], creationflags=subprocess.CREATE_NO_WINDOW)
-                    
-                    # 4. Atualiza as luzes para o Sinal Verde
-                    self.after(500, self.checar_status_backup)
-                    self.after(0, lambda: self.mostrar_toast("Save Completo", "Seus dados foram salvos na nuvem com sucesso!", "success"))
-                except Exception as e:
-                    self.log(f"❌ Erro no backup forçado: {e}")
-                    self.after(500, self.checar_status_backup)
-                    
-            threading.Thread(target=rotina, daemon=True).start()
-
+       
         def toggle_radio(self):
             if self.switch_radio.get() == 1:
                 install_path = self.entry_path.get()
@@ -1055,6 +802,22 @@ def iniciar_gui():
             self.switch_cheats = ctk.CTkSwitch(self.frame_games_top, text=self._("sw_cheats"), command=self.qol_manager.ao_trocar_cheats)
             self.switch_cheats.pack(side="left")
 
+            # --- NOVA BARRA DE FILTROS POR SISTEMA ---
+            self.filtro_sistema_atual = "todos" # Estado inicial do filtro
+            
+            self.frame_filtros_sys = ctk.CTkFrame(self.frame_games_top, fg_color="transparent")
+            self.frame_filtros_sys.pack(side="left", padx=(20, 0))
+
+            self.btn_sys_todos = ctk.CTkButton(self.frame_filtros_sys, text="Todos", width=60, height=26, font=ctk.CTkFont(weight="bold"), command=lambda: self.filtrar_por_sistema("todos"))
+            self.btn_sys_todos.pack(side="left", padx=2)
+
+            self.btn_sys_dc = ctk.CTkButton(self.frame_filtros_sys, text="Dreamcast", width=80, height=26, fg_color="transparent", border_width=1, text_color="gray", command=lambda: self.filtrar_por_sistema("dreamcast"))
+            self.btn_sys_dc.pack(side="left", padx=2)
+
+            self.btn_sys_arcade = ctk.CTkButton(self.frame_filtros_sys, text="Arcade", width=70, height=26, fg_color="transparent", border_width=1, text_color="gray", command=lambda: self.filtrar_por_sistema("arcade"))
+            self.btn_sys_arcade.pack(side="left", padx=2)
+            # ----------------------------------------
+
             self.btn_filter_fav = ctk.CTkButton(self.frame_games_top, text="⭐", width=30, fg_color="transparent", border_width=1, text_color="gray", command=self.game_manager.toggle_filtro_favoritos)
             self.btn_filter_fav.pack(side="left", padx=(15, 0))
 
@@ -1349,7 +1112,7 @@ def iniciar_gui():
             self.combo_res.grid(row=2, column=1, sticky="w", pady=5)
             self.combo_res.set("640x480 (Nativo)")
 
-            self.lista_monitores = obter_monitores_windows()
+            self.lista_monitores = hardware_utils.obter_monitores_windows()
             nomes_monitores = [m["nome"] for m in self.lista_monitores]
             
             self.lbl_monitor = ctk.CTkLabel(self.frame_video_options, text="📺 Iniciar no:")
@@ -1727,7 +1490,7 @@ def iniciar_gui():
                 # Pergunta 2: Já que não quer mover, deseja registrar esse local no emu.cfg?
                 resposta_config = mb.askyesno("BIOS", self._("msg_bios_register_desc"), parent=self)
                 if resposta_config:
-                    if atualizar_emu_cfg(install_path=path, bios_path=path):
+                    if config_manager.atualizar_emu_cfg(install_path=path, bios_path=path):
                         self.atualizar_status_diretorio(path)
                 else:
                     # Pergunta 3 (A Tática do HLE): O usuário recusou organizar os arquivos. Oferecemos o HLE!
@@ -1768,7 +1531,7 @@ def iniciar_gui():
 
         def carregar_gpus(self):
             def rotina():
-                gpus = obter_gpus_windows()
+                gpus = hardware_utils.obter_gpus_windows()
                 if not gpus:
                     self.after(0, lambda: self.lbl_hw_info.configure(text=self._("msg_no_gpu")))
                     return
@@ -1872,8 +1635,8 @@ def iniciar_gui():
                 if hasattr(self, 'sfx'):
                     self.sfx.enabled = not self.config_atual["disable_sfx"] and HAS_PYGAME
                 
-            salvar_configuracao(self.config_atual)
-            self.checar_status_backup()
+            config_manager.salvar_configuracao(self.config_atual)
+            saves.checar_status_backup(self)
 
         def aplicar_tema(self, nome_tema=None):
             if not nome_tema: nome_tema = self.config_atual.get("tema", "Padrão DARK")
@@ -1892,7 +1655,10 @@ def iniciar_gui():
                 getattr(self, 'btn_reconfig', None), 
                 getattr(self, 'btn_clear_log', None), 
                 getattr(self, 'btn_filter_fav', None), 
-                getattr(self, 'btn_toggle_senha', None)
+                getattr(self, 'btn_toggle_senha', None),
+                getattr(self, 'btn_sys_todos', None),
+                getattr(self, 'btn_sys_dc', None),
+                getattr(self, 'btn_sys_arcade', None)
             ]
 
             try:
@@ -2220,7 +1986,7 @@ def iniciar_gui():
                     if not silencioso:
                         self.btn_salvar_config_emu.configure(text="⏳ Autenticando...")
                         self.update() 
-                    token_api = obter_token_retroachievements(ra_user, ra_pass_input)
+                    token_api = retroachievements.obter_token_retroachievements(ra_user, ra_pass_input)
                     if token_api:
                         ra_token_final = token_api
                         self.token_ra_salvo = token_api
@@ -2232,7 +1998,7 @@ def iniciar_gui():
             else:
                 ra_token_final = ra_pass_input
 
-            sucesso = atualizar_emu_cfg(
+            sucesso = config_manager.atualizar_emu_cfg(
                 install_path=install_path, roms_path=self.rom_paths_list,
                 ra_enabled=ra_on, ra_user=ra_user, ra_pass=ra_token_final, ra_hardcore=ra_hard,
                 vmu_individual=qol_vmu, fetch_boxart=qol_boxart, vga_cable=qol_vga,
@@ -2276,7 +2042,7 @@ def iniciar_gui():
                 win_left = monitor_selecionado['left']
                 win_top = monitor_selecionado['top']
 
-            sucesso = atualizar_emu_cfg(
+            sucesso = config_manager.atualizar_emu_cfg(
                 install_path=install_path, vid_api=api, vid_res=res_val, 
                 vid_full=full, vid_int=integer, vid_lin=linear, vid_vsync=vsync,
                 window_left=win_left, window_top=win_top, widescreen_hack=wide_hack
@@ -2349,6 +2115,9 @@ def iniciar_gui():
 
         def buscar_datas_versoes_bg(self):
             def rotina():
+                import time
+                time.sleep(1.2) # 🛡️ ESCUDO: Impede que a Thread atropele a Interface!
+                
                 headers_api = {'User-Agent': f'FlycastUpdater/{VERSION}'}
                 token = self.config_atual.get("github_token", "")
                 if token: headers_api['Authorization'] = f'token {token}'
@@ -2389,17 +2158,22 @@ def iniciar_gui():
             threading.Thread(target=rotina, daemon=True).start()
 
         def verificar_versao_em_background(self, path, branch):
+            self.lbl_emulador_status.configure(text=self._("emu_status_checking"), text_color="cyan")
+            self.btn_atualizar.configure(text=self._("btn_verify"))
+            
             def rotina():
-                self.lbl_emulador_status.configure(text=self._("emu_status_checking"), text_color="cyan")
-                self.btn_atualizar.configure(text=self._("btn_verify"))
+                import time
+                time.sleep(1.0) # 🛡️ Bloqueia atropelos em máquinas ultra-rápidas!
                 version_file = os.path.join(path, "version.txt")
                 local_version = ""
                 if os.path.exists(version_file):
                     with open(version_file, "r") as f:
                         local_version = f.read().strip()
+                        
                 if not local_version:
-                    self.lbl_emulador_status.configure(text=self._("emu_status_outdated"), text_color="#FFD700")
-                    self.btn_atualizar.configure(text=f"🚀 {self._('btn_update_act')}")
+                    # 2. Usa o self.after() como um "Escudo de Thread" para pintar a UI!
+                    self.after(0, lambda: self.lbl_emulador_status.configure(text=self._("emu_status_outdated"), text_color="#FFD700"))
+                    self.after(0, lambda: self.btn_atualizar.configure(text=f"🚀 {self._('btn_update_act')}"))
                     return
 
                 remote_version = None
@@ -2437,7 +2211,7 @@ def iniciar_gui():
                             self.config_atual["last_github_check_time"] = agora
                             self.config_atual["last_github_version"] = remote_version
                             self.config_atual["last_github_branch"] = branch
-                            self.salvar_estado_atual()
+                            config_manager.salvar_configuracao(self.config_atual) # 🛡️ Grava direto no JSON sem tocar na GUI!
                             
                     except Exception as e:
                         erro_msg = str(e)
@@ -2448,26 +2222,22 @@ def iniciar_gui():
                         else:
                             texto_erro = self._("emu_status_offline")
                             
-                        self.lbl_emulador_status.configure(text=texto_erro, text_color="#FFD700")
+                        self.after(0, lambda: self.lbl_emulador_status.configure(text=texto_erro, text_color="#FFD700"))
                         
                         if os.path.exists(os.path.join(path, "flycast.exe")):
-                            self.btn_atualizar.configure(text=f"🚀 {self._('btn_play')}")
+                            self.after(0, lambda: self.btn_atualizar.configure(text=f"🚀 {self._('btn_play')}"))
                         else:
-                            self.btn_atualizar.configure(text=f"🚀 {self._('btn_install_act')}")
+                            self.after(0, lambda: self.btn_atualizar.configure(text=f"🚀 {self._('btn_install_act')}"))
                         return
 
                 if remote_version and (local_version == remote_version or local_version.startswith(remote_version)):
                     self.after(0, lambda: self.lbl_emulador_status.configure(text=self._("emu_status_updated"), text_color="#00FF7F"))
                     self.after(0, lambda: self.btn_atualizar.configure(text=f"🚀 {self._('btn_play')}"))
-                    # EMULADOR ATUALIZADO = ESCONDE O BOTÃO IGNORAR
                     self.after(0, lambda: self.btn_ignorar.grid_remove() if hasattr(self, 'btn_ignorar') else None)
                 else:
                     self.after(0, lambda: self.lbl_emulador_status.configure(text=self._("emu_status_outdated"), text_color="#FFD700"))
                     self.after(0, lambda: self.btn_atualizar.configure(text=f"🚀 {self._('btn_update_act')}"))
-                    # EMULADOR DESATUALIZADO = MOSTRA O BOTÃO IGNORAR COM COORDENADAS EXATAS
                     self.after(0, lambda: self.btn_ignorar.grid(row=0, column=1, padx=(0, 10)) if hasattr(self, 'btn_ignorar') else None)
-
-            threading.Thread(target=rotina, daemon=True).start()
 
             threading.Thread(target=rotina, daemon=True).start()
 
@@ -2612,14 +2382,8 @@ def iniciar_gui():
                 self.log(f"❌ Erro ao criar atalho na Área de Trabalho: {e}")
 
         def abrir_janela_ajuda(self):
-            # A função geral que havia sido deletada acidentalmente!
-            msg = (
-                "Flycast Updater (Big Blue)\n\n"
-                "Para tutoriais, suporte técnico e novidades sobre o projeto, "
-                "visite o nosso repositório oficial no GitHub."
-            )
-            mb.showinfo(self._("btn_help"), msg, parent=self)
-            webbrowser.open(f"https://github.com/{REPO_UPDATER}")
+            # Chama a função lá do about.py passando os dados do Launcher!
+            about.mostrar_janela_sobre(self, VERSION, REPO_UPDATER, self._)
 
         def abrir_janela_doacao(self):
             win_doar = ctk.CTkToplevel(self)
@@ -2663,16 +2427,6 @@ def iniciar_gui():
 
             btn_copiar = ctk.CTkButton(win_doar, text="📋 Copiar Chave PIX", width=200, height=35, fg_color="#1E90FF", hover_color="#4169E1", font=ctk.CTkFont(weight="bold"), command=copiar_pix)
             btn_copiar.pack(pady=(0, 20))
-
-        def abrir_janela_ajuda(self):
-            # A função geral que havia sido deletada acidentalmente!
-            msg = (
-                "Flycast Updater (Big Blue)\n\n"
-                "Para tutoriais, suporte técnico e novidades sobre o projeto, "
-                "visite o nosso repositório oficial no GitHub."
-            )
-            mb.showinfo(self._("btn_help"), msg, parent=self)
-            webbrowser.open(f"https://github.com/{REPO_UPDATER}")
 
         def abrir_ajuda_api_key(self, com_contador=False):
             # A nossa nova função da API do RA com o atalho estilo Sonic!
@@ -2827,6 +2581,63 @@ start "" "{nome_exe}"
 
             threading.Thread(target=download_e_atualizar, daemon=True).start()
 
+        def configurar_escuta_hotplug_windows(self):
+            try:
+                self.bind_all("<DeviceChange>", self.ao_mudar_hardware_usb)
+                hwnd = self.winfo_id()
+                import ctypes
+                def wndproc_hook(hwnd, msg, wparam, lparam):
+                    if msg == 0x0219: 
+                        self.after(0, self.ao_mudar_hardware_usb)
+                    return ctypes.windll.user32.CallWindowProcW(*map(ctypes.c_void_p, [old_wndproc, hwnd, msg, wparam, lparam]))
+
+                GWL_WNDPROC = -4
+                old_wndproc = ctypes.windll.user32.GetWindowLongPtrW(hwnd, GWL_WNDPROC)
+                WNDPROC_TYPE = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int)
+                new_wndproc = WNDPROC_TYPE(wndproc_hook)
+                ctypes.windll.user32.SetWindowLongPtrW(hwnd, GWL_WNDPROC, new_wndproc)
+                self._hotplug_keep_alive = new_wndproc
+                self.log("🔌 Hot-Plug Listener: Sistema de escuta USB ativado com sucesso.")
+            except Exception as e:
+                self.log(f"⚠️ Não foi possível ativar o listener nativo de Hot-Plug: {e}")
+
+        def ao_mudar_hardware_usb(self, event=None):
+            self.log("🔌 Hot-Plug Detectado: Modificação em portas USB. Atualizando dispositivos...")
+            self.mostrar_toast("Hardware Alterado", "Dispositivos USB atualizados!", "info", duracao=2000)
+            if hasattr(self, 'devices_manager'):
+                self.devices_manager.carregar_dispositivos()    
+            if hasattr(self, 'atualizar_lista_fisicos'):
+                self.atualizar_lista_fisicos()
+
+        def filtrar_por_sistema(self, sistema):
+            """Gerencia o estado visual dos botões de sistema e aplica o filtro na grade."""
+            if self.filtro_sistema_atual == sistema: return
+            self.filtro_sistema_atual = sistema
+            
+            # Pega as cores do tema atual para acender o botão correto
+            tema_nome = self.config_atual.get("tema", "Padrão DARK")
+            from launcher import THEMES
+            cor_primaria = THEMES.get(tema_nome, THEMES["Padrão DARK"])["primary"]
+            cor_text = THEMES.get(tema_nome, THEMES["Padrão DARK"])["text"]
+            
+            # Reseta todos para o modo "Apagado"
+            self.btn_sys_todos.configure(fg_color="transparent", border_width=1, text_color="gray")
+            self.btn_sys_dc.configure(fg_color="transparent", border_width=1, text_color="gray")
+            self.btn_sys_arcade.configure(fg_color="transparent", border_width=1, text_color="gray")
+            
+            # Acende o botão selecionado
+            if sistema == "todos":
+                self.btn_sys_todos.configure(fg_color=cor_primaria, border_width=0, text_color=cor_text)
+            elif sistema == "dreamcast":
+                self.btn_sys_dc.configure(fg_color=cor_primaria, border_width=0, text_color=cor_text)
+            elif sistema == "arcade":
+                self.btn_sys_arcade.configure(fg_color=cor_primaria, border_width=0, text_color=cor_text)
+                
+            if hasattr(self, 'sfx'): self.sfx.play("nav")
+            
+            # Força a grade a se reconstruir aplicando a nossa nova regra
+            self.game_manager.escanear_jogos()
+
         def rodar_motor(self, acao):
             terminal_original = sys.stdout
             sys.stdout = ConsoleRedirector(self)
@@ -2839,7 +2650,7 @@ start "" "{nome_exe}"
                     if os.path.exists(flycast_exe):
                         self.log("🚀 Iniciando Flycast diretamente (Fast Boot)...")
                         usar_cheats = self.switch_cheats.get() == 1 if hasattr(self, 'switch_cheats') else False
-                        atualizar_emu_cfg(install_path, cheat_enable=usar_cheats)
+                        config_manager.atualizar_emu_cfg(install_path, cheat_enable=usar_cheats)
                         
                         self.withdraw()
                         subprocess.Popen([flycast_exe], cwd=install_path)
@@ -2952,7 +2763,7 @@ def configurar_interativamente():
                 print("[-] Aviso: OneDrive não encontrado no seu PC.")
 
     install_path = os.getcwd()
-    salvar_configuracao({
+    config_manager.salvar_configuracao({
         "branch": branch_choice, "create_shortcut": create_desktop, "create_startup": create_startup,
         "install_path": install_path, "cloud_provider": cloud_prov, "cloud_path": cloud_path, "setup_completed": True
     })
@@ -2996,7 +2807,7 @@ def iniciar_cli(args):
         sys.stdout = open(os.devnull, 'w')
         sys.stderr = open(os.devnull, 'w')
 
-    config = carregar_configuracao()
+    config = config_manager.config_manager.carregar_configuracao()
     
     flags_auto = ["-silent", "-backup", "-rollback", "-dev", "-master"]
     bypass_questions = any(f in args for f in flags_auto)
@@ -3007,7 +2818,7 @@ def iniciar_cli(args):
     install_path = config.get("install_path", os.getcwd())
     
     if getattr(sys, 'frozen', False) and "-rollback" not in args and "-backup" not in args:
-        verificar_atualizacao_updater(install_path)
+        updater_core.verificar_atualizacao_updater(install_path)
 
     import update_flycast
     update_flycast.SCRIPT_VERSION = f"{VERSION} (CLI)"
@@ -3052,7 +2863,7 @@ if __name__ == "__main__":
     args_lower = [arg.lower() for arg in sys.argv[1:]]
     gatilhos_cli = ['-nogui', '-silent', '-rollback', '-backup', '-dev', '-master', '-help', '-h', '--help', '-reset', '-gdrive', '-onedrive']
     
-    config = carregar_configuracao()
+    config = config_manager.carregar_configuracao()
     if config.get("nogui", False) and "-nogui" not in args_lower and "-reset" not in args_lower:
         args_lower.append("-nogui")
 

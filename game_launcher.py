@@ -3,6 +3,8 @@ import tkinter as tk
 import tkinter.messagebox as mb
 import customtkinter as ctk
 import dc_gamesdb
+import arcade_core 
+import config_manager
 import concurrent.futures
 
 try:
@@ -52,12 +54,11 @@ class GameLibraryManager:
     def __init__(self, app_instance):
         self.app = app_instance
         self.ra_labels = {}
-        self.show_favorites_only = False 
+        self.show_favorites_only = False
+        # Instância com o nome correto
+        self.arcade_manager = arcade_core.ArcadeManager(self.app)
         self.garantir_arquivos_essenciais()
 
-    # ==========================================
-    # NOVO MOTOR DE BUSCA INTELIGENTE (RA)
-    # ==========================================
     def buscar_dados_ra(self, user_db, nome_jogo, arquivos):
         import re
         def simplificar(texto):
@@ -65,21 +66,17 @@ class GameLibraryManager:
 
         s_nome_jogo = simplificar(nome_jogo)
         
-        # 1. Busca Exata com Case-Insensitive (Ignora "SoulCalibur" vs "Soulcalibur")
         for key, data in user_db.items():
             if simplificar(key) == s_nome_jogo:
                 return data
                 
-        # 2. Busca Agressiva via arquivos ROM (Multi-Disco/Região)
         for rom_path in arquivos:
             s_rom = simplificar(os.path.splitext(os.path.basename(rom_path))[0])
             for key, data in user_db.items():
                 s_key = simplificar(key)
                 if len(s_key) > 3 and (s_key in s_rom or s_rom in s_key):
                     return data
-                    
         return None
-    # ==========================================
         
     def toggle_filtro_favoritos(self):
         self.show_favorites_only = not self.show_favorites_only
@@ -127,12 +124,15 @@ class GameLibraryManager:
         btn_widget.configure(text="✔️ Salvo!", fg_color="#228B22")
         self.app.after(2000, lambda: btn_widget.configure(text="💾 Salvar Notas", fg_color="#1E90FF"))
 
-    def baixar_capa_libretro(self, nome_jogo, boxart_dir, capa_lbl, no_cover_path=""):
+    def baixar_capa_libretro(self, nome_jogo, boxart_dir, capa_lbl, no_cover_path="", sistema=None):
         nome_busca = nome_jogo.replace("_", " ")
-        url_repo = f"https://raw.githubusercontent.com/libretro/libretro-thumbnails/master/Sega%20-%20Dreamcast/Named_Boxarts/{urllib.parse.quote(nome_busca)}.png"
+        repo = "Sega%20-%20Dreamcast"
+        if sistema in ["naomi", "naomi2"]: repo = "Sega%20-%20Naomi"
+        elif sistema == "atomiswave": repo = "Sammy%20-%20Atomiswave"
+
+        url_repo = f"https://raw.githubusercontent.com/libretro/libretro-thumbnails/master/{repo}/Named_Boxarts/{urllib.parse.quote(nome_busca)}.png"
         destino = os.path.join(boxart_dir, f"{nome_jogo}.png")
         
-        # Função auxiliar para aplicar a capa do Sonic se tudo der errado
         def aplicar_fallback():
             if HAS_PIL and os.path.exists(no_cover_path):
                 try:
@@ -152,11 +152,10 @@ class GameLibraryManager:
                 pil_img = Image.open(destino).resize((150, 150), Image.Resampling.LANCZOS)
                 ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(150, 150))
                 self.app.after(0, lambda: capa_lbl.configure(image=ctk_img, text="") if capa_lbl.winfo_exists() else None)
-                self.app.log(f"🖼️ Auto-Scraper: Capa baixada com sucesso!")
         except Exception:
             nome_limpo2 = re.sub(r'\(.*?\)|\[.*?\]', '', nome_busca).strip()
             if nome_limpo2 and nome_limpo2 != nome_busca:
-                url2 = f"https://raw.githubusercontent.com/libretro/libretro-thumbnails/master/Sega%20-%20Dreamcast/Named_Boxarts/{urllib.parse.quote(nome_limpo2)}.png"
+                url2 = f"https://raw.githubusercontent.com/libretro/libretro-thumbnails/master/{repo}/Named_Boxarts/{urllib.parse.quote(nome_limpo2)}.png"
                 try:
                     req = urllib.request.Request(url2, headers={'User-Agent': 'Mozilla/5.0'})
                     with urllib.request.urlopen(req, timeout=3) as response, open(destino, 'wb') as out_file:
@@ -170,14 +169,11 @@ class GameLibraryManager:
             else: 
                 aplicar_fallback()
 
-    def sincronizar_retroachievements(self):
+    def sincronizar_retroachievements(self, usuario, api_key, is_hardcore, install_path):
         from launcher import VERSION
-        usuario = self.app.entry_ra_user.get().strip()
-        api_key = self.app.config_atual.get("ra_api_key", "").strip()
-        is_hardcore = getattr(self.app, "switch_hardcore", ctk.BooleanVar(value=False)).get() == 1
         tag_modo = " (Hardcore)" if is_hardcore else ""
 
-        db_path = os.path.join(self.app.entry_path.get(), "RAlocal.db")
+        db_path = os.path.join(install_path, "RAlocal.db")
         ra_db = {}
         if os.path.exists(db_path):
             try:
@@ -188,26 +184,7 @@ class GameLibraryManager:
 
         if not usuario or not api_key:
             self.app.log("⚠️ RA Sync: Web API Key não configurada. Lendo apenas cache local 'RAlocal.db'.")
-            for base_name, (lbl, nome_exib) in self.ra_labels.items():
-                arquivos = getattr(self, 'jogos_agrupados_cache', {}).get(nome_exib, [])
-                data = self.buscar_dados_ra(user_db, nome_exib, arquivos)
-                if data:
-                    pts = data.get('score_hc', '0') if is_hardcore else data.get('score', '0')
-                    tot = data.get('total_score', '0')
-                    ach = int(data.get('achieved_hc', '0')) if is_hardcore else int(data.get('achieved', '0'))
-                    tot_ach = int(data.get('total_achievements', '0'))
-                    
-                    if ach == tot_ach and tot_ach > 0:
-                        texto = f"🌀 PLATINA{tag_modo}"
-                        cor = "#00BFFF"
-                    else:
-                        texto = f"🏆 {pts}/{tot} pts{tag_modo}"
-                        cor = "gray" if pts == "0" else "#00FF7F"
-                else:
-                    texto = f"🏆 Não Iniciado{tag_modo}"
-                    cor = "gray"
-                try: self.app.after(0, lambda l=lbl, t=texto, c=cor: l.configure(text=t, text_color=c) if l.winfo_exists() else None)
-                except Exception: pass
+            self._desenhar_ra_labels(user_db, is_hardcore, tag_modo)
             return
 
         self.app.log(f"🌐 RA Sync: Conectando à API Oficial do RetroAchievements para '{usuario}'...")
@@ -253,57 +230,37 @@ class GameLibraryManager:
             else:
                 self.app.log(f"⚡ RA Sync: Nenhuma alteração nas pontuações.")
 
-            for base_name, (lbl, nome_exib) in self.ra_labels.items():
-                arquivos = getattr(self, 'jogos_agrupados_cache', {}).get(nome_exib, [])
-                data = self.buscar_dados_ra(user_db, nome_exib, arquivos)
-                if data:
-                    pts = data.get('score_hc', '0') if is_hardcore else data.get('score', '0')
-                    tot = data.get('total_score', '0')
-                    ach = int(data.get('achieved_hc', '0')) if is_hardcore else int(data.get('achieved', '0'))
-                    tot_ach = int(data.get('total_achievements', '0'))
-                    
-                    if ach == tot_ach and tot_ach > 0:
-                        texto = f"🌀 PLATINA{tag_modo}"
-                        cor = "#00BFFF"
-                    else:
-                        texto = f"🏆 {pts}/{tot} pts{tag_modo}"
-                        cor = "gray" if pts == "0" else "#00FF7F"
-                else:
-                    texto = f"🏆 Não Iniciado{tag_modo}"
-                    cor = "gray"
-                try: self.app.after(0, lambda l=lbl, t=texto, c=cor: l.configure(text=t, text_color=c) if l.winfo_exists() else None)
-                except Exception: pass
+            self._desenhar_ra_labels(user_db, is_hardcore, tag_modo)
 
         except Exception as e:
             self.app.log(f"❌ RA Sync [Erro na API Oficial]: {e}")
             self.app.log(f"♻️ RA Sync: Utilizando dados salvos no cache local 'RAlocal.db'...")
-            for base_name, (lbl, nome_exib) in self.ra_labels.items():
-                arquivos = getattr(self, 'jogos_agrupados_cache', {}).get(nome_exib, [])
-                data = self.buscar_dados_ra(user_db, nome_exib, arquivos)
-                if data:
-                    pts = data.get('score_hc', '0') if is_hardcore else data.get('score', '0')
-                    tot = data.get('total_score', '0')
-                    ach = int(data.get('achieved_hc', '0')) if is_hardcore else int(data.get('achieved', '0'))
-                    tot_ach = int(data.get('total_achievements', '0'))
-                    
-                    if ach == tot_ach and tot_ach > 0:
-                        texto = f"🌀 PLATINA{tag_modo}"
-                        cor = "#00BFFF"
-                    else:
-                        texto = f"🏆 {pts}/{tot} pts{tag_modo}"
-                        cor = "gray" if pts == "0" else "#00FF7F"
-                else:
-                    texto = f"🏆 Não Iniciado{tag_modo}"
-                    cor = "gray"
-                try: self.app.after(0, lambda l=lbl, t=texto, c=cor: l.configure(text=t, text_color=c) if l.winfo_exists() else None)
-                except Exception: pass
+            self._desenhar_ra_labels(user_db, is_hardcore, tag_modo)
 
-    def buscar_empresa_ra(self, base_name, lbl_empresa):
+    def _desenhar_ra_labels(self, user_db, is_hardcore, tag_modo):
+        for base_name, (lbl, nome_exib) in self.ra_labels.items():
+            arquivos = getattr(self, 'jogos_agrupados_cache', {}).get(nome_exib, [])
+            data = self.buscar_dados_ra(user_db, nome_exib, arquivos)
+            if data:
+                pts = data.get('score_hc', '0') if is_hardcore else data.get('score', '0')
+                tot = data.get('total_score', '0')
+                ach = int(data.get('achieved_hc', '0')) if is_hardcore else int(data.get('achieved', '0'))
+                tot_ach = int(data.get('total_achievements', '0'))
+                
+                if ach == tot_ach and tot_ach > 0:
+                    texto = f"🌀 PLATINA{tag_modo}"
+                    cor = "#00BFFF"
+                else:
+                    texto = f"🏆 {pts}/{tot} pts{tag_modo}"
+                    cor = "gray" if pts == "0" else "#00FF7F"
+            else:
+                texto = f"🏆 Não Iniciado{tag_modo}"
+                cor = "gray"
+            try: self.app.after(0, lambda l=lbl, t=texto, c=cor: l.configure(text=t, text_color=c) if l.winfo_exists() else None)
+            except Exception: pass
+
+    def buscar_empresa_ra(self, base_name, lbl_empresa, usuario, api_key, install_path):
         from launcher import VERSION
-        usuario = self.app.entry_ra_user.get().strip()
-        api_key = self.app.config_atual.get("ra_api_key", "").strip()
-        
-        install_path = self.app.entry_path.get()
         db_ra_path = os.path.join(install_path, "RAlocal.db")
         ra_db = {}
         if os.path.exists(db_ra_path):
@@ -346,45 +303,6 @@ class GameLibraryManager:
                         self.app.after(0, lambda: lbl_empresa.configure(text=f"Empresa: {empresa}"))
         except Exception: pass
 
-    def monitorar_jogo(self, proc, nome_jogo):
-        inicio = time.time()
-        proc.wait() 
-        fim = time.time()
-        jogado_segundos = int(fim - inicio)
-
-        self.app.after(0, self.app.deiconify)
-        self.app.after(1000, getattr(self.app, 'iniciar_radio', lambda: None))
-
-        if hasattr(self.app, 'widget_chroma') and self.app.widget_chroma.winfo_exists():
-            self.app.after(0, self.app.widget_chroma.destroy)
-
-        if jogado_segundos > 10:
-            install_path = self.app.entry_path.get()
-            db_ra_path = os.path.join(install_path, "RAlocal.db")
-            ra_db = {}
-            if os.path.exists(db_ra_path):
-                try:
-                    with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
-                except Exception: pass
-            
-            playtime_db = ra_db.setdefault("_Playtime_", {})
-            playtime_antigo = self.app.config_atual.get("playtime", {})
-            
-            if playtime_antigo:
-                for k, v in playtime_antigo.items():
-                    if k not in playtime_db: playtime_db[k] = v
-                self.app.config_atual["playtime"] = {} 
-                self.app.salvar_estado_atual()
-
-            playtime_db[nome_jogo] = playtime_db.get(nome_jogo, 0) + jogado_segundos
-            
-            try:
-                with open(db_ra_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
-            except Exception: pass
-            
-            self.app.log(f"⏱️ Playtime Tracker: Tempo atualizado para '{nome_jogo}': +{jogado_segundos}s")
-            self.app.after(0, self.escanear_jogos)
-
     def selecionar_disco(self, nome_jogo, arquivos, from_bp=False):
         if len(arquivos) <= 1:
             rom_alvo = arquivos[0] if arquivos else ""
@@ -414,32 +332,30 @@ class GameLibraryManager:
 
         ctk.CTkButton(win_disco, text="✔️ OK (Botão A)", command=confirmar_disco, width=120, height=32, font=ctk.CTkFont(weight="bold")).pack(pady=15)
 
-        # --- MÁGICA: Pop-up controlável pelo Gamepad ---
         def gamepad_poll():
             if not win_disco.winfo_exists(): return
             try:
                 import pygame
                 for event in pygame.event.get():
                     if event.type == pygame.JOYHATMOTION:
-                        if event.value[1] == 1: # D-Pad Cima
+                        if event.value[1] == 1: 
                             self.idx_selecionado = max(0, self.idx_selecionado - 1)
                             escolha_var.set(botoes_rom[self.idx_selecionado])
-                        elif event.value[1] == -1: # D-Pad Baixo
+                        elif event.value[1] == -1: 
                             self.idx_selecionado = min(len(botoes_rom)-1, self.idx_selecionado + 1)
                             escolha_var.set(botoes_rom[self.idx_selecionado])
                     elif event.type == pygame.JOYBUTTONDOWN:
-                        if event.button in [0, 1, 7, 9]: # A / Cross / Start / Options
+                        if event.button in [0, 1, 7, 9]: 
                             confirmar_disco()
                             return
-                        elif event.button in [2, 6, 8]: # Voltar / Circle / Share
+                        elif event.button in [2, 6, 8]: 
                             win_disco.destroy()
                             if hasattr(self.app, 'janela_bp'): self.app.janela_bp.jogo_em_execucao = False
                             return
             except: pass
             win_disco.after(50, gamepad_poll)
 
-        if from_bp:
-            win_disco.after(50, gamepad_poll)
+        if from_bp: win_disco.after(50, gamepad_poll)
 
     def lancar_jogo(self, rom_path, nome_jogo=None, is_netplay=False, from_bp=False):
         if not rom_path or not os.path.exists(rom_path):
@@ -451,24 +367,40 @@ class GameLibraryManager:
         flycast_exe = os.path.join(install_path, "flycast.exe")
         
         if not os.path.exists(flycast_exe):
-            self.app.mostrar_toast("Emulador Ausente", "O executável 'flycast.exe' não foi encontrado. Atualize na aba BIOS e Emu.", "error")
+            self.app.mostrar_toast("Emulador Ausente", "O executável 'flycast.exe' não foi encontrado.", "error")
             if hasattr(self.app, 'janela_bp'): self.app.janela_bp.jogo_em_execucao = False
             return
+
+        nome_arquivo = os.path.basename(rom_path)
+        if hasattr(self, 'arcade_manager') and self.arcade_manager.is_arcade_rom(nome_arquivo):
+            use_custom = getattr(self.app, 'switch_custom_paths', None) and self.app.switch_custom_paths.get() == 1
+            custom_bios_path = self.app.entry_bios_path.get() if use_custom else ""
+            
+            # Valida a BIOS
+            valido, msg_erro = self.arcade_manager.validar_bios_para_rom(nome_arquivo, install_path, custom_bios_path)
+            if not valido:
+                self.app.log(f"❌ Boot abortado: BIOS de Arcade ausente para {nome_arquivo}.")
+                self.app.mostrar_toast("BIOS Ausente", "Você não possui a BIOS necessária para rodar este jogo de Arcade.", "error")
+                mb.showerror("BIOS Obrigatória Ausente", msg_erro, parent=self.app)
+                if hasattr(self.app, 'janela_bp'): self.app.janela_bp.jogo_em_execucao = False
+                return
+
+            # Valida a integridade (DAT Check)
+            integridade_ok, msg_integridade = self.arcade_manager.verificar_integridade_rom(rom_path)
+            if not integridade_ok:
+                self.app.log(f"❌ Boot abortado: ROM corrompida ou incompleta ({nome_arquivo}).")
+                self.app.mostrar_toast("ROM Corrompida", "O arquivo compactado do jogo está incompleto.", "error")
+                mb.showerror("Erro de Integridade da ROM", msg_integridade, parent=self.app)
+                if hasattr(self.app, 'janela_bp'): self.app.janela_bp.jogo_em_execucao = False
+                return
 
         usar_cheats = self.switch_cheats.get() == 1 if hasattr(self, 'switch_cheats') else False
         is_hardcore = self.app.switch_hardcore.get() == 1 if hasattr(self.app, 'switch_hardcore') else False
 
-        # --- A JOGADA DE MESTRE: Importar só no momento de uso (Zero Circular Import) ---
-        from launcher import atualizar_emu_cfg
-
-        # --- FORÇA FULLSCREEN SE VIER DO BIG PICTURE ---
-        if from_bp:
-            atualizar_emu_cfg(install_path, cheat_enable=usar_cheats, ra_hardcore=is_hardcore, vid_full=True)
-        else:
-            atualizar_emu_cfg(install_path, cheat_enable=usar_cheats, ra_hardcore=is_hardcore)
+        if from_bp: config_manager.atualizar_emu_cfg(install_path, cheat_enable=usar_cheats, ra_hardcore=is_hardcore, vid_full=True)
+        else: config_manager.atualizar_emu_cfg(install_path, cheat_enable=usar_cheats, ra_hardcore=is_hardcore)
         
         try:
-            import configparser
             caminhos_cfg = [os.path.join(install_path, "emu.cfg"), os.path.join(install_path, "data", "emu.cfg")]
             for cfg_net in caminhos_cfg:
                 if os.path.exists(cfg_net):
@@ -488,88 +420,78 @@ class GameLibraryManager:
             self.app.log(f"⚠️ Aviso Netplay Firewall: {e}")
         
         self.app.log(f"🚀 Iniciando jogo: {os.path.basename(rom_path)}")
-
         args_lancamento = [flycast_exe, rom_path]
 
         def executar_processo():
             try:
-                # 1. Pausa a Rádio do App e do Big Picture
                 if hasattr(self.app, 'bgm_playing') and self.app.bgm_playing:
-                    if not getattr(self.app, 'is_paused', False):
-                        self.app.radio_play_pause()
+                    if not getattr(self.app, 'is_paused', False): self.app.radio_play_pause()
                 if hasattr(self.app, 'janela_bp') and self.app.janela_bp and self.app.janela_bp.winfo_exists():
                     self.app.janela_bp.radio.pause()
 
-                # 2. Esconde o Big Picture e o Launcher Principal para manter a imersão
                 if hasattr(self.app, 'janela_bp') and self.app.janela_bp and self.app.janela_bp.winfo_exists():
                     self.app.janela_bp.withdraw()
                 self.app.after(0, self.app.withdraw)
                 
                 inicio = time.time()
                 
-                # 3. TOCA O SOM ÉPICO E LANÇA O JOGO
                 if hasattr(self.app, 'sfx'): self.app.sfx.play("start")
-
-                # --- O OVERLAY INICIA AQUI! ---
-                if hasattr(self.app, 'ra_manager'):
-                    self.app.ra_manager.iniciar_rastreio_em_gameplay(nome_jogo)
-                # --------------------------------------
-
-                processo = subprocess.Popen(args_lancamento, cwd=install_path)
-                processo.wait() # <--- Fica aqui até o cara fechar o emulador
-
-                # --- O OVERLAY TERMINA AQUI! ---
-                if hasattr(self.app, 'ra_manager'):
-                    self.app.ra_manager.parar_rastreio()
-                # ----------------------------------------
-
-                # Avisa o Discord que a gameplay começou!
+                if hasattr(self.app, 'ra_manager'): self.app.ra_manager.iniciar_rastreio_em_gameplay(nome_jogo)
                 if hasattr(self.app, 'discord'): self.app.discord.atualizar_jogo(nome_jogo)
 
                 processo = subprocess.Popen(args_lancamento, cwd=install_path)
-                processo.wait()
+                processo.wait() 
 
+                if hasattr(self.app, 'ra_manager'): self.app.ra_manager.parar_rastreio()
                 if hasattr(self.app, 'discord'): self.app.discord.atualizar_menu()
                 
                 fim = time.time()
                 duracao_segundos = int(fim - inicio)
                 if duracao_segundos > 30:
-                    minutos = duracao_segundos // 60
-                    self.app.log(f"⏱️ Partida encerrada. Tempo jogado: {minutos} minuto(s).")
-                    self.atualizar_tempo_jogo_db(rom_path, minutos)
+                    self.app.log(f"⏱️ Partida encerrada. Tempo jogado: {duracao_segundos} segundos totais.")
+                    
+                    db_ra_path = os.path.join(install_path, "RAlocal.db")
+                    ra_db = {}
+                    if os.path.exists(db_ra_path):
+                        try:
+                            with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                        except Exception: pass
+                    
+                    playtime_db = ra_db.setdefault("_Playtime_", {})
+                    playtime_db[nome_jogo] = playtime_db.get(nome_jogo, 0) + duracao_segundos
+                    
+                    try:
+                        with open(db_ra_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+                    except Exception: pass
 
-                # --- GATILHO DO AUTO-CLOUD SYNC ---
                 if hasattr(self.app, 'save_manager'):
                     self.app.save_manager.auto_sync_saves()
                     
             except Exception as e:
                 self.app.log(f"❌ Erro ao rodar o emulador: {e}")
             finally:
-                # 4. Restaura o modo de vídeo original do usuário ANTES de reexibir as janelas
                 if from_bp:
                     full_original = self.app.switch_fullscreen.get() == 1 if hasattr(self.app, 'switch_fullscreen') else False
-                    atualizar_emu_cfg(install_path, vid_full=full_original)
+                    config_manager.atualizar_emu_cfg(install_path, vid_full=full_original)
 
-                # 5. Acorda o Big Picture (ou o Launcher) do modo de hibernação
                 if hasattr(self.app, 'janela_bp') and self.app.janela_bp and self.app.janela_bp.winfo_exists():
                     self.app.janela_bp.deiconify()
                     self.app.janela_bp.focus_force()
-                    
-                    # --- O PARRY FINAL NO GHOST INPUT ---
                     try:
                         import pygame
                         pygame.event.clear()
                     except: pass
-                    # 1.5 segundos de bloqueio TOTAL de botões na interface!
                     self.app.janela_bp.tempo_desbloqueio = time.time() + 1.5
-                    # ----------------------------------------------
-
                     self.app.janela_bp.jogo_em_execucao = False
                     self.app.janela_bp.radio.play()
+                
+                self.app.after(0, self.app.deiconify)
+                self.app.after(1000, getattr(self.app, 'iniciar_radio', lambda: None))
+                if hasattr(self.app, 'widget_chroma') and self.app.widget_chroma.winfo_exists():
+                    self.app.after(0, self.app.widget_chroma.destroy)
                         
                 self.app.after(0, self.escanear_jogos)
 
-        import threading
         threading.Thread(target=executar_processo, daemon=True).start()
 
     def mostrar_info_jogo(self, nome_jogo, db_info):
@@ -578,6 +500,8 @@ class GameLibraryManager:
         top.geometry("680x660")
         top.attributes("-topmost", True)
 
+        usuario = self.app.entry_ra_user.get().strip()
+        api_key = self.app.config_atual.get("ra_api_key", "").strip()
         install_path = self.app.entry_path.get()
         boxart_dir = os.path.join(install_path, "data", "boxart")
 
@@ -607,7 +531,6 @@ class GameLibraryManager:
                         break
                     except Exception: pass
             
-            # --- MÁGICA: FALLBACK PARA A JANELA DE INFO ---
                 no_cover_path = os.path.join(boxart_dir, "no_cover.jpg")
                 if os.path.exists(no_cover_path):
                     try:
@@ -619,7 +542,6 @@ class GameLibraryManager:
                     except: pass
                     
             if not capa_encontrada:
-                # --- MÁGICA: FALLBACK BLINDADO PARA A JANELA DE INFO ---
                 fallback_dest = os.path.join(boxart_dir, "no_cover.jpg")
                 fallback_src1 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no_cover.jpg")
                 fallback_src2 = os.path.join(os.getcwd(), "no_cover.jpg")
@@ -660,7 +582,7 @@ class GameLibraryManager:
         
         lbl_empresa = ctk.CTkLabel(frame_titulo_data, text=f"Empresa: {self.app._('lbl_unknown')}", font=ctk.CTkFont(size=12, slant="italic"), text_color="gray", anchor="w")
         lbl_empresa.pack(fill="x")
-        threading.Thread(target=self.buscar_empresa_ra, args=(nome_jogo, lbl_empresa), daemon=True).start()
+        threading.Thread(target=self.buscar_empresa_ra, args=(nome_jogo, lbl_empresa, usuario, api_key, install_path), daemon=True).start()
 
         frame_stats = ctk.CTkFrame(frame_header_top, fg_color="#1a1a1a", corner_radius=8)
         frame_stats.pack(side="right", anchor="center", padx=(10, 0), ipadx=10, ipady=8)
@@ -668,7 +590,6 @@ class GameLibraryManager:
         lbl_stats_title = ctk.CTkLabel(frame_stats, text="RetroAchievements", font=ctk.CTkFont(size=10, weight="bold"), text_color="gray")
         lbl_stats_title.pack(anchor="center", pady=(0, 5))
 
-        usuario = self.app.entry_ra_user.get().strip()
         db_ra_path = os.path.join(install_path, "RAlocal.db")
         ra_db = {}
         if os.path.exists(db_ra_path):
@@ -713,18 +634,14 @@ class GameLibraryManager:
         lbl_stat_tempo = ctk.CTkLabel(frame_stats, text=str_tempo, font=ctk.CTkFont(size=12, weight="bold"), text_color="#1E90FF")
         lbl_stat_tempo.pack(anchor="center", pady=(0, 0))
 
-        # --- BOTÃO DA GALERIA DE CONQUISTAS ---
         btn_ver_conquistas = ctk.CTkButton(frame_stats, text="Ver Conquistas", height=24, font=ctk.CTkFont(weight="bold"), fg_color="#8B008B", hover_color="#9400D3", command=lambda: self.exibir_janela_conquistas(nome_jogo))
         btn_ver_conquistas.pack(pady=(10, 0))
 
-        # --- BOTÃO DO GESTOR DE NETPLAY ---
         import netplay
+        rom_path = arquivos_jogo[0] if arquivos_jogo else ""
         btn_netplay = ctk.CTkButton(frame_stats, text="🌐 Multiplayer (Netplay)", height=24, font=ctk.CTkFont(weight="bold"), fg_color="#FF4500", hover_color="#FF6347", command=lambda: netplay.NetplayManager(top, nome_jogo, rom_path, install_path, self))
         btn_netplay.pack(pady=(10, 0))
-        # ----------------------------------------
 
-        arquivos = self.jogos_agrupados_cache.get(nome_jogo, [])
-        rom_path = arquivos[0] if arquivos else ""
         meta = dc_gamesdb.buscar_metadados(nome_jogo, rom_path, install_path, self.app.lang)
         
         if meta["score"]:
@@ -863,6 +780,7 @@ class GameLibraryManager:
         from launcher import VERSION
         usuario = self.app.entry_ra_user.get().strip()
         api_key = self.app.config_atual.get("ra_api_key", "").strip()
+        install_path = self.app.entry_path.get() 
 
         if not usuario or not api_key:
             mb.showwarning("RetroAchievements", "Configure seu Usuário e Web API Key na aba Emulador para acessar a Galeria!", parent=self.app)
@@ -872,7 +790,7 @@ class GameLibraryManager:
         win_ra.title(f"🏆 Galeria de Conquistas: {nome_jogo}")
         win_ra.geometry("780x680")
         win_ra.attributes("-topmost", True)
-        win_ra.grab_set() # Prende o foco na janela
+        win_ra.grab_set() 
         
         lbl_status = ctk.CTkLabel(win_ra, text="⏳ Sincronizando com os servidores do RetroAchievements...", font=ctk.CTkFont(size=16))
         lbl_status.pack(expand=True)
@@ -885,7 +803,6 @@ class GameLibraryManager:
             game_id = None
             s_jogo = simplificar(nome_jogo)
             
-            # Tenta descobrir o ID do Jogo cruzando dados dos jogos recentes
             try:
                 url_rec = f"https://retroachievements.org/API/API_GetUserRecentlyPlayedGames.php?z={urllib.parse.quote(usuario)}&y={api_key}&u={urllib.parse.quote(usuario)}&c=50"
                 req = urllib.request.Request(url_rec, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
@@ -897,7 +814,6 @@ class GameLibraryManager:
                             break
             except: pass
 
-            # Se não jogou recentemente, varre o catálogo inteiro do Dreamcast (23) e Arcade (27)
             if not game_id:
                 for console_id in [23, 27]:
                     if game_id: break
@@ -917,7 +833,6 @@ class GameLibraryManager:
                 self.app.after(0, lambda: lbl_status.configure(text="❌ Jogo não localizado no banco de dados online do RetroAchievements."))
                 return
 
-            # Consulta Mestra: Baixa TODAS as conquistas do jogo e o progresso do usuário!
             try:
                 url_prog = f"https://retroachievements.org/API/API_GetGameInfoAndUserProgress.php?z={urllib.parse.quote(usuario)}&y={api_key}&u={urllib.parse.quote(usuario)}&g={game_id}"
                 req = urllib.request.Request(url_prog, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
@@ -932,13 +847,11 @@ class GameLibraryManager:
                 self.app.after(0, lambda: lbl_status.configure(text="⚠️ Este jogo ainda não possui conquistas cadastradas na plataforma."))
                 return
             
-            # Organiza na ordem de exibição oficial
             lista_achs = list(achievements.values())
             lista_achs.sort(key=lambda x: int(x.get("DisplayOrder", 0)))
             
             self.app.after(0, lbl_status.destroy)
             
-            # Recupera as Cores do Tema Atual
             tema_atual = self.app.config_atual.get("tema", "Padrão DARK")
             try:
                 from launcher import THEMES
@@ -947,17 +860,15 @@ class GameLibraryManager:
                 cor_primaria = "#4169E1"
             
             def desenhar_ui():
-                # --- O DASHBOARD DE PROGRESSO GLOBAL (CORRIGIDO) ---
                 trofeus_totais = len(lista_achs)
                 trofeus_ganhos = 0
                 pontos_totais = 0
                 pontos_ganhos = 0
                 
-                # O motor conta sozinho as medalhas direto da fonte!
                 for ach in lista_achs:
                     pts = int(ach.get("Points", "0"))
                     pontos_totais += pts
-                    if ach.get("DateEarned"): # Se tem data, foi conquistado!
+                    if ach.get("DateEarned"): 
                         trofeus_ganhos += 1
                         pontos_ganhos += pts
                         
@@ -979,7 +890,6 @@ class GameLibraryManager:
                 scroll = ctk.CTkScrollableFrame(win_ra, fg_color="transparent")
                 scroll.pack(fill="both", expand=True, padx=5, pady=5)
                 
-                install_path = self.app.entry_path.get()
                 ach_dir = os.path.join(install_path, "data", "achievements")
                 os.makedirs(ach_dir, exist_ok=True)
                 
@@ -992,14 +902,12 @@ class GameLibraryManager:
                     
                     is_unlocked = date_earned is not None
                     
-                    # Se está desbloqueado, o fundo recebe o destaque escuro, se não, fica mais cinza.
                     frame_ach = ctk.CTkFrame(scroll, fg_color="#1a1a2e" if is_unlocked else "#2b2b2b", corner_radius=8)
                     frame_ach.pack(fill="x", pady=5, padx=5)
                     
                     badge_file = f"{badge}.png" if is_unlocked else f"{badge}_lock.png"
                     badge_path = os.path.join(ach_dir, badge_file)
                     
-                    # O Download Inteligente com Cache!
                     if not os.path.exists(badge_path):
                         url_img = f"https://media.retroachievements.org/Badge/{badge_file}"
                         try:
@@ -1022,7 +930,6 @@ class GameLibraryManager:
                     frame_text = ctk.CTkFrame(frame_ach, fg_color="transparent")
                     frame_text.pack(side="left", fill="both", expand=True, padx=10, pady=10)
                     
-                    # O título usa a cor Primária do Tema se estiver liberado!
                     cor_titulo = cor_primaria if is_unlocked else "gray"
                     lbl_t = ctk.CTkLabel(frame_text, text=title, font=ctk.CTkFont(size=16, weight="bold"), text_color=cor_titulo, anchor="w")
                     lbl_t.pack(fill="x")
@@ -1034,7 +941,6 @@ class GameLibraryManager:
                     lbl_p.pack(fill="x", pady=(5,0))
                     
                     if is_unlocked:
-                        # Exibe a data e a hora do desbloqueio formatada
                         data_formatada = date_earned[:10].split("-")
                         data_bonita = f"{data_formatada[2]}/{data_formatada[1]}/{data_formatada[0]}"
                         hora_bonita = date_earned[11:16]
@@ -1044,7 +950,6 @@ class GameLibraryManager:
                         
             self.app.after(0, desenhar_ui)
 
-        import threading
         threading.Thread(target=rotina_carregamento, daemon=True).start()
 
     def sortear_jogo(self):
@@ -1124,12 +1029,9 @@ class GameLibraryManager:
             
         if not install_path: install_path = os.getcwd()
             
-        # --- MÁGICA DO PYINSTALLER ---
         try: base_embutida = sys._MEIPASS
         except Exception: base_embutida = os.path.dirname(os.path.abspath(__file__))
-        # -----------------------------
             
-        # 1. GARANTIR A IMAGEM NO_COVER.JPG
         boxart_dir = os.path.join(install_path, "data", "boxart")
         try: os.makedirs(boxart_dir, exist_ok=True)
         except: pass
@@ -1137,7 +1039,7 @@ class GameLibraryManager:
         dest_cover = os.path.join(boxart_dir, "no_cover.jpg")
         if not os.path.exists(dest_cover):
             for src in [
-                os.path.join(base_embutida, "no_cover.jpg"), # Extrai do .EXE
+                os.path.join(base_embutida, "no_cover.jpg"),
                 os.path.join(os.getcwd(), "no_cover.jpg"),
                 os.path.join(os.getcwd(), "..", "no_cover.jpg")
             ]:
@@ -1149,7 +1051,6 @@ class GameLibraryManager:
                     except Exception as e:
                         self.app.log(f"⚠️ Erro ao copiar 'no_cover.jpg': {e}")
                         
-        # 2. GARANTIR O BANCO DE DADOS XML
         nomes_xml = ["DC-game.xml", "DC-gamedb.xml"]
         dest_xml = os.path.join(install_path, "DC-game.xml") 
         
@@ -1158,7 +1059,7 @@ class GameLibraryManager:
             for nome_arquivo in nomes_xml:
                 if xml_copiado: break
                 for src in [
-                    os.path.join(base_embutida, nome_arquivo), # Extrai do .EXE
+                    os.path.join(base_embutida, nome_arquivo),
                     os.path.join(os.getcwd(), nome_arquivo),
                     os.path.join(os.getcwd(), "..", nome_arquivo)
                 ]:
@@ -1397,7 +1298,6 @@ class GameLibraryManager:
             "O banco de dados do emulador foi lido com sucesso e as capas originais foram convertidas e aplicadas no formato de ícone nativo do Windows (.ico)."
         )
         mb.showinfo("Coleção Premium Criada", msg, parent=self.app)
-        mb.showinfo("Coleção Premium Criada", msg, parent=self.app)
         
         try: os.startfile(games_dir)
         except Exception: pass
@@ -1407,11 +1307,16 @@ class GameLibraryManager:
         
         for widget in self.app.frame_grid_games.winfo_children(): widget.destroy()
         self.ra_labels = {} 
-        install_path = self.app.entry_path.get()
+        
+        # --- RESGATE DE VARIÁVEIS NA THREAD PRINCIPAL ---
+        usuario = getattr(self.app.entry_ra_user, 'get', lambda: "")().strip()
+        api_key = self.app.config_atual.get("ra_api_key", "").strip()
+        is_hardcore = getattr(self.app, "switch_hardcore", ctk.BooleanVar(value=False)).get() == 1
+        install_path = getattr(self.app.entry_path, 'get', lambda: "")().strip()
+        
         boxart_dir = os.path.join(install_path, "data", "boxart")
         os.makedirs(boxart_dir, exist_ok=True)
         
-        # --- ROBÔ COPIADOR BLINDADO MULTI-PATH ---
         fallback_src1 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no_cover.jpg")
         fallback_src2 = os.path.join(os.getcwd(), "no_cover.jpg")
         no_cover_src = fallback_src1 if os.path.exists(fallback_src1) else fallback_src2
@@ -1421,17 +1326,13 @@ class GameLibraryManager:
             try:
                 import shutil
                 shutil.copy2(no_cover_src, no_cover_dest)
-                self.app.log("🖼️ Imagem padrão 'no_cover.jpg' copiada com sucesso para a galeria do emulador.")
-            except Exception as e:
-                self.app.log(f"⚠️ Erro ao copiar 'no_cover.jpg': {e}")
+            except Exception: pass
                 
-        # Garante que o sistema saiba qual imagem usar, seja da pasta do emulador ou do VS Code
         path_final_no_cover = no_cover_dest if os.path.exists(no_cover_dest) else no_cover_src
         
         termo_busca = getattr(self.app, "entry_busca_jogos", None)
         filtro = termo_busca.get().lower() if termo_busca else ""
 
-        usuario = self.app.entry_ra_user.get().strip()
         db_ra_path = os.path.join(install_path, "RAlocal.db")
         ra_db = {}
         if os.path.exists(db_ra_path):
@@ -1456,7 +1357,6 @@ class GameLibraryManager:
         soma_ra_total = 0
 
         user_db = ra_db.get(usuario, {})
-        is_hardcore = getattr(self.app, "switch_hardcore", ctk.BooleanVar(value=False)).get() == 1
         tag_modo = " (Hardcore)" if is_hardcore else ""
 
         for nome_jogo, dados_ra in user_db.items():
@@ -1480,25 +1380,44 @@ class GameLibraryManager:
                 
                 if hasattr(self.app.lbl_dash_tempo, '_tooltip'): self.app.lbl_dash_tempo._tooltip.update_text(texto_top5.strip())
                 else: self.app.lbl_dash_tempo._tooltip = ToolTip(self.app.lbl_dash_tempo, texto_top5.strip())
-            else:
-                if not hasattr(self.app.lbl_dash_tempo, '_tooltip'): self.app.lbl_dash_tempo._tooltip = ToolTip(self.app.lbl_dash_tempo, "Jogue para construir seu Hall da Fama!")
 
-        if not self.app.rom_paths_list:
+        if not getattr(self.app, 'rom_paths_list', None):
             lbl = ctk.CTkLabel(self.app.frame_grid_games, text=self.app._("msg_no_games", default="Nenhuma pasta configurada."), font=ctk.CTkFont(size=14, slant="italic"), text_color="gray")
             lbl.pack(pady=40)
             return
 
-        extensoes_suportadas = ('.cdi', '.gdi', '.chd', '.cue')
+        extensoes_suportadas = ('.cdi', '.gdi', '.chd', '.cue', '.zip', '.7z')
         jogos_fisicos = []
         for path_atual in self.app.rom_paths_list:
             if not os.path.exists(path_atual): continue
             try:
-                for f in os.listdir(path_atual):
-                    if f.lower().endswith(extensoes_suportadas):
-                        caminho_arquivo = os.path.join(path_atual, f)
-                        if os.path.getsize(caminho_arquivo) > 1024 * 1024: 
-                            jogos_fisicos.append((f, path_atual))
-            except Exception: pass
+                # 1. O Raio-X: os.walk mergulha em todas as sub-pastas infinitamente!
+                for root, _, files in os.walk(path_atual):
+                    for f in files:
+                        ext = f.lower()
+                        if ext.endswith(extensoes_suportadas):
+                            f_lower = f.lower()
+                            
+                            # 2. Filtro Universal: Bloqueia BIOS e Chaves (gds, gdl) independente de ser .zip, .chd ou .dat
+                            arquivos_de_sistema = ['awbios.zip', 'naomi.zip', 'naomi2.zip', 'syssp.zip', 'hikaru.zip', 'flycast_backup.zip']
+                            if f_lower in arquivos_de_sistema or f_lower.startswith(('gds-', 'gdl-', 'gdv-')):
+                                continue
+                            
+                            caminho_arquivo = os.path.join(root, f)
+                            
+                            # 3. Zips de Arcade e ROMs pesadas têm verificação de tamanho mínimo.
+                            # Mas arquivos .GDI e .CUE são apenas blocos de texto minúsculos (KB), então ganham Passe VIP!
+                            if ext.endswith(('.gdi', '.cue')):
+                                jogos_fisicos.append((f, root))
+                            else:
+                                tamanho_minimo = 100 * 1024 if ext.endswith(('.zip', '.7z')) else 1024 * 1024
+                                if os.path.getsize(caminho_arquivo) > tamanho_minimo: 
+                                    jogos_fisicos.append((f, root)) # O root aponta para a sub-pasta exata
+                            
+                            if os.path.getsize(caminho_arquivo) > tamanho_minimo: 
+                                jogos_fisicos.append((f, root)) # O root aponta para a sub-pasta exata
+            except Exception as e: 
+                self.app.log(f"⚠️ Erro ao escanear sub-pastas: {e}")
 
         if not jogos_fisicos:
             lbl = ctk.CTkLabel(self.app.frame_grid_games, text=self.app._("msg_no_games", default="Nenhum jogo encontrado."), font=ctk.CTkFont(size=14, slant="italic"), text_color="gray")
@@ -1518,12 +1437,16 @@ class GameLibraryManager:
         jogos_agrupados = {}
         padrao_disco = re.compile(r'(?i)\s*[\(\[-]?\s*disc\s*[0-9a-z]+\s*[\)\]]?')
         for jogo, r_path in jogos_fisicos:
-            db_info = game_db.get(jogo)
-            if db_info and db_info.get("name"):
-                chave_grupo = db_info["name"]
+            if hasattr(self, 'arcade_manager') and self.arcade_manager.is_arcade_rom(jogo):
+                info = self.arcade_manager.obter_info_rom(jogo)
+                chave_grupo = info["titulo"]
             else:
-                nome_limpo = os.path.splitext(jogo)[0]
-                chave_grupo = padrao_disco.sub('', nome_limpo).strip()
+                db_info = game_db.get(jogo)
+                if db_info and db_info.get("name"):
+                    chave_grupo = db_info["name"]
+                else:
+                    nome_limpo = os.path.splitext(jogo)[0]
+                    chave_grupo = padrao_disco.sub('', nome_limpo).strip()
                 
             if chave_grupo not in jogos_agrupados: jogos_agrupados[chave_grupo] = []
             jogos_agrupados[chave_grupo].append(os.path.join(r_path, jogo))
@@ -1544,16 +1467,37 @@ class GameLibraryManager:
 
             arquivos_jogo = jogos_agrupados[nome_exibicao]
             jogo_ref = os.path.basename(arquivos_jogo[0])
+            
+            # --- A BARREIRA DO FILTRO DINÂMICO POR SISTEMA ---
+            filtro_sys = getattr(self.app, 'filtro_sistema_atual', 'todos')
+            if filtro_sys != 'todos':
+                is_arcade = hasattr(self, 'arcade_manager') and self.arcade_manager.is_arcade_rom(jogo_ref)
+                
+                # 🛡️ HEURÍSTICA DE RESGATE (Bala de Prata):
+                # Se o banco de dados do Arcade não conhecer o jogo, nós olhamos a extensão!
+                # ROMs de Arcade (Naomi/Atomiswave) sempre são distribuídas em .zip ou .7z.
+                # ROMs de Dreamcast são .chd, .cdi, .gdi ou .cue.
+                if not is_arcade and jogo_ref.lower().endswith(('.zip', '.7z')):
+                    is_arcade = True
+                    
+                if filtro_sys == 'dreamcast' and is_arcade:
+                    continue # Pula os Arcades se o botão "Dreamcast" estiver ativo
+                if filtro_sys == 'arcade' and not is_arcade:
+                    continue # Pula os jogos de console se o botão "Arcade" estiver ativo
+
             roms_path_ref = os.path.dirname(arquivos_jogo[0])
             nome_limpo_ref = os.path.splitext(jogo_ref)[0]
             
-            card = ctk.CTkFrame(self.app.frame_grid_games, width=170, height=275, corner_radius=12, fg_color="#2b2b2b")
+            card = ctk.CTkFrame(self.app.frame_grid_games, width=170, height=290, corner_radius=12, fg_color="#2b2b2b")
             card.grid(row=row, column=col, padx=10, pady=10, sticky="n")
             card.grid_propagate(False) 
 
             capa_lbl = None
             img_carregada = False
             db_info = game_db.get(jogo_ref)
+
+            info_arcade = self.arcade_manager.obter_info_rom(jogo_ref) if hasattr(self, 'arcade_manager') else None
+            sistema_alvo = info_arcade["sistema"] if info_arcade else None
 
             if HAS_PIL:
                 caminhos_img = []
@@ -1575,7 +1519,6 @@ class GameLibraryManager:
                         except Exception: pass
 
             if not img_carregada:
-                # --- MÁGICA: USA O NO_COVER GARANTIDO COMO TELA DE ESPERA ---
                 if HAS_PIL and os.path.exists(path_final_no_cover):
                     try:
                         pil_img = Image.open(path_final_no_cover).resize((150, 150), Image.Resampling.LANCZOS)
@@ -1587,12 +1530,15 @@ class GameLibraryManager:
                     texto_dl = self.app._("lbl_downloading_cover", default="🎮\n(Baixando...)") if HAS_PIL else "🎮\nFLYCAST"
                     capa_lbl = ctk.CTkLabel(card, text=texto_dl, width=150, height=150, fg_color="#1a1a1a", corner_radius=8, font=ctk.CTkFont(size=14, weight="bold"))
                     
-                # Aciona o Auto-Scraper passando o caminho do no_cover para caso ele falhe no download!
-                if HAS_PIL: executor_capas.submit(self.baixar_capa_libretro, nome_exibicao, boxart_dir, capa_lbl, path_final_no_cover)
+                if HAS_PIL: executor_capas.submit(self.baixar_capa_libretro, nome_exibicao, boxart_dir, capa_lbl, path_final_no_cover, sistema_alvo)
 
             capa_lbl.pack(pady=(10, 5), padx=10)
 
-            # --- AQUI É ONDE O NOVO MOTOR ENTRA EM AÇÃO NOS CARDS ---
+            nome_curto = nome_exibicao[:20] + "..." if len(nome_exibicao) > 20 else nome_exibicao
+            lbl_titulo_card = ctk.CTkLabel(card, text=nome_curto, font=ctk.CTkFont(size=11, weight="bold"), text_color="white")
+            lbl_titulo_card.pack(pady=(0, 2))
+            if len(nome_exibicao) > 20: ToolTip(lbl_titulo_card, nome_exibicao)
+
             data_ra = self.buscar_dados_ra(user_db, nome_exibicao, arquivos_jogo)
             if data_ra:
                 pts = data_ra.get('score_hc', '0') if is_hardcore else data_ra.get('score', '0')
@@ -1630,7 +1576,6 @@ class GameLibraryManager:
             btn_fav = ctk.CTkButton(btn_frame, text="⭐", width=26, height=26, fg_color="transparent", text_color=cor_fav, hover_color="#333333")
             btn_fav.configure(command=lambda b=nome_exibicao, bw=btn_fav: self.toggle_favorito(b, bw))
             btn_fav.pack(side="left", padx=(0, 5))
-            
             btn_fav._tooltip = ToolTip(btn_fav, "Adicionar aos Favoritos")
 
             tema_atual = self.app.config_atual.get("tema", "Padrão DARK")
@@ -1640,16 +1585,13 @@ class GameLibraryManager:
                 cor_hover = THEMES.get(tema_atual, THEMES["Padrão DARK"])["hover"]
                 cor_texto = THEMES.get(tema_atual, THEMES["Padrão DARK"])["text"]
             except ImportError:
-                cor_primaria = "#4169E1"
-                cor_hover = "#1E90FF"
-                cor_texto = "white"
+                cor_primaria, cor_hover, cor_texto = "#4169E1", "#1E90FF", "white"
 
             btn_play = ctk.CTkButton(btn_frame, text="▶️ Jogar", width=85, height=26, fg_color=cor_primaria, hover_color=cor_hover, text_color=cor_texto, command=lambda b=nome_exibicao, a=arquivos_jogo: self.selecionar_disco(b, a))
             btn_play.pack(side="left", padx=(0, 5))
 
             btn_info = ctk.CTkButton(btn_frame, text="ℹ️", width=26, height=26, fg_color="#555555", hover_color="#777777", command=lambda b=nome_exibicao, d=db_info: self.mostrar_info_jogo(b, d))
             btn_info.pack(side="left")
-            
             btn_info._tooltip = ToolTip(btn_info, "Ver Detalhes, Diário e Saves")
 
             col += 1
@@ -1657,4 +1599,5 @@ class GameLibraryManager:
                 col = 0
                 row += 1
 
-        if self.ra_labels and not filtro: threading.Thread(target=self.sincronizar_retroachievements, daemon=True).start()
+        if self.ra_labels and not filtro: 
+            threading.Thread(target=self.sincronizar_retroachievements, args=(usuario, api_key, is_hardcore, install_path), daemon=True).start()
