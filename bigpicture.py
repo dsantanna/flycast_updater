@@ -454,11 +454,20 @@ class ModoBigPicture(ctk.CTkToplevel):
         self.lbl_meta_player.configure(text=f"👥 {meta['player']}" if meta["player"] else "")
         self.lbl_meta_rating.configure(text=f"🔞 {meta['rating']}" if meta["rating"] else "")
         
-        self.textbox_desc.configure(state="normal")
-        self.textbox_desc.delete("1.0", "end")
-        self.textbox_desc.insert("1.0", meta["story"])
-        self.textbox_desc.configure(state="disabled")
-        
+        # --- CONEXÃO COM O NOVO SCRAPER ---
+        sinopse_texto = meta["story"]
+        if "Nenhuma sinopse" in sinopse_texto or not sinopse_texto:
+            db_path = os.path.join(self.app.entry_path.get(), "data", "metadata.json")
+            if os.path.exists(db_path):
+                try:
+                    with open(db_path, "r", encoding="utf-8") as f:
+                        scraper_db = json.load(f)
+                        rom_basename = os.path.splitext(os.path.basename(rom_path))[0]
+                        if rom_basename in scraper_db:
+                            sinopse_texto = scraper_db[rom_basename].get("sinopse", sinopse_texto)
+                except: pass
+        # ----------------------------------
+                
         capa_path = self.rastrear_capa(nome_jogo, rom_path)
         
         if not capa_path or not os.path.exists(capa_path):

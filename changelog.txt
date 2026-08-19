@@ -2,6 +2,13 @@
        FLYCAST UPDATER - CHANGELOG
 ========================================
 
+Versão 6.3 (Big Blue - The Ultimate QoL & Hardware Update)
+----------------------------------------
+- **Mapeador Visual de Controles (Plug & Play):** Adeus aos menus cinzas! Novo assistente visual interativo que lê as batidas do seu hardware em tempo real (via Pygame) e dita o ritmo da configuração ("Aperte o Botão A", "Mova o Analógico"). O sistema gera o arquivo `.cfg` nativo do Flycast silenciosamente nos bastidores.
+- **Gerenciador de Texturas HD & Mods (Remasterizador):** Nova "Dropzone" virtual na aba de Ferramentas. O usuário seleciona pacotes de texturas em alta resolução no formato `.zip`, e o Big Blue extrai e posiciona os arquivos perfeitamente na pasta `/textures` do emulador usando threads em segundo plano.
+- **Coesão de Domínio & Sub-Abas (UI/UX):** Refatoração arquitetural elegante no design da interface. O Mapeador de Controles foi injetado dentro da aba "Controles e VMU", enquanto o Compressor CHD e o Gerenciador de Texturas ganharam sub-abas dedicadas na seção de "Ferramentas", mantendo a navegação limpa e intuitiva.
+- **Escudo Anti-Crash no Big Picture (HDD Protection):** O motor agora verifica fisicamente a existência dos diretórios mapeados no Windows antes de lançar o modo Big Picture. Se o seu HD Externo estiver desconectado, o aplicativo impede o fechamento repentino (Silent Crash) e dialoga amigavelmente com o usuário ("Sonic deve ter ido visitar seus humanos..."), redirecionando-o para a tela de configurações.
+
 Versão 6.2 (Big Blue - Modularização & Ferramentas)
 ----------------------------------------
 - **Nova Aba de Ferramentas (CHDMAN):** Interface dedicada para compressão de ROMs (.GDI/.CUE para .CHD) e extração reversa. Economize espaço no HD em lote com interface gráfica amigável.

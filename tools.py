@@ -8,16 +8,36 @@ import customtkinter as ctk
 import tkinter.filedialog as fd
 import tkinter.messagebox as mb
 
+import texture_manager 
+
 class ToolsManager:
     def __init__(self, app):
         self.app = app
+        
+        # --- Variáveis do CHDMAN ---
         self.chdman_path = ""
         self.arquivos_para_converter = []
-        self.vars_arquivos = {}  # Guarda o estado de cada checkbox (Marcado/Desmarcado)
+        self.vars_arquivos = {}
         self.convertendo = False
+        
+        # --- Instâncias dos Módulos ---
+        self.texture_mgr = texture_manager.TextureManager(self.app)
 
     def construir_aba_ferramentas(self, tab):
-        self.scroll_tools = ctk.CTkScrollableFrame(tab, fg_color="transparent")
+        self.tabview_tools = ctk.CTkTabview(tab)
+        self.tabview_tools.pack(fill="both", expand=True, padx=5, pady=0)
+        
+        # Adicionando as sub-abas
+        tab_texturas = self.tabview_tools.add("✨ Texturas HD e Mods")
+        tab_chdman = self.tabview_tools.add("🗜️ Compressor CHDMAN")
+        
+        # 1. Constrói o Gerenciador de Texturas
+        self.texture_mgr.construir_interface(tab_texturas)
+        
+        # ==========================================
+        # 2. CONSTRUÇÃO DO CHDMAN NA SEGUNDA ABA
+        # ==========================================
+        self.scroll_tools = ctk.CTkScrollableFrame(tab_chdman, fg_color="transparent")
         self.scroll_tools.pack(fill="both", expand=True)
 
         # --- Cabeçalho ---
@@ -39,7 +59,6 @@ class ToolsManager:
         lbl_chdman = ctk.CTkLabel(frame_chdman, text="Status do CHDMAN:", font=ctk.CTkFont(weight="bold"))
         lbl_chdman.pack(side="left", padx=15, pady=12)
 
-        # 🚦 O SEMÁFORO VISUAL NATIVO
         self.lbl_chdman_status = ctk.CTkLabel(frame_chdman, text="🔴 Ausente", text_color="#FF4C4C", font=ctk.CTkFont(weight="bold", size=13))
         self.lbl_chdman_status.pack(side="left", padx=5, pady=12)
 
@@ -67,9 +86,10 @@ class ToolsManager:
 
         self.lbl_status = ctk.CTkLabel(self.scroll_tools, text="", text_color="cyan", font=ctk.CTkFont(weight="bold"))
         self.lbl_status.pack(anchor="w", padx=20, pady=(0, 5))
-        # 📊 BARRA DE PROGRESSO (Nasce invisível e só aparece na hora da ação)
+        
         self.progressbar_chd = ctk.CTkProgressBar(self.scroll_tools, width=500, height=12, progress_color="#FF8C00")
         self.progressbar_chd.set(0)
+        
         # --- Seletor de Pasta de Destino ---
         frame_destino = ctk.CTkFrame(self.scroll_tools, fg_color="#1a1a1a", corner_radius=8)
         frame_destino.pack(fill="x", padx=10, pady=(5, 15))
@@ -104,9 +124,11 @@ class ToolsManager:
         lbl_lista_vazia = ctk.CTkLabel(self.frame_lista, text="Nenhum arquivo escaneado. Clique em 'Escanear ROMs'.", text_color="gray")
         lbl_lista_vazia.pack(pady=20)
 
-        # Tenta auto-localizar o chdman na nova pasta padrão
         self.app.after(300, self.auto_localizar_chdman)
 
+    # =========================================================================
+    # FUNÇÕES DO CHDMAN MANTIDAS INTACTAS
+    # =========================================================================
     def toggle_todas_checkboxes(self, estado):
         for var in self.vars_arquivos.values():
             var.set(estado)
@@ -120,15 +142,12 @@ class ToolsManager:
             self.entry_destino.configure(state="readonly")
 
     def auto_localizar_chdman(self):
-        """Varre a pasta global /tools/ do emulador em busca do chdman.exe"""
         install_path = self.app.entry_path.get()
         if not install_path: return
 
-        # Caminho oficial consolidado na pasta de ferramentas
         tools_dir = os.path.join(install_path, "tools")
         caminho_oficial = os.path.join(tools_dir, "chdman.exe")
 
-        # Fallbacks históricos caso ele já tenha deixado o arquivo solto em algum lugar antes
         caminhos_tentativa = [
             caminho_oficial,
             os.path.join(install_path, "chdman.exe"),
@@ -138,7 +157,6 @@ class ToolsManager:
 
         for p in caminhos_tentativa:
             if os.path.exists(p):
-                # Se achamos em um local antigo, move/copia para a pasta oficial /tools/
                 if p != caminho_oficial:
                     try:
                         os.makedirs(tools_dir, exist_ok=True)
@@ -148,10 +166,9 @@ class ToolsManager:
                 
                 self.chdman_path = caminho_oficial
                 self.lbl_chdman_status.configure(text="🟢 Instalado (/tools)", text_color="#00FF7F")
-                self.btn_baixar_chdman.grid_remove() # Oculta se já estiver pronto
+                self.btn_baixar_chdman.grid_remove()
                 return
         
-        # Caso não ache em nenhum lugar, ativa o semáforo vermelho e o botão de baixar
         self.chdman_path = ""
         self.lbl_chdman_status.configure(text="🔴 Ausente", text_color="#FF4C4C")
         self.btn_baixar_chdman.grid()
@@ -190,7 +207,6 @@ class ToolsManager:
         threading.Thread(target=rotina_download, daemon=True).start()
 
     def buscar_chdman(self):
-        """Abre o seletor. Se o usuário escolher o arquivo, clona ele direto pra pasta /tools/"""
         install_path = self.app.entry_path.get()
         if not install_path:
             mb.showerror("Erro", "Configure a pasta do emulador primeiro na aba BIOS e Emu.", parent=self.app)
@@ -203,7 +219,6 @@ class ToolsManager:
             destino_oficial = os.path.join(tools_dir, "chdman.exe")
             
             try:
-                # Copia preservando metadados se o arquivo for diferente do destino
                 if os.path.normpath(arquivo) != os.path.normpath(destino_oficial):
                     shutil.copy2(arquivo, destino_oficial)
                 
@@ -342,15 +357,12 @@ class ToolsManager:
             self.app.log(f"🗜️ {verbo}: {input_file} -> {output_file}")
             
             try:
-                # 1. Traz a barra para a tela e zera ela
                 self.app.after(0, lambda: self.progressbar_chd.pack(anchor="w", padx=20, pady=(0, 15), after=self.lbl_status))
                 self.app.after(0, self.progressbar_chd.set, 0)
                 
                 import re
-                # 2. Inicia o processo em modo 'Escuta' (Popen) lendo o Stdout
                 processo = subprocess.Popen(comando, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, universal_newlines=True, creationflags=0x08000000)
                 
-                # 3. Intercepta as falas do CHDMAN (Ex: "Compressing, 45.3% complete...")
                 for linha in processo.stdout:
                     match = re.search(r'(\d+\.\d+)%', linha)
                     if match:
@@ -361,7 +373,7 @@ class ToolsManager:
                 
                 if processo.returncode == 0:
                     sucessos += 1
-                    self.app.after(0, self.progressbar_chd.set, 1.0) # Crava em 100%
+                    self.app.after(0, self.progressbar_chd.set, 1.0)
                     self.app.log(f"✅ Sucesso: {os.path.basename(output_file)} gerado com sucesso.")
                 else:
                     erros += 1
@@ -372,7 +384,7 @@ class ToolsManager:
                 self.app.log(f"❌ Falha de execução no chdman: {e}")
 
         self.convertendo = False
-        self.app.after(0, self.progressbar_chd.pack_forget) # 🧹 Esconde a barra ao terminar o lote
+        self.app.after(0, self.progressbar_chd.pack_forget)
         msg_final = f"Operação concluída! {sucessos} sucesso(s), {erros} erro(s)."
         self.app.log(f"🏁 {msg_final}")
         

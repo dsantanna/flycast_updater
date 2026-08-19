@@ -19,6 +19,7 @@ import config_manager
 import arcade_core
 import hardware_utils
 import updater_core
+import first_wizard
 
 # ---------------------------------------------------------------
 from updater_core import VERSION, REPO_UPDATER
@@ -42,12 +43,6 @@ except ImportError: HAS_PYGAME = False
 # Flycast Updater - Launcher v6.2 (Big Blue)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
-
-PERFIS_CONTROLES = {
-    "Xbox (360 / One / Series)": {"arquivo": "XInput Controller.cfg", "conteudo": "[emulator]\nmapping_name = XInput Controller\n\n[dreamcast]\nbtn_a = 0\nbtn_b = 1\nbtn_x = 2\nbtn_y = 3\nbtn_start = 7\nbtn_dpad1_up = 11\nbtn_dpad1_down = 12\nbtn_dpad1_left = 13\nbtn_dpad1_right = 14\naxis_x = 0\naxis_y = 1\naxis_trigger_left = 4\naxis_trigger_right = 5\n"},
-    "PlayStation (PS4 / PS5)": {"arquivo": "PS4 Controller.cfg", "conteudo": "[emulator]\nmapping_name = PS4 Controller\n\n[dreamcast]\nbtn_a = 1\nbtn_b = 2\nbtn_x = 0\nbtn_y = 3\nbtn_start = 9\nbtn_dpad1_up = 11\nbtn_dpad1_down = 12\nbtn_dpad1_left = 13\nbtn_dpad1_right = 14\naxis_x = 0\naxis_y = 1\naxis_trigger_left = 4\naxis_trigger_right = 5\n"},
-    "8BitDo (Pro 2 / Ultimate / SN30)": {"arquivo": "8BitDo Controller.cfg", "conteudo": "[emulator]\nmapping_name = 8BitDo Controller\n\n[dreamcast]\nbtn_a = 1\nbtn_b = 0\nbtn_x = 3\nbtn_y = 2\nbtn_start = 11\nbtn_dpad1_up = 15\nbtn_dpad1_down = 16\nbtn_dpad1_left = 17\nbtn_dpad1_right = 18\naxis_x = 0\naxis_y = 1\naxis_trigger_left = 4\naxis_trigger_right = 5\n"}
-}
 
 THEMES = {
     "Padrão DARK": {"primary": "#4169E1", "hover": "#1E90FF", "text": "white"},
@@ -133,7 +128,6 @@ def iniciar_gui():
                 try: self.state('zoomed')
                 except Exception: self.attributes('-zoomed', True)
             self.after(100, forcar_maximizacao)
-            self.after(1200, self.iniciar_radio)
             
             self.token_ra_salvo = "" 
             self.bios_prompt_done = False
@@ -210,9 +204,8 @@ def iniciar_gui():
             self.save_manager = saves.SaveManager(self)
             self.qol_manager = qol.QoLManager(self)
             self.devices_manager = devices.DevicesManager(self)
-            
-            self.tools_manager = tools.ToolsManager(self) # <-- MANAGER INSTANCIADO AQUI!
-            
+            self.tools_manager = tools.ToolsManager(self) 
+            self.radio = radio_flycast.RadioFlycast(self)            
             self.discord = discord_rpc.DiscordManager(self)
             self.after(3000, self.discord.conectar) 
 
@@ -223,8 +216,23 @@ def iniciar_gui():
             self.construir_aba_emulador()
             self.construir_aba_qol()
             self.construir_aba_video()
-            self.construir_aba_dispositivos()
+            self.devices_manager.construir_aba_dispositivos(self.tab_devices)
             self.construir_aba_saves()
+            
+            self.label_vmu_configs = ctk.CTkLabel(self.tab_devices, text="Configurações de Visor do VMU", font=ctk.CTkFont(size=14, weight="bold"))
+            self.label_vmu_configs.pack(anchor="w", padx=10, pady=(0, 10))
+
+            self.frame_vmu_switches = ctk.CTkFrame(self.tab_devices, fg_color="transparent")
+            self.frame_vmu_switches.pack(fill="x", padx=20, pady=(0, 20))
+
+            self.switch_vmu = ctk.CTkSwitch(self.frame_vmu_switches, text=self._("sw_vmu"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
+            self.switch_vmu.grid(row=0, column=0, sticky="w", padx=(0, 20), pady=10)
+
+            self.switch_osd_vmu = ctk.CTkSwitch(self.frame_vmu_switches, text=self._("sw_osd"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
+            self.switch_osd_vmu.grid(row=0, column=1, sticky="w", padx=(0, 20), pady=10)
+
+            self.switch_vmu_sound = ctk.CTkSwitch(self.frame_vmu_switches, text=self._("sw_vmu_snd"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
+            self.switch_vmu_sound.grid(row=1, column=0, sticky="w", pady=10)
             
             self.tools_manager.construir_aba_ferramentas(self.tab_tools) # <-- TELA SENDO DESENHADA AQUI!
             
@@ -258,27 +266,9 @@ def iniciar_gui():
             self.btn_rollback = ctk.CTkButton(self.frame_botoes, text=self._("btn_rollback", default="REVERTER"), width=180, height=38, fg_color="#8B0000", hover_color="#A52A2A", font=ctk.CTkFont(weight="bold"), command=lambda: self.preparar_motor("rollback"))
             self.btn_rollback.grid(row=0, column=2, padx=(0, 10))
 
-            # Coluna 3: Rádio Player
-            self.frame_player = ctk.CTkFrame(self.frame_botoes, fg_color="#1a1a1a", corner_radius=8)
-            self.frame_player.grid(row=0, column=3, padx=(10, 0), sticky="e")
-            
-            self.lbl_now_playing = ctk.CTkLabel(self.frame_player, text="🎵 Rádio Parada", font=ctk.CTkFont(size=11), width=160, anchor="center")
-            self.lbl_now_playing.pack(side="top", padx=10, pady=(2, 0))
-
-            self.frame_player_controls = ctk.CTkFrame(self.frame_player, fg_color="transparent")
-            self.frame_player_controls.pack(side="top", pady=(0, 2))
-
-            self.btn_radio_prev = ctk.CTkButton(self.frame_player_controls, text="⏮", width=30, height=20, fg_color="transparent", hover_color="#333", command=self.radio_prev)
-            self.btn_radio_prev.pack(side="left", padx=2)
-
-            self.btn_radio_play = ctk.CTkButton(self.frame_player_controls, text="▶", width=30, height=20, fg_color="transparent", hover_color="#333", command=self.radio_play_pause)
-            self.btn_radio_play.pack(side="left", padx=2)
-
-            self.btn_radio_stop = ctk.CTkButton(self.frame_player_controls, text="⏹", width=30, height=20, fg_color="transparent", hover_color="#333", command=self.radio_stop)
-            self.btn_radio_stop.pack(side="left", padx=2)
-
-            self.btn_radio_next = ctk.CTkButton(self.frame_player_controls, text="⏭", width=30, height=20, fg_color="transparent", hover_color="#333", command=self.radio_next)
-            self.btn_radio_next.pack(side="left", padx=2)
+            # Coluna 3: Rádio Player (Modularizado)
+            if hasattr(self, 'radio'):
+                self.radio.construir_player_ui(self.frame_botoes, row=0, column=3)
 
             # Coluna 4: Status do Backup
             self.frame_backup_status = ctk.CTkFrame(self.frame_botoes, fg_color="#1a1a1a", corner_radius=8, cursor="hand2")
@@ -314,109 +304,10 @@ def iniciar_gui():
             # --- AUTO-SYNC DO RETROACHIEVEMENTS GLOBAL ---
             self.after(2500, lambda: self.ra_manager.carregar_dados_globais(silencioso=True))
             # --- RADAR DE ATUALIZAÇÕES DO UPDATER ---
-            self.after(4000, self.checar_atualizacao_updater_bg)
-            # --- MONITOR HOT-PLUG NATIVO (WINDOWS) ---
-            if os.name == 'nt':
-                self.after(2000, self.configurar_escuta_hotplug_windows)
+            self.after(4000, lambda: updater_core.checar_atualizacao_bg(self))
+            # --- RÁDIO AMBIENTE ---
+            self.after(1200, lambda: self.radio.iniciar_radio())
 
-        def iniciar_radio(self):
-            if not HAS_PYGAME: return
-            if self.config_atual.get("radio_on", False):
-                if not hasattr(self, 'radio'):
-                    self.radio = radio_flycast.RadioFlycast()
-                self.radio.carregar_playlist(self.entry_path.get())
-                self.radio.play()
-                self.bgm_playing = True
-                self.log("📻 Rádio Ambiente (Modulada) iniciada.")
-                self.atualizar_interface_radio()
-       
-        def toggle_radio(self):
-            if self.switch_radio.get() == 1:
-                install_path = self.entry_path.get()
-                media_dir = os.path.join(install_path, "media", "music")
-                
-                if not os.path.exists(media_dir):
-                    try:
-                        os.makedirs(media_dir, exist_ok=True)
-                        self.mostrar_toast("Rádio Ambiente", "A pasta 'media/music' foi criada! Copie suas músicas para lá.", "success")
-                    except Exception: pass
-                
-                self.config_atual["radio_on"] = True
-                if not hasattr(self, 'radio'):
-                    self.radio = radio_flycast.RadioFlycast()
-                self.iniciar_radio()
-            else:
-                self.config_atual["radio_on"] = False
-                self.radio_stop()
-            self.salvar_estado_atual()
-
-        def radio_play_pause(self):
-            if not HAS_PYGAME: return
-            
-            if self.switch_radio.get() == 0:
-                self.switch_radio.select()
-                self.toggle_radio()
-                return
-
-            if getattr(self, 'bgm_playing', False):
-                if not getattr(self, 'is_paused', False):
-                    if hasattr(self, 'radio'): self.radio.pause()
-                    self.is_paused = True
-                    if hasattr(self, 'btn_radio_play'): self.btn_radio_play.configure(text="▶")
-                    if hasattr(self, 'lbl_now_playing'): self.lbl_now_playing.configure(text="🎵 Rádio Pausada")
-                    self.log("📻 Rádio: Pausada.")
-                else:
-                    if hasattr(self, 'radio'): self.radio.play()
-                    self.is_paused = False
-                    if hasattr(self, 'btn_radio_play'): self.btn_radio_play.configure(text="⏸")
-                    self.atualizar_interface_radio()
-                    self.log("📻 Rádio: Retomada.")
-            else:
-                if not hasattr(self, 'radio'):
-                    self.radio = radio_flycast.RadioFlycast()
-                    self.radio.carregar_playlist(self.entry_path.get())
-                self.radio.play()
-                self.bgm_playing = True
-                self.is_paused = False
-                if hasattr(self, 'btn_radio_play'): self.btn_radio_play.configure(text="⏸")
-                self.atualizar_interface_radio()
-
-        def radio_stop(self):
-            if not HAS_PYGAME: return
-            try:
-                if hasattr(self, 'radio'): self.radio.stop()
-                self.bgm_playing = False
-                self.is_paused = False
-                
-                if self.switch_radio.get() == 1:
-                    self.switch_radio.deselect()
-                    self.config_atual["radio_on"] = False
-                    self.salvar_estado_atual()
-                    
-                if hasattr(self, 'btn_radio_play'): self.btn_radio_play.configure(text="▶")
-                if hasattr(self, 'lbl_now_playing'): self.lbl_now_playing.configure(text="🎵 Rádio Parada")
-                self.log("📻 Rádio: Parada.")
-            except: pass
-
-        def radio_next(self):
-            if hasattr(self, 'radio'):
-                self.radio.next_track()
-                self.atualizar_interface_radio()
-                self.log("📻 Rádio: Próxima faixa.")
-
-        def radio_prev(self):
-            if hasattr(self, 'radio'):
-                self.radio.prev_track()
-                self.atualizar_interface_radio()
-                self.log("📻 Rádio: Faixa anterior.")
-
-        def atualizar_interface_radio(self):
-            if hasattr(self, 'radio') and hasattr(self, 'lbl_now_playing'):
-                titulo = self.radio.obter_titulo_atual()
-                nome_curto = titulo[:22] + "..." if len(titulo) > 22 else titulo
-                self.lbl_now_playing.configure(text=f"🎵 {nome_curto}")
-                if hasattr(self.lbl_now_playing, '_tooltip'): self.lbl_now_playing._tooltip.update_text(titulo)
-                else: self.lbl_now_playing._tooltip = ToolTip(self.lbl_now_playing, titulo)
 
         def abrir_pasta_media(self):
             install_path = self.entry_path.get()
@@ -456,14 +347,19 @@ def iniciar_gui():
             except Exception: pass
 
         def mostrar_toast(self, titulo, mensagem, tipo="info", duracao=3000):
-            """Chama a notificação flutuante e atrela o SFX adequado."""
-            try:
-                toast.ToastNotification(self, titulo, mensagem, tipo, duracao)
-                if hasattr(self, 'sfx'):
-                    if tipo == "success": self.sfx.play("success")
-                    elif tipo in ["error", "warning"]: self.sfx.play("error")
-            except Exception as e:
-                self.log(f"⚠️ Erro ao exibir Toast: {e}")
+            """Chama a notificação flutuante e atrela o SFX adequado (Garante a Thread Principal)."""
+            def disparar_toast():
+                try:
+                    toast.ToastNotification(self, titulo, mensagem, tipo, duracao)
+                    if hasattr(self, 'sfx'):
+                        if tipo == "success": self.sfx.play("success")
+                        elif tipo in ["error", "warning"]: self.sfx.play("error")
+                except Exception as e:
+                    self.log(f"⚠️ Erro ao exibir Toast: {e}")
+            
+            # O .after(0) é a mágica! Ele pega a ordem de qualquer Thread paralela 
+            # e joga de volta para a Thread Principal processar com segurança.
+            self.after(0, disparar_toast)
 
         def _(self, key, **kwargs):
             default_text = kwargs.pop("default", key)
@@ -532,12 +428,8 @@ def iniciar_gui():
             self.switch_integer.configure(text=self._("sw_int"))
             self.switch_linear.configure(text=self._("sw_lin"))
             self.switch_vsync.configure(text=self._("sw_vsync"))
-            self.btn_salvar_video.configure(text=self._("btn_save_vid"))
             self.label_hw_title.configure(text=self._("lbl_hw_title"))
             self.btn_driver.configure(text=self._("btn_driver"))
-            self.label_ctrl_title.configure(text=self._("lbl_ctrl_title"))
-            self.label_ctrl_desc.configure(text=self._("lbl_ctrl_desc"))
-            self.btn_injetar_ctrl.configure(text=self._("btn_inject"))
             self.label_cloud.configure(text=self._("lbl_cloud"))
             self.switch_mappings.configure(text=self._("sw_map"))
             self.lbl_limit.configure(text=self._("lbl_backup_limit"))
@@ -775,6 +667,47 @@ def iniciar_gui():
             self.salvar_estado_atual() # Salva a escolha silenciosamente
 
         def abrir_big_picture(self):
+            # --- BUGFIX ORIGINAL: Proteção contra Lista Vazia nas Configurações ---
+            if not getattr(self, 'rom_paths_list', []):
+                resposta = mb.askyesno(
+                    "Green Hill Vazia 🦔", 
+                    "Está tudo meio vazio em Green Hill...\n\nMapeie as suas pastas de ROMs na aba Configurações para usar o Big Picture.\n\nDeseja ir para a aba agora?", 
+                    parent=self
+                )
+                if resposta:
+                    # Redireciona o usuário magicamente para a aba certa!
+                    self.tabview.set(self._("tab_emu", default="⚙️ Configurações"))
+                return
+
+            # --- NOVO BUGFIX: Proteção contra HDD/Fonte Desconectada ---
+            # Verifica fisicamente no Windows se pelo menos uma das pastas existe
+            pastas_acessiveis = [p for p in self.rom_paths_list if os.path.exists(p)]
+            
+            if not pastas_acessiveis:
+                resposta = mb.askyesno(
+                    "Fonte Desconectada 🔌",
+                    "Sua pasta de ROMS está indisponível no momento, deseja mapear outra pasta?",
+                    parent=self
+                )
+                if resposta:
+                    self.tabview.set(self._("tab_emu", default="⚙️ Configurações"))
+                else:
+                    mb.showinfo(
+                        "Aviso",
+                        "Sonic deve ter ido visitar seus humanos... Reconecte a fonte de roms e tente novamente mais tarde, o modo Big Picture não será iniciado agora.",
+                        parent=self
+                    )
+                return
+                
+            # Proteção Extra: Se a pasta existe, mas não tem NENHUM jogo dentro dela
+            if not getattr(self.game_manager, 'jogos_agrupados_cache', {}):
+                mb.showinfo(
+                    "Biblioteca Vazia",
+                    "Nenhum jogo foi encontrado nas pastas mapeadas. Adicione jogos antes de iniciar o Big Picture.",
+                    parent=self
+                )
+                return
+
             self.log("📺 Inicializando interface Big Picture (Tela Cheia)...")
             # Salva a referência da janela para podermos minimizá-la depois!
             self.janela_bp = bigpicture.ModoBigPicture(self, self.game_manager)
@@ -838,23 +771,17 @@ def iniciar_gui():
             self.btn_scan_games = ctk.CTkButton(self.frame_games_top, text=self._("btn_scan_games"), width=120, command=self.game_manager.escanear_jogos)
             self.btn_scan_games.pack(side="right", padx=(10, 0))
 
+            # --- O NOVO BOTÃO BUSCAR CAPAS (MODO GHOST) ---
+            self.btn_buscar_capas = ctk.CTkButton(self.frame_games_top, text="🖼️ Buscar Capas", width=120, fg_color="#8B008B", hover_color="#5C005C", font=ctk.CTkFont(weight="bold"), command=self.game_manager.forcar_sincronizacao_flycast)
+            self.btn_buscar_capas.pack(side="right", padx=(10, 0))
+            self.btn_buscar_capas._tooltip = ToolTip(self.btn_buscar_capas, "Inicia o Flycast em segundo plano para extrair a base de dados.")
+
             self.entry_busca_jogos = ctk.CTkEntry(self.frame_games_top, placeholder_text="🔍 Buscar jogo...", width=160)
             self.entry_busca_jogos.pack(side="right")
             self.entry_busca_jogos.bind("<KeyRelease>", lambda e: self.game_manager.escanear_jogos())
 
             self.frame_grid_games = ctk.CTkScrollableFrame(self.tab_jogos, width=580, height=330, corner_radius=10)
             self.frame_grid_games.pack(fill="both", expand=True, padx=10, pady=(5, 5))
-
-        def atualizar_lista_ui_roms(self):
-            for widget in self.frame_roms_list.winfo_children(): widget.destroy()
-            for p in self.rom_paths_list:
-                f = ctk.CTkFrame(self.frame_roms_list, fg_color="transparent")
-                f.pack(fill="x", pady=2)
-                lbl = ctk.CTkLabel(f, text=p, anchor="w", font=ctk.CTkFont(size=11))
-                lbl.pack(side="left", fill="x", expand=True)
-                ToolTip(lbl, p)
-                btn = ctk.CTkButton(f, text="X", width=25, height=20, fg_color="#8B0000", hover_color="#A52A2A", command=lambda path=p: self.remover_diretorio_roms(path))
-                btn.pack(side="right")
 
         def adicionar_diretorio_roms(self):
             dir_escolhido = ctk.filedialog.askdirectory()
@@ -873,6 +800,28 @@ def iniciar_gui():
                 self.log(f"🗑️ Pasta removida: {path}")
                 self.game_manager.escanear_jogos()
 
+        def atualizar_lista_ui_roms(self):
+            # 1. Limpa tudo que estiver na tela
+            for widget in self.frame_roms_list.winfo_children():
+                widget.destroy()
+                
+            # 2. Se a lista estiver vazia, exibe um texto amigável
+            if not self.rom_paths_list:
+                lbl_vazio = ctk.CTkLabel(self.frame_roms_list, text="Nenhuma pasta de jogos configurada.", text_color="gray")
+                lbl_vazio.pack(pady=15)
+                return
+
+            # 3. Desenha cada pasta com o seu respectivo botão de lixeira
+            for p in self.rom_paths_list:
+                f = ctk.CTkFrame(self.frame_roms_list, fg_color="transparent")
+                f.pack(fill="x", padx=5, pady=2)
+                
+                lbl = ctk.CTkLabel(f, text=p, anchor="w", font=ctk.CTkFont(size=12))
+                lbl.pack(side="left", padx=5, fill="x", expand=True)
+                
+                btn_del = ctk.CTkButton(f, text="🗑️", width=30, height=24, fg_color="#8B0000", hover_color="#A52A2A", command=lambda path=p: self.remover_diretorio_roms(path))
+                btn_del.pack(side="right", padx=5)
+
         def construir_aba_emulador(self):
             # --- A MÁGICA DO AUTOFIT PARA A ABA CONFIGURAÇÕES! ---
             self.scroll_config = ctk.CTkScrollableFrame(self.tab_config, fg_color="transparent")
@@ -881,11 +830,12 @@ def iniciar_gui():
             self.label_roms_title = ctk.CTkLabel(self.scroll_config, text=self._("lbl_roms"), font=ctk.CTkFont(weight="bold"))
             self.label_roms_title.pack(anchor="w", padx=10, pady=(5, 2))
 
-            self.frame_roms_list = ctk.CTkScrollableFrame(self.scroll_config, height=70, fg_color="#1a1a1a")
+            # BUGFIX: Trocado para Frame estático para não explodir o layout!
+            self.frame_roms_list = ctk.CTkFrame(self.scroll_config, fg_color="#1a1a1a", corner_radius=8)
             self.frame_roms_list.pack(fill="x", padx=10, pady=(0, 5))
             
             self.btn_add_rom = ctk.CTkButton(self.scroll_config, text=self._("btn_add_path"), width=150, fg_color="#228B22", hover_color="#006400", command=self.adicionar_diretorio_roms)
-            self.btn_add_rom.pack(anchor="w", padx=10, pady=(0, 10))
+            self.btn_add_rom.pack(anchor="w", padx=10, pady=(10, 10))
 
             # Auto-save injetado!
             self.switch_custom_paths = ctk.CTkSwitch(self.scroll_config, text=self._("sw_custom_paths"), command=self.toggle_custom_paths)
@@ -1026,7 +976,7 @@ def iniciar_gui():
             self.frame_audio_qol = ctk.CTkFrame(self.frame_qol, fg_color="transparent")
             self.frame_audio_qol.grid(row=3, column=0, sticky="w", pady=10)
 
-            self.switch_radio = ctk.CTkSwitch(self.frame_audio_qol, text="🎵 Rádio Ambiente (BGM)", command=self.toggle_radio)
+            self.switch_radio = ctk.CTkSwitch(self.frame_audio_qol, text="🎵 Rádio Ambiente (BGM)", command=self.radio.toggle_radio)
             self.switch_radio.grid(row=0, column=0, sticky="w", pady=(5, 0))
 
             # Botão 1 na linha de baixo (row=1) com recuo lateral (padx=35)
@@ -1149,217 +1099,6 @@ def iniciar_gui():
             self.btn_driver = ctk.CTkButton(self.frame_hw, text=self._("btn_driver"), width=200, height=28, fg_color="#4169E1", hover_color="#1E90FF", command=self.abrir_site_driver, state="disabled")
             self.btn_driver.pack(anchor="w", padx=10, pady=(0, 5))
 
-        def atualizar_lista_fisicos(self):
-            # Limpa o frame para não sobrepor se o usuário recarregar a tela
-            for widget in getattr(self, 'frame_fisicos_list', ctk.CTkFrame(self)).winfo_children():
-                widget.destroy()
-            
-            dispositivos = self.devices_manager.obter_dispositivos_fisicos()
-            self.combos_fisicos = {}
-            
-            if not dispositivos:
-                lbl = ctk.CTkLabel(self.frame_fisicos_list, text="Nenhum dispositivo físico (Teclado, Mouse, Gamepad) detectado.\nAbra um jogo no Flycast pelo menos uma vez para que ele registre seus periféricos no emu.cfg.", text_color="gray", justify="left")
-                lbl.pack(pady=20, padx=10, anchor="w")
-                return
-                
-            for i, (key, val) in enumerate(dispositivos.items()):
-                # Formata o nome técnico (maple_sdl_joystick_0 -> Sdl Joystick 0)
-                nome_formatado = key.replace('maple_', '').replace('_', ' ').title()
-                
-                # Identifica ícones intuitivos
-                icone = "🎮" if "joystick" in key.lower() or "xinput" in key.lower() else "⌨️" if "keyboard" in key.lower() else "🖱️" if "mouse" in key.lower() else "🔌"
-
-                f = ctk.CTkFrame(self.frame_fisicos_list, fg_color="transparent")
-                f.pack(fill="x", pady=2)
-                
-                lbl_icon = ctk.CTkLabel(f, text=icone, width=25)
-                lbl_icon.pack(side="left", padx=(10, 0))
-                
-                lbl = ctk.CTkLabel(f, text=nome_formatado, width=220, anchor="w", font=ctk.CTkFont(weight="bold"))
-                lbl.pack(side="left", padx=5)
-                
-                cb = ctk.CTkComboBox(f, values=["Porta A", "Porta B", "Porta C", "Porta D", "Nenhum"], width=100, state="readonly", command=self.devices_manager.salvar_dispositivos)
-                cb.pack(side="right", padx=10)
-                
-                porta_nome = self.devices_manager.mapa_portas_fisicas.get(val, "Nenhum")
-                cb.set(porta_nome)
-                
-                self.combos_fisicos[key] = cb
-
-        def atualizar_ui_slots(self, porta, valor):
-            sem_slots = ["Controle Marcas", "Teclado", "Mouse", "Nenhum", "Controle Densha de Go", "Controle de música Pop'n", "Controle de Pesca", "Controlador DreamParaPara"]
-            um_slot = ["Controle de Alavanca Dupla", "Controle de Corrida"]
-            
-            cb_s1 = self.combos_devices.get(f"{porta}_s1")
-            cb_s2 = self.combos_devices.get(f"{porta}_s2")
-            btn_color = getattr(self, 'btn_color_pickers', {}).get(porta)
-            
-            if not cb_s1 or not cb_s2: return
-            
-            # Reseta tudo para o padrão livre
-            cb_s1.configure(state="readonly")
-            cb_s2.grid()
-            cb_s2.configure(state="readonly")
-            if btn_color: btn_color.grid_remove()
-            
-            if valor in sem_slots:
-                cb_s1.set("Nenhum")
-                cb_s1.configure(state="disabled")
-                cb_s2.set("Nenhum")
-                cb_s2.configure(state="disabled")
-            elif valor in um_slot:
-                cb_s2.set("Nenhum")
-                cb_s2.configure(state="disabled")
-            elif valor == "Pistola de Luz":
-                cb_s2.grid_remove() # Some com o Slot 2
-                if btn_color: btn_color.grid() # Mostra a Mira!
-
-        def ao_trocar_controle_main(self, porta, valor):
-            # Atualiza o visual da interface e depois grava o arquivo
-            self.atualizar_ui_slots(porta, valor)
-            if hasattr(self, 'devices_manager'):
-                self.devices_manager.salvar_dispositivos()
-
-        def escolher_cor_mira(self, porta):
-            from tkinter import colorchooser
-            cor = colorchooser.askcolor(title=f"Cor da Mira - Porta {porta}")
-            if cor[1]: # Retorna a cor Hex (Ex: '#ff0000')
-                r, g, b = int(cor[1][1:3], 16), int(cor[1][3:5], 16), int(cor[1][5:7], 16)
-                argb = (255 << 24) | (r << 16) | (g << 8) | b # O Flycast lê a cor em ARGB (32 bits)
-                self.cores_mira[porta] = str(argb)
-                self.btn_color_pickers[porta].configure(fg_color=cor[1])
-                if hasattr(self, 'devices_manager'):
-                    self.devices_manager.salvar_dispositivos()
-
-        def construir_aba_dispositivos(self):
-            # 1. A MÁGICA DO AUTOFIT: A aba toda vira uma página rolável!
-            self.scroll_devices = ctk.CTkScrollableFrame(self.tab_devices, fg_color="transparent")
-            self.scroll_devices.pack(fill="both", expand=True)
-
-            # --- 1. INJEÇÃO DE PERFIS DE CONTROLE (NOVO TOPO) ---
-            self.label_ctrl_title = ctk.CTkLabel(self.scroll_devices, text=self._("lbl_ctrl_title", default="Injeção de Perfis de Controle"), font=ctk.CTkFont(size=16, weight="bold"))
-            self.label_ctrl_title.pack(anchor="w", padx=10, pady=(10, 5))
-
-            self.label_ctrl_desc = ctk.CTkLabel(self.scroll_devices, text=self._("lbl_ctrl_desc", default="Selecione o modelo abaixo e injete na pasta mappings."), text_color="gray", justify="left")
-            self.label_ctrl_desc.pack(anchor="w", padx=10, pady=(0, 10))
-
-            self.frame_ctrl = ctk.CTkFrame(self.scroll_devices, fg_color="transparent")
-            self.frame_ctrl.pack(fill="x", padx=10, pady=(0, 15))
-
-            self.combo_ctrl = ctk.CTkComboBox(self.frame_ctrl, values=list(PERFIS_CONTROLES.keys()), width=350, state="readonly")
-            self.combo_ctrl.pack(side="left", fill="x", expand=True, padx=(0, 10))
-            if list(PERFIS_CONTROLES.keys()):
-                self.combo_ctrl.set(list(PERFIS_CONTROLES.keys())[0])
-
-            self.btn_injetar_ctrl = ctk.CTkButton(self.frame_ctrl, text=self._("btn_inject", default="Injetar Perfil de Controle"), width=200, height=30, font=ctk.CTkFont(weight="bold"), fg_color="#8B008B", hover_color="#A52A2A", command=self.injetar_controle)
-            self.btn_injetar_ctrl.pack(side="right")
-
-            self.frame_divisor_ctrl = ctk.CTkFrame(self.scroll_devices, height=2, fg_color="#444")
-            self.frame_divisor_ctrl.pack(fill="x", padx=10, pady=(5, 15))
-
-            # --- 2. DISPOSITIVOS FÍSICOS REAIS (MEIO) ---
-            self.label_fisicos_title = ctk.CTkLabel(self.scroll_devices, text="🎮 Dispositivos Físicos Reais", font=ctk.CTkFont(size=16, weight="bold"))
-            self.label_fisicos_title.pack(anchor="w", padx=10, pady=(0, 5))
-
-            self.frame_fisicos_list = ctk.CTkFrame(self.scroll_devices, fg_color="#1a1a1a", corner_radius=10)
-            self.frame_fisicos_list.pack(fill="x", padx=10, pady=(0, 15))
-            self.combos_fisicos = {}
-
-            # --- 3. DISPOSITIVOS VIRTUAIS DO DREAMCAST (EMBAIXO) ---
-            self.label_devices_title = ctk.CTkLabel(self.scroll_devices, text="🖥️ Portas Virtuais do Dreamcast", font=ctk.CTkFont(size=16, weight="bold"))
-            self.label_devices_title.pack(anchor="w", padx=10, pady=(5, 5))
-            
-            self.frame_devices_grid = ctk.CTkFrame(self.scroll_devices, fg_color="#1a1a1a", corner_radius=10)
-            self.frame_devices_grid.pack(fill="x", padx=10, pady=5)
-
-            self.combos_devices = {}
-            portas = ["A", "B", "C", "D"]
-
-            opcoes_controles = list(self.devices_manager.mapa_controles.keys())
-            opcoes_acessorios = list(self.devices_manager.mapa_acessorios.keys())
-
-            ctk.CTkLabel(self.frame_devices_grid, text="Porta", font=ctk.CTkFont(weight="bold")).grid(row=0, column=0, padx=10, pady=10)
-            ctk.CTkLabel(self.frame_devices_grid, text="Controle Principal", font=ctk.CTkFont(weight="bold")).grid(row=0, column=1, padx=5, pady=10)
-            ctk.CTkLabel(self.frame_devices_grid, text="Slot 1 (VMU)", font=ctk.CTkFont(weight="bold")).grid(row=0, column=2, padx=5, pady=10)
-            ctk.CTkLabel(self.frame_devices_grid, text="Slot 2 (Extra)", font=ctk.CTkFont(weight="bold")).grid(row=0, column=3, padx=5, pady=10)
-
-            self.btn_color_pickers = {}
-            self.cores_mira = {"A": "0", "B": "0", "C": "0", "D": "0"}
-
-            for i, p in enumerate(portas):
-                lbl = ctk.CTkLabel(self.frame_devices_grid, text=f"Porta {p}", font=ctk.CTkFont(weight="bold"))
-                lbl.grid(row=i+1, column=0, padx=10, pady=10, sticky="e")
-
-                cb_main = ctk.CTkComboBox(self.frame_devices_grid, values=opcoes_controles, width=190, state="readonly", command=lambda val, p=p: self.ao_trocar_controle_main(p, val))
-                cb_main.grid(row=i+1, column=1, padx=5, pady=10)
-                cb_main.set("Nenhum")
-                self.combos_devices[f"{p}_main"] = cb_main
-
-                cb_s1 = ctk.CTkComboBox(self.frame_devices_grid, values=opcoes_acessorios, width=140, state="readonly", command=self.devices_manager.salvar_dispositivos)
-                cb_s1.grid(row=i+1, column=2, padx=5, pady=10)
-                cb_s1.set("Nenhum")
-                self.combos_devices[f"{p}_s1"] = cb_s1
-
-                cb_s2 = ctk.CTkComboBox(self.frame_devices_grid, values=opcoes_acessorios, width=140, state="readonly", command=self.devices_manager.salvar_dispositivos)
-                cb_s2.grid(row=i+1, column=3, padx=5, pady=10)
-                cb_s2.set("Nenhum")
-                self.combos_devices[f"{p}_s2"] = cb_s2
-
-                btn_color = ctk.CTkButton(self.frame_devices_grid, text="🎯 Cor da Mira", width=140, fg_color="#333333", text_color="white", command=lambda p=p: self.escolher_cor_mira(p))
-                btn_color.grid(row=i+1, column=3, padx=5, pady=10)
-                btn_color.grid_remove()
-                self.btn_color_pickers[p] = btn_color
-
-            texto_dica = (
-                "💡 Recomendações de Hardware:\n"
-                "• Setup Padrão: 'Controle Sega' e 'Sega VMU' no Slot 1 da Porta A.\n"
-                "• Vibração: Conecte o 'Pacote de Vibração' no Slot 2 da Porta A para Force Feedback.\n"
-                "• Arcades: Jogos como Marvel vs Capcom ficam excelentes com 'Controle de Arcade/Ascii'."
-            )
-            self.lbl_devices_dica = ctk.CTkLabel(self.scroll_devices, text=texto_dica, text_color="gray", justify="left", font=ctk.CTkFont(size=12))
-            self.lbl_devices_dica.pack(anchor="w", padx=15, pady=(15, 0))
-
-            self.frame_divisor_vmu = ctk.CTkFrame(self.scroll_devices, height=2, fg_color="#444")
-            self.frame_divisor_vmu.pack(fill="x", padx=10, pady=(15, 10))
-
-            self.label_vmu_configs = ctk.CTkLabel(self.scroll_devices, text="Configurações de Visor do VMU", font=ctk.CTkFont(size=14, weight="bold"))
-            self.label_vmu_configs.pack(anchor="w", padx=10, pady=(0, 10))
-
-            self.frame_vmu_switches = ctk.CTkFrame(self.scroll_devices, fg_color="transparent")
-            self.frame_vmu_switches.pack(fill="x", padx=20, pady=(0, 20))
-
-            self.switch_vmu = ctk.CTkSwitch(self.frame_vmu_switches, text=self._("sw_vmu"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
-            self.switch_vmu.grid(row=0, column=0, sticky="w", padx=(0, 20), pady=10)
-
-            self.switch_osd_vmu = ctk.CTkSwitch(self.frame_vmu_switches, text=self._("sw_osd"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
-            self.switch_osd_vmu.grid(row=0, column=1, sticky="w", padx=(0, 20), pady=10)
-
-            self.switch_vmu_sound = ctk.CTkSwitch(self.frame_vmu_switches, text=self._("sw_vmu_snd"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
-            self.switch_vmu_sound.grid(row=1, column=0, sticky="w", pady=10)
-
-        def injetar_controle(self):
-            controle_selecionado = self.combo_ctrl.get()
-            perfil = PERFIS_CONTROLES.get(controle_selecionado)
-            if not perfil: return
-
-            install_path = self.entry_path.get()
-            if not install_path or not os.path.exists(install_path):
-                mb.showerror("Erro", self._("msg_error"), parent=self)
-                return
-
-            mappings_dir = os.path.join(install_path, "data", "mappings")
-            os.makedirs(mappings_dir, exist_ok=True)
-            
-            arquivo_destino = os.path.join(mappings_dir, perfil["arquivo"])
-            try:
-                with open(arquivo_destino, "w", encoding="utf-8") as f:
-                    f.write(perfil["conteudo"])
-                self.log(f"🎮 Injeção: '{perfil['arquivo']}' injetado em data/mappings/ com sucesso.")
-                self.mostrar_toast("Controle Injetado", "O perfil de controle foi aplicado com sucesso e está pronto para uso!", "success")
-            except Exception as e:
-                self.log(f"❌ Erro ao injetar o controle: {e}")
-                self.mostrar_toast("Falha na Injeção", f"Não foi possível aplicar o controle: {e}", "error")
-
         def construir_aba_saves(self):
             self.label_cloud = ctk.CTkLabel(self.tab_saves, text=self._("lbl_cloud"), font=ctk.CTkFont(weight="bold", size=14))
             self.label_cloud.pack(anchor="w", padx=10, pady=(15, 2))
@@ -1470,45 +1209,6 @@ def iniciar_gui():
             self.btn_restaurar_cfg.pack(pady=(10, 10))
             self.btn_restaurar_cfg.configure(state="disabled")
             self.arquivos_cfg_encontrados = {}
-
-        def resolver_bios_mal_posicionada(self, path):
-            if getattr(self, 'bios_prompt_done', False): return
-            self.bios_prompt_done = True
-            
-            # Pergunta 1: Deseja mover os arquivos para a pasta 'data'?
-            resposta_mover = mb.askyesno(self._("msg_bios_move_title"), self._("msg_bios_move_desc"), parent=self)
-            if resposta_mover:
-                pasta_data = os.path.join(path, "data")
-                os.makedirs(pasta_data, exist_ok=True)
-                try:
-                    shutil.move(os.path.join(path, "dc_boot.bin"), os.path.join(pasta_data, "dc_boot.bin"))
-                    shutil.move(os.path.join(path, "dc_flash.bin"), os.path.join(pasta_data, "dc_flash.bin"))
-                    mb.showinfo("Sucesso", self._("msg_success"), parent=self)
-                    self.atualizar_status_diretorio(path)
-                except Exception: pass
-            else:
-                # Pergunta 2: Já que não quer mover, deseja registrar esse local no emu.cfg?
-                resposta_config = mb.askyesno("BIOS", self._("msg_bios_register_desc"), parent=self)
-                if resposta_config:
-                    if config_manager.atualizar_emu_cfg(install_path=path, bios_path=path):
-                        self.atualizar_status_diretorio(path)
-                else:
-                    # Pergunta 3 (A Tática do HLE): O usuário recusou organizar os arquivos. Oferecemos o HLE!
-                    msg_hle = (
-                        "Como os arquivos não foram movidos nem registrados, o emulador poderá apresentar falhas ao iniciar.\n\n"
-                        "O Flycast possui um recurso avançado chamado 'BIOS HLE', que simula "
-                        "o sistema original e contorna o problema de localização dos arquivos.\n\n"
-                        "Deseja ativar a BIOS HLE agora para garantir o funcionamento do emulador?"
-                    )
-                    resposta_hle = mb.askyesno("Ativar BIOS HLE Automática?", msg_hle, parent=self)
-                    
-                    if resposta_hle:
-                        if hasattr(self, 'switch_hle'):
-                            self.switch_hle.select()
-                            self.ao_trocar_hle() # O motor salva no emu.cfg e pinta o semáforo de VERDE!
-                            self.mostrar_toast("HLE Ativado", "A BIOS HLE foi ativada com sucesso!", "success")
-                    else:
-                        self.log("⚠️ Usuário manteve a BIOS no local incorreto e recusou a ativação da emulação HLE.")
 
         def construir_aba_logs(self):
             self.label_logs_title = ctk.CTkLabel(self.tab_logs, text=self._("lbl_logs_title"), font=ctk.CTkFont(size=16, weight="bold"))
@@ -1645,20 +1345,22 @@ def iniciar_gui():
             hover = tema["hover"]
             texto = tema["text"]
 
-            # --- AQUI ESTÁ A MÁGICA: Os botões do cabeçalho entraram na lista VIP! ---
+            # --- Os botões do cabeçalho entraram na lista VIP e não mudam de cor ---
             botoes_excecao = [
                 getattr(self, 'btn_rollback', None), 
                 getattr(self, 'btn_ignorar', None),
                 getattr(self, 'btn_donate', None),          # Protege o botão DOAR (Verde)
                 getattr(self, 'btn_bigpicture_top', None),  # Protege o Big Picture (Laranja)
                 getattr(self, 'btn_update_app', None),      # Protege a notificação de nova versão do Updater (Dourado)
+                getattr(self, 'btn_buscar_capas', None),    # Protege o botão Buscar Capas (Roxo)
                 getattr(self, 'btn_reconfig', None), 
                 getattr(self, 'btn_clear_log', None), 
                 getattr(self, 'btn_filter_fav', None), 
                 getattr(self, 'btn_toggle_senha', None),
                 getattr(self, 'btn_sys_todos', None),
                 getattr(self, 'btn_sys_dc', None),
-                getattr(self, 'btn_sys_arcade', None)
+                getattr(self, 'btn_sys_arcade', None),
+                getattr(self.devices_manager, 'btn_injetar_ctrl', None)
             ]
 
             try:
@@ -1700,97 +1402,13 @@ def iniciar_gui():
 
         def verificar_primeiro_acesso(self):
             completo = self.config_atual.get("setup_completed", False)
-            recusado = self.config_atual.get("setup_declined", False)
-            if not completo and not recusado:
-                self.log("🚀 Primeiro acesso detectado. Exibindo assistente de configuração.")
-                resposta = mb.askyesno(self._("msg_welcome_title"), self._("msg_welcome_desc"), parent=self)
-                if resposta:
-                    self.tabview.set(self._("tab_emu", default="⚙️ Configurações"))
-                    self.config_atual["setup_completed"] = True
-                else:
-                    self.config_atual["setup_declined"] = True
-                self.salvar_estado_atual()
-            elif completo:
-                self.tabview.set(self._("tab_games", default="🕹️ Launcher"))
-            self.carregar_logs()
-
-        def procurar_e_instalar_bios(self, install_path, custom_bios_path):
-            self.log("🔍 Usuário abriu seletor de arquivos de BIOS.")
-            arquivo = ctk.filedialog.askopenfilename(title="Select BIOS (.bin) or ZIP (.zip)", filetypes=[("BIOS / ZIP", "*.bin *.zip"), ("All files", "*.*")])
-            if not arquivo: return
-                
-            target_dir = custom_bios_path if custom_bios_path else os.path.join(install_path, "data")
-            os.makedirs(target_dir, exist_ok=True)
-            self.log(f"📂 Diretório alvo da BIOS: {target_dir}")
-            
-            if arquivo.lower().endswith(".zip"):
-                try:
-                    with zipfile.ZipFile(arquivo, 'r') as zip_ref:
-                        encontrou = False
-                        for file_info in zip_ref.infolist():
-                            basename = os.path.basename(file_info.filename).lower()
-                            if basename in ['dc_boot.bin', 'dc_flash.bin']:
-                                source = zip_ref.open(file_info.filename)
-                                target = open(os.path.join(target_dir, basename), "wb")
-                                with source, target:
-                                    shutil.copyfileobj(source, target)
-                                encontrou = True
-                        if encontrou: mb.showinfo("Sucesso", self._("msg_bios_zip_success"), parent=self)
-                        else: mb.showwarning("Aviso", "O ZIP não continha dc_boot.bin ou dc_flash.bin.", parent=self)
-                except Exception as e:
-                    mb.showerror("Erro", f"Erro: {e}", parent=self)
-            elif arquivo.lower().endswith(".bin"):
-                orig_basename = os.path.basename(arquivo).lower()
-                target_basename = orig_basename
-                if "boot" in orig_basename and "dc_boot.bin" not in orig_basename: target_basename = "dc_boot.bin"
-                elif "flash" in orig_basename and "dc_flash.bin" not in orig_basename: target_basename = "dc_flash.bin"
-                
-                try:
-                    shutil.copy(arquivo, os.path.join(target_dir, target_basename))
-                    has_boot = os.path.exists(os.path.join(target_dir, "dc_boot.bin")) or os.path.exists(os.path.join(target_dir, "DC_BOOT.BIN"))
-                    has_flash = os.path.exists(os.path.join(target_dir, "dc_flash.bin")) or os.path.exists(os.path.join(target_dir, "DC_FLASH.BIN"))
-                    missing_other = None
-                    if not has_boot: missing_other = "dc_boot.bin"
-                    elif not has_flash: missing_other = "dc_flash.bin"
-                    
-                    if missing_other:
-                        resp = mb.askyesno(self._("title_bios_partial"), self._("msg_bios_partial").format(missing=missing_other), parent=self)
-                        if resp: self.procurar_e_instalar_bios(install_path, custom_bios_path)
-                    else:
-                        mb.showinfo("Sucesso", self._("msg_bios_bin_success"), parent=self)
-                except Exception as e:
-                    mb.showerror("Erro", f"Erro: {e}", parent=self)
-            self.atualizar_status_diretorio(install_path)
-
-        def tratar_bios_ausente(self, path, custom_bios_path, has_boot, has_flash):
-            if getattr(self, 'bios_prompt_done', False): return
-            self.bios_prompt_done = True
-            missing = []
-            if not has_boot: missing.append("dc_boot.bin")
-            if not has_flash: missing.append("dc_flash.bin")
-            if not missing: return
-            
-            msg = self._("msg_bios_missing").format(files="\n- ".join(missing))
-            resposta = mb.askyesno(self._("title_bios_missing"), msg, parent=self)
-            
-            if resposta: 
-                self.procurar_e_instalar_bios(path, custom_bios_path)
+            if not completo:
+                self.log("🚀 Primeiro acesso detectado. Exibindo o First Run Wizard.")
+                # Abre o assistente e trava o resto do app até ele terminar!
+                wizard = first_wizard.FirstRunWizard(self)
             else:
-                # O usuário recusou o envio manual. A Tática do HLE entra em ação!
-                msg_hle = (
-                    "Você optou por não fornecer os arquivos originais de BIOS.\n\n"
-                    "O Flycast possui um recurso de 'BIOS HLE', que simula o sistema original "
-                    "e permite iniciar os jogos sem os arquivos oficiais.\n\n"
-                    "Deseja ativar a BIOS HLE agora para garantir o funcionamento do emulador?"
-                )
-                resposta_hle = mb.askyesno("Ativar BIOS HLE Automática?", msg_hle, parent=self)
-                if resposta_hle:
-                    if hasattr(self, 'switch_hle'):
-                        self.switch_hle.select()
-                        self.ao_trocar_hle() # O motor salva e pinta a tela de verde automaticamente!
-                else:
-                    self.log("⚠️ Usuário recusou a BIOS oficial e a emulação HLE. Os jogos poderão não iniciar.")
-
+                self.carregar_logs()
+        
         def carregar_dados_atuais_emu_cfg(self):
             install_path = os.path.normpath(self.entry_path.get())
             def_bios = os.path.join(install_path, "bios")
@@ -1810,13 +1428,25 @@ def iniciar_gui():
             self.switch_custom_paths.deselect()
             self.toggle_custom_paths()
 
+            # Força o carregamento da API Key que estava esquecida!
+            if hasattr(self, 'entry_ra_api'):
+                api_key = self.config_atual.get("ra_api_key", "")
+                self.entry_ra_api.delete(0, 'end')
+                self.entry_ra_api.insert(0, api_key)
+
             caminhos = [os.path.join(install_path, "emu.cfg"), os.path.join(install_path, "data", "emu.cfg")]
             for p in caminhos:
                 if os.path.exists(p):
                     try:
                         config = configparser.RawConfigParser(strict=False)
                         config.optionxform = str
-                        config.read(p, encoding='utf-8')
+                        
+                        # --- LEITURA BLINDADA (Tenta UTF-8, se falhar tenta padrão do Windows) ---
+                        try:
+                            config.read(p, encoding='utf-8-sig')
+                        except Exception:
+                            config.read(p, encoding='latin-1')
+                        # --------------------------------------------------------------------------
                         
                         if config.has_section('config'):
                             if config.has_option('config', 'Dreamcast.ContentPath'):
@@ -1842,59 +1472,75 @@ def iniciar_gui():
                                 if custom_manual: self.definir_entry_custom(self.entry_manual_path, custom_manual)
                                 if custom_cheat: self.definir_entry_custom(self.entry_cheat_path, custom_cheat)
 
-                            if config.get('config', 'PerGameVmu', fallback='no').lower() == 'yes': self.switch_vmu.select()
-                            if config.get('config', 'FetchBoxart', fallback='no').lower() == 'yes': self.switch_boxart.select()
-                            if config.get('config', 'Dreamcast.Cable', fallback='3') == '0': self.switch_vga.select()
-                            if config.get('config', 'DiscordPresence', fallback='no').lower() == 'yes': self.switch_discord.select()
+                            if config.get('config', 'PerGameVmu', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_vmu'): self.switch_vmu.select()
+                            if config.get('config', 'FetchBoxart', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_boxart'): self.switch_boxart.select()
+                            if config.get('config', 'Dreamcast.Cable', fallback='3') == '0': 
+                                if hasattr(self, 'switch_vga'): self.switch_vga.select()
+                            if config.get('config', 'DiscordPresence', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_discord'): self.switch_discord.select()
                             if config.get('config', 'ShowOsdVmu', fallback='no').lower() == 'yes' or config.get('config', 'rend.FloatVMUs', fallback='no').lower() == 'yes': 
-                                self.switch_osd_vmu.select()
+                                if hasattr(self, 'switch_osd_vmu'): self.switch_osd_vmu.select()
                             if config.get('config', 'UseReios', fallback='no').lower() == 'yes': 
                                 if hasattr(self, 'switch_hle'): self.switch_hle.select()
                             
                         if config.has_section('achievements'):
-                            if config.get('achievements', 'Enabled', fallback='no').lower() == 'yes': self.switch_ra.select()
-                            if config.get('achievements', 'HardcoreMode', fallback='no').lower() == 'yes': self.switch_hardcore.select()
+                            if config.get('achievements', 'Enabled', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_ra'): self.switch_ra.select()
+                            if config.get('achievements', 'HardcoreMode', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_hardcore'): self.switch_hardcore.select()
                             if config.has_option('achievements', 'UserName'):
-                                self.entry_ra_user.insert(0, config.get('achievements', 'UserName'))
+                                if hasattr(self, 'entry_ra_user'): 
+                                    self.entry_ra_user.delete(0, 'end')
+                                    self.entry_ra_user.insert(0, config.get('achievements', 'UserName'))
                             if config.has_option('achievements', 'Token'):
                                 self.token_ra_salvo = config.get('achievements', 'Token')
-                                self.entry_ra_pass.insert(0, self.token_ra_salvo)
-                            
-                            api_key = self.config_atual.get("ra_api_key", "")
-                            self.entry_ra_api.delete(0, 'end')
-                            self.entry_ra_api.insert(0, api_key)
+                                if hasattr(self, 'entry_ra_pass'): 
+                                    self.entry_ra_pass.delete(0, 'end')
+                                    self.entry_ra_pass.insert(0, self.token_ra_salvo)
 
                         if config.has_section('audio'):
-                            if config.get('audio', 'VmuSound', fallback='no').lower() == 'yes': self.switch_vmu_sound.select()
+                            if config.get('audio', 'VmuSound', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_vmu_sound'): self.switch_vmu_sound.select()
                             
                         if config.has_section('config'):
                             if config.has_option('config', 'pvr.rend'):
                                 api_rev_map = {"0": "OpenGL", "1": "DirectX 9", "2": "DirectX 11", "4": "Vulkan"}
-                                self.api_var.set(api_rev_map.get(config.get('config', 'pvr.rend'), "DirectX 11"))
+                                if hasattr(self, 'api_var'): self.api_var.set(api_rev_map.get(config.get('config', 'pvr.rend'), "DirectX 11"))
                             if config.has_option('config', 'rend.Resolution'):
                                 res_map = {"480": "640x480 (Nativo)", "720": "960x720 (1.5x)", "960": "1280x960 (2x)", "1080": "1440x1080 (3x)", "1440": "1920x1440 (4x)", "2160": "2880x2160 (6x)"}
-                                self.combo_res.set(res_map.get(config.get('config', 'rend.Resolution'), "640x480 (Nativo)"))
-                            if config.get('config', 'rend.IntegerScale', fallback='no').lower() == 'yes': self.switch_integer.select()
-                            if config.get('config', 'rend.LinearInterpolation', fallback='no').lower() == 'yes': self.switch_linear.select()
-                            if config.get('config', 'rend.vsync', fallback='no').lower() == 'yes': self.switch_vsync.select()
-                            if config.get('config', 'WidescreenGameHacks', fallback='no').lower() == 'yes': self.switch_widescreen.select()
+                                if hasattr(self, 'combo_res'): self.combo_res.set(res_map.get(config.get('config', 'rend.Resolution'), "640x480 (Nativo)"))
+                            if config.get('config', 'rend.IntegerScale', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_integer'): self.switch_integer.select()
+                            if config.get('config', 'rend.LinearInterpolation', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_linear'): self.switch_linear.select()
+                            if config.get('config', 'rend.vsync', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_vsync'): self.switch_vsync.select()
+                            if config.get('config', 'WidescreenGameHacks', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_widescreen'): self.switch_widescreen.select()
 
                         if config.has_section('window'):
-                            if config.get('window', 'fullscreen', fallback='no').lower() == 'yes': self.switch_fullscreen.select()
+                            if config.get('window', 'fullscreen', fallback='no').lower() == 'yes': 
+                                if hasattr(self, 'switch_fullscreen'): self.switch_fullscreen.select()
                             
                             try:
                                 win_left = int(float(config.get('window', 'left', fallback='0')))
                                 win_top = int(float(config.get('window', 'top', fallback='0')))
-                                if hasattr(self, 'lista_monitores'):
+                                if hasattr(self, 'lista_monitores') and hasattr(self, 'combo_monitor'):
                                     for m in self.lista_monitores:
                                         if abs(m['left'] - win_left) <= 50 and abs(m['top'] - win_top) <= 50:
                                             self.combo_monitor.set(m['nome'])
                                             break
                             except Exception: pass
+                        self.log(f"✅ emu.cfg carregado e interface atualizada com sucesso.")
                         break
-                    except Exception: pass
-
-            # --- CORREÇÃO: AGORA ELE CARREGA FORA DA BARREIRA! ---
+                    except Exception as e: 
+                        self.log(f"⚠️ Erro ao carregar emu.cfg: {e}")
+            
+            if hasattr(self, 'devices_manager'):
+                self.devices_manager.carregar_dispositivos()
+            
             if hasattr(self, 'devices_manager'):
                 self.devices_manager.carregar_dispositivos()
 
@@ -2301,12 +1947,12 @@ def iniciar_gui():
                 self.lbl_bios.configure(text=self._("bios_custom"), text_color="#00FF7F")
             elif boot_root and flash_root:
                 self.lbl_bios.configure(text=self._("bios_wrong"), text_color="#FFD700")
-                self.after(500, lambda: self.resolver_bios_mal_posicionada(path))
+                self.after(500, lambda: hardware_utils.resolver_bios_mal_posicionada(self, path))
             else:
                 self.lbl_bios.configure(text=self._("bios_missing"), text_color="#FF4C4C")
                 has_boot = boot_data or (custom_bios_path and boot_custom)
                 has_flash = flash_data or (custom_bios_path and flash_custom)
-                self.after(500, lambda p=path, cb=custom_bios_path, hb=has_boot, hf=has_flash: self.tratar_bios_ausente(p, cb, hb, hf))
+                self.after(500, lambda p=path, cb=custom_bios_path, hb=has_boot, hf=has_flash: hardware_utils.tratar_bios_ausente(self, p, cb, hb, hf))
 
             flycast_exe = os.path.join(path, "flycast.exe")
             if os.path.exists(flycast_exe):
@@ -2450,7 +2096,7 @@ def iniciar_gui():
                     if not win_api.winfo_exists(): return
                     self.tempo_restante_api -= 1
                     if self.tempo_restante_api > 0:
-                        lbl_contador.configure(text=f"Abrindo o site automaticamente em {self.tempo_restante_api}...")
+                        lbl_contador.configure(text=f"Abrindo o site automaticamente em self.after(4000, self.checar_atualizacao_updater_bg){self.tempo_restante_api}...")
                         win_api.after(1000, atualizar_contador)
                     else:
                         lbl_contador.configure(text="Iniciando a conexão...")
@@ -2504,26 +2150,6 @@ def iniciar_gui():
             self.progressbar.pack(pady=(2, 0))
             self.label_status.pack(pady=(2, 5))
             threading.Thread(target=self.rodar_motor, args=(acao,), daemon=True).start()
-
-        def checar_atualizacao_updater_bg(self):
-            def rotina():
-                api_url = f"https://api.github.com/repos/{REPO_UPDATER}/releases/latest"
-                try:
-                    req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
-                    with urllib.request.urlopen(req, timeout=5) as response:
-                        dados = json.loads(response.read().decode())
-                    
-                    versao_remota = dados.get("tag_name", "").replace("v", "")
-                    if versao_remota and versao_remota > VERSION:
-                        for asset in dados.get("assets", []):
-                            if asset["name"].endswith(".exe"):
-                                download_url = asset["browser_download_url"]
-                                # Encontrou versão nova! Desenha o botão magicamente na tela.
-                                self.after(0, lambda u=download_url, v=versao_remota: self.exibir_botao_atualizacao(u, v))
-                                break
-                except Exception:
-                    pass # Se estiver sem internet ou o GitHub bloquear, falha silenciosamente sem incomodar.
-            threading.Thread(target=rotina, daemon=True).start()
 
         def exibir_botao_atualizacao(self, url, versao):
             self.btn_update_app.configure(command=lambda: self.iniciar_atualizacao_app(url, versao))
@@ -2580,34 +2206,6 @@ start "" "{nome_exe}"
                     self.after(0, lambda: self.label_status.configure(text="Erro ao atualizar.", text_color="red"))
 
             threading.Thread(target=download_e_atualizar, daemon=True).start()
-
-        def configurar_escuta_hotplug_windows(self):
-            try:
-                self.bind_all("<DeviceChange>", self.ao_mudar_hardware_usb)
-                hwnd = self.winfo_id()
-                import ctypes
-                def wndproc_hook(hwnd, msg, wparam, lparam):
-                    if msg == 0x0219: 
-                        self.after(0, self.ao_mudar_hardware_usb)
-                    return ctypes.windll.user32.CallWindowProcW(*map(ctypes.c_void_p, [old_wndproc, hwnd, msg, wparam, lparam]))
-
-                GWL_WNDPROC = -4
-                old_wndproc = ctypes.windll.user32.GetWindowLongPtrW(hwnd, GWL_WNDPROC)
-                WNDPROC_TYPE = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int)
-                new_wndproc = WNDPROC_TYPE(wndproc_hook)
-                ctypes.windll.user32.SetWindowLongPtrW(hwnd, GWL_WNDPROC, new_wndproc)
-                self._hotplug_keep_alive = new_wndproc
-                self.log("🔌 Hot-Plug Listener: Sistema de escuta USB ativado com sucesso.")
-            except Exception as e:
-                self.log(f"⚠️ Não foi possível ativar o listener nativo de Hot-Plug: {e}")
-
-        def ao_mudar_hardware_usb(self, event=None):
-            self.log("🔌 Hot-Plug Detectado: Modificação em portas USB. Atualizando dispositivos...")
-            self.mostrar_toast("Hardware Alterado", "Dispositivos USB atualizados!", "info", duracao=2000)
-            if hasattr(self, 'devices_manager'):
-                self.devices_manager.carregar_dispositivos()    
-            if hasattr(self, 'atualizar_lista_fisicos'):
-                self.atualizar_lista_fisicos()
 
         def filtrar_por_sistema(self, sistema):
             """Gerencia o estado visual dos botões de sistema e aplica o filtro na grade."""

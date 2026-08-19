@@ -271,7 +271,7 @@ class RetroAchievementsManager:
 
         threading.Thread(target=rotina_carregamento, daemon=True).start()
 
-    # =========================================================
+   # =========================================================
     # A MAGIA DE BOSS: O ESPIÃO DE GAMEPLAY (BACKGROUND TRACKER)
     # =========================================================
     def iniciar_rastreio_em_gameplay(self, nome_jogo):
@@ -289,7 +289,7 @@ class RetroAchievementsManager:
             s_jogo = simplificar(nome_jogo)
 
             try:
-                # Busca rápida nos jogos recentes do usuário para pegar o ID instantaneamente
+                # 1. Busca rápida nos jogos recentes do usuário
                 url_rec = f"{self.base_url}API_GetUserRecentlyPlayedGames.php?z={urllib.parse.quote(usuario)}&y={api_key}&u={urllib.parse.quote(usuario)}&c=50"
                 req = urllib.request.Request(url_rec, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
                 with urllib.request.urlopen(req, timeout=5) as response:
@@ -299,6 +299,22 @@ class RetroAchievementsManager:
                             break
             except: pass
 
+            # 🛡️ BUGFIX 1: Se o jogo for novo (nunca jogado), o ID é buscado na base Global de Dreamcast e Arcade!
+            if not game_id:
+                for console_id in [23, 27]:
+                    if game_id: break
+                    try:
+                        url_list = f"{self.base_url}API_GetGameList.php?z={urllib.parse.quote(usuario)}&y={api_key}&i={console_id}"
+                        req = urllib.request.Request(url_list, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
+                        with urllib.request.urlopen(req, timeout=5) as response:
+                            lista = json.loads(response.read().decode('utf-8'))
+                        for g in lista:
+                            s_title = simplificar(g.get("Title", ""))
+                            if s_jogo in s_title or s_title in s_jogo:
+                                game_id = g.get("ID")
+                                break
+                    except: pass
+
             if not game_id:
                 self.app.log(f"⚠️ RA Rastreador: ID do jogo não encontrado. O Overlay dinâmico não funcionará para este jogo.")
                 return
@@ -306,8 +322,8 @@ class RetroAchievementsManager:
             self.app.log(f"🟢 RA Rastreador: ID {game_id} encontrado! Inicializando captura do estado atual das conquistas...")
             
             # Fotografa quais conquistas você JÁ TEM para não notificar coisa velha!
+            url_prog = f"{self.base_url}API_GetGameInfoAndUserProgress.php?z={urllib.parse.quote(usuario)}&y={api_key}&u={urllib.parse.quote(usuario)}&g={game_id}"
             try:
-                url_prog = f"{self.base_url}API_GetGameInfoAndUserProgress.php?z={urllib.parse.quote(usuario)}&y={api_key}&u={urllib.parse.quote(usuario)}&g={game_id}"
                 req = urllib.request.Request(url_prog, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
                 with urllib.request.urlopen(req, timeout=5) as response:
                     prog_data = json.loads(response.read().decode('utf-8'))
@@ -326,7 +342,9 @@ class RetroAchievementsManager:
                 if not self.monitorando: break
                 
                 try:
-                    req_loop = urllib.request.Request(url_prog, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
+                    # 🛡️ BUGFIX 2: Adiciona timestamp na URL para quebrar o Cache HTTP do Windows e forçar dados reais!
+                    url_dinamica = f"{url_prog}&_t={time.time()}"
+                    req_loop = urllib.request.Request(url_dinamica, headers={'User-Agent': f'FlycastUpdater/{VERSION}'})
                     with urllib.request.urlopen(req_loop, timeout=5) as resp_loop:
                         estado_atual = json.loads(resp_loop.read().decode('utf-8'))
                     
@@ -368,10 +386,15 @@ class RetroAchievementsManager:
 
         # Janela invisível e sem bordas
         overlay = ctk.CTkToplevel(self.app)
+        
+        # 🛡️ BUGFIX 3: Desconecta a janela do "pai" (Big Blue invisível) e força ela a nascer livremente na tela!
+        overlay.transient("") 
+        
         overlay.overrideredirect(True)
         overlay.attributes("-topmost", True)
         overlay.attributes("-alpha", 0.0)
         overlay.configure(fg_color="#0F0F16") 
+        overlay.deiconify() # Tira a janela das sombras!
 
         # Borda dourada/primária da Barbie Customizada
         tema_atual = self.app.config_atual.get("tema", "Padrão DARK")
@@ -450,6 +473,13 @@ class RetroAchievementsManager:
                 overlay.destroy()
 
         fade_in()
+
+    def parar_rastreio(self):
+        self.monitorando = False
+        self.conquistas_desbloqueadas_iniciais.clear()
+        self.app.log(f"🛑 RA Espião: Jogo finalizado. Rastreador desativado.")
+
+    
 
 def obter_token_retroachievements(usuario, senha_ou_hash):
     """
