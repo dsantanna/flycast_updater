@@ -40,7 +40,7 @@ try:
 except ImportError: HAS_PYGAME = False
 
 # ==========================================
-# Flycast Updater - Launcher v6.2 (Big Blue)
+# Flycast Updater - Launcher v6.3 (Big Blue)
 # Desenvolvido por DaniboySan & Geminix
 # ==========================================
 
