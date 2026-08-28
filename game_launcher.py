@@ -53,14 +53,182 @@ class ToolTip:
 
 class GameLibraryManager:
     def __init__(self, app_instance):
+        
         self.app = app_instance
         self.ra_labels = {}
         self.show_favorites_only = False
         # Instância com o nome correto
+        # --- MOTOR DE PAGINAÇÃO E ZOOM (v6.4) ---
+        self.pagina_atual = 0
+        self.jogos_por_pagina = 20
+        self.tamanho_capa = self.app.config_atual.get("zoom_level", 150)
+        self._timer_zoom = None  # Timer para o efeito "Debounce"
         self.arcade_manager = arcade_core.ArcadeManager(self.app)
         # --- LIGANDO O MOTOR DE METADADOS ---
         self.auto_scraper = scraper.AutoScraper(self.app)
         self.garantir_arquivos_essenciais()
+
+    def carregar_listas_xml(self):
+        install_path = self.app.entry_path.get()
+        xml_path = os.path.join(install_path, "DC-game.xml")
+        if not os.path.exists(xml_path):
+            xml_path = os.path.join(install_path, "data", "DC-gamedb.xml")
+            
+        produtoras = set()
+        generos = set()
+        
+        if os.path.exists(xml_path):
+            import xml.etree.ElementTree as ET
+            try:
+                tree = ET.parse(xml_path)
+                for game in tree.getroot().findall('game'):
+                    manuf = game.find('manufacturer')
+                    genre = game.find('genre')
+                    
+                    if manuf is not None and manuf.text:
+                        # Extrai a empresa principal e limpa lixos de copyright (Ex: Capcom Co., Ltd -> Capcom)
+                        m = manuf.text.split(',')[0].replace(' Corporation', '').replace(' Inc.', '').replace(' Ltd.', '').strip()
+                        if m: produtoras.add(m)
+                        
+                    if genre is not None and genre.text:
+                        # Pega o gênero primário (Ex: "Soccer/Sports" vira "Soccer")
+                        g = genre.text.split('/')[0].strip()
+                        if g: generos.add(g)
+            except Exception: pass
+            
+        self.lista_prod = ["🏢 Todas as Produtoras"] + sorted(list(produtoras))
+        
+        self.mapa_generos = {}
+        lista_gen_ui = ["🎭 Todos os Gêneros"]
+        
+        for g in sorted(list(generos)):
+            # Formata a string do XML para bater com a chave do dicionário (Ex: "Shoot-'Em-Up" -> "shoot_em_up")
+            chave = g.lower().replace("'", "").replace("-", "_").replace(" ", "_")
+            chave_lang = f"genre_{chave}"
+            
+            traduzido = self.app._(chave_lang, default=g)
+            texto_ui = f"🏷️ {traduzido}"
+            
+            self.mapa_generos[texto_ui] = g # Guarda a chave original oculta
+            lista_gen_ui.append(texto_ui)
+            
+        self.lista_gen = lista_gen_ui
+
+    def construir_interface(self, tab, classe_tooltip, func_filtro_sistema):
+        import customtkinter as ctk
+        
+        self.app.label_games_title = ctk.CTkLabel(tab, text=self.app._("lbl_games_title"), font=ctk.CTkFont(size=16, weight="bold"))
+        self.app.label_games_title.pack(anchor="w", padx=10, pady=(10, 2))
+        self.app.label_games_desc = ctk.CTkLabel(tab, text=self.app._("lbl_games_desc"), text_color="gray", justify="left")
+        self.app.label_games_desc.pack(anchor="w", padx=10, pady=(0, 5))
+
+        self.app.frame_dashboard = ctk.CTkFrame(tab, fg_color="#1a1a1a", corner_radius=10)
+        self.app.frame_dashboard.pack(fill="x", padx=10, pady=(0, 5))
+        self.app.frame_dashboard.columnconfigure(0, weight=1)
+        self.app.frame_dashboard.columnconfigure(1, weight=1)
+
+        self.app.lbl_dash_tempo = ctk.CTkLabel(self.app.frame_dashboard, text="⏱️ Tempo Total: 0h 0m", font=ctk.CTkFont(size=14, weight="bold"), text_color="#1E90FF")
+        self.app.lbl_dash_tempo.grid(row=0, column=0, pady=10, padx=10, sticky="w")
+
+        self.app.lbl_dash_ra = ctk.CTkLabel(self.app.frame_dashboard, text="🏆 Total RA: 0 pts", font=ctk.CTkFont(size=14, weight="bold"), text_color="#00FF7F")
+        self.app.lbl_dash_ra.grid(row=0, column=1, pady=10, padx=10, sticky="e")
+
+        # ==========================================
+        # LINHA 1: FILTROS TÁTICOS (TOP ROW)
+        # ==========================================
+        self.app.frame_linha_1 = ctk.CTkFrame(tab, fg_color="transparent")
+        self.app.frame_linha_1.pack(fill="x", padx=10, pady=(0, 5))
+
+        # 1. Filtros de Sistema (Esquerda)
+        self.app.filtro_sistema_atual = "todos"
+        self.app.frame_filtros_sys = ctk.CTkFrame(self.app.frame_linha_1, fg_color="transparent")
+        self.app.frame_filtros_sys.pack(side="left")
+
+        self.app.btn_sys_todos = ctk.CTkButton(self.app.frame_filtros_sys, text="Todos", width=60, height=26, font=ctk.CTkFont(weight="bold"), command=lambda: func_filtro_sistema("todos"))
+        self.app.btn_sys_todos.pack(side="left", padx=2)
+
+        self.app.btn_sys_dc = ctk.CTkButton(self.app.frame_filtros_sys, text="Dreamcast", width=80, height=26, fg_color="transparent", border_width=1, text_color="gray", command=lambda: func_filtro_sistema("dreamcast"))
+        self.app.btn_sys_dc.pack(side="left", padx=2)
+
+        self.app.btn_sys_arcade = ctk.CTkButton(self.app.frame_filtros_sys, text="Arcade", width=70, height=26, fg_color="transparent", border_width=1, text_color="gray", command=lambda: func_filtro_sistema("arcade"))
+        self.app.btn_sys_arcade.pack(side="left", padx=2)
+
+        # 2. Roleta e Favoritos (Esquerda)
+        self.app.btn_roleta = ctk.CTkButton(self.app.frame_linha_1, text="🎲", width=30, height=26, fg_color="transparent", border_width=1, text_color="#FFAC1C", hover_color="#CC8A16", command=self.sortear_jogo)
+        self.app.btn_roleta.pack(side="left", padx=(15, 0))
+        self.app.btn_roleta._tooltip = classe_tooltip(self.app.btn_roleta, "Estou com Sorte (Roleta)")
+
+        self.app.btn_filter_fav = ctk.CTkButton(self.app.frame_linha_1, text="⭐", width=30, height=26, fg_color="transparent", border_width=1, text_color="gray", command=self.toggle_filtro_favoritos)
+        self.app.btn_filter_fav.pack(side="left", padx=(5, 0))
+
+        # 3. Filtros Avançados e Busca (Esquerda) - Lidos como um livro!
+        self.carregar_listas_xml()
+
+        self.app.combo_status_ra = ctk.CTkComboBox(self.app.frame_linha_1, values=["🎮 RA: Status Geral", "🏆 RA: Com Conquistas", "🌀 RA: Platinados"], state="readonly", height=26, width=165, command=lambda x: self.escanear_jogos())
+        self.app.combo_status_ra.pack(side="left", padx=(15, 5))
+        self.app.combo_status_ra.set("🎮 RA: Status Geral")
+
+        self.app.combo_produtora = ctk.CTkComboBox(self.app.frame_linha_1, values=self.lista_prod, state="readonly", height=26, width=180, command=lambda x: self.escanear_jogos())
+        self.app.combo_produtora.pack(side="left", padx=5)
+        self.app.combo_produtora.set(self.lista_prod[0])
+
+        self.app.combo_genero = ctk.CTkComboBox(self.app.frame_linha_1, values=self.lista_gen, state="readonly", height=26, width=165, command=lambda x: self.escanear_jogos())
+        self.app.combo_genero.pack(side="left", padx=5)
+        self.app.combo_genero.set(self.lista_gen[0])
+
+        self.app.entry_busca_jogos = ctk.CTkEntry(self.app.frame_linha_1, placeholder_text="🔍 Buscar jogo...", height=26, width=160)
+        self.app.entry_busca_jogos.pack(side="left", padx=(5, 0))
+        self.app.entry_busca_jogos.bind("<KeyRelease>", lambda e: self.escanear_jogos())
+
+        # ==========================================
+        # LINHA 2: AÇÕES E FERRAMENTAS (BOTTOM ROW)
+        # ==========================================
+        self.app.frame_linha_2 = ctk.CTkFrame(tab, fg_color="transparent")
+        self.app.frame_linha_2.pack(fill="x", padx=10, pady=(5, 5))
+
+        # 1. Ações Principais (Esquerda)
+        self.app.btn_scan_games = ctk.CTkButton(self.app.frame_linha_2, text=self.app._("btn_scan_games"), width=120, height=26, command=self.escanear_jogos)
+        self.app.btn_scan_games.pack(side="left", padx=(0, 10))
+
+        self.app.btn_buscar_capas = ctk.CTkButton(self.app.frame_linha_2, text="🖼️ Buscar Capas", width=120, height=26, fg_color="#8B008B", hover_color="#5C005C", font=ctk.CTkFont(weight="bold"), command=self.forcar_sincronizacao_flycast)
+        self.app.btn_buscar_capas.pack(side="left", padx=(0, 15))
+        self.app.btn_buscar_capas._tooltip = classe_tooltip(self.app.btn_buscar_capas, "Inicia o Flycast em segundo plano para extrair a base de dados.")
+
+        # 2. Zoom e Cheats (Esquerda)
+        frame_zoom = ctk.CTkFrame(self.app.frame_linha_2, fg_color="transparent")
+        frame_zoom.pack(side="left", padx=(0, 15)) 
+
+        lbl_zoom_out = ctk.CTkLabel(frame_zoom, text="🔍-", font=ctk.CTkFont(size=14))
+        lbl_zoom_out.pack(side="left", padx=2)
+
+        self.app.slider_zoom = ctk.CTkSlider(frame_zoom, from_=100, to=250, number_of_steps=15, width=140, progress_color="#4169E1", command=self.agendar_zoom)
+        self.app.slider_zoom.set(self.tamanho_capa)
+        self.app.slider_zoom.pack(side="left", padx=5)
+
+        lbl_zoom_in = ctk.CTkLabel(frame_zoom, text="🔍+", font=ctk.CTkFont(size=14))
+        lbl_zoom_in.pack(side="left", padx=2)
+
+        self.app.switch_cheats = ctk.CTkSwitch(self.app.frame_linha_2, text=self.app._("sw_cheats"), command=self.app.qol_manager.ao_trocar_cheats)
+        self.app.switch_cheats.pack(side="left", padx=(0, 15))
+
+        # 3. Ferramentas Secundárias (Empurradas para a Direita)
+        import vmu_manager
+        self.app.btn_gerenciar_vmu = ctk.CTkButton(self.app.frame_linha_2, text="💾 Gerenciar VMU's", width=130, height=26, fg_color="#8B0000", hover_color="#A52A2A", font=ctk.CTkFont(weight="bold"), command=lambda: vmu_manager.VMUXRayManager(self.app, self.app.entry_path.get(), modo_filtro="global"))
+        self.app.btn_gerenciar_vmu.pack(side="right", padx=(10, 0))
+
+        self.app.btn_desktop = ctk.CTkButton(self.app.frame_linha_2, text="🖥️ Desktop", width=70, height=26, fg_color="transparent", border_width=1, text_color="#00FF7F", hover_color="#2E8B57", command=self.exportar_para_desktop)
+        self.app.btn_desktop.pack(side="right", padx=(5, 0))
+        self.app.btn_desktop._tooltip = classe_tooltip(self.app.btn_desktop, "Criar atalhos na Área de Trabalho")
+
+        self.app.btn_steam = ctk.CTkButton(self.app.frame_linha_2, text="☁️ Steam", width=60, height=26, fg_color="transparent", border_width=1, text_color="#1E90FF", hover_color="#4169E1", command=self.exportar_para_steam)
+        self.app.btn_steam.pack(side="right", padx=(5, 0))
+        self.app.btn_steam._tooltip = classe_tooltip(self.app.btn_steam, "Exportar Jogos para a Biblioteca Steam")
+
+        # ==========================================
+        # CONTAINER PRINCIPAL DA GRADE DE JOGOS
+        # ==========================================
+        self.app.frame_grid_games = ctk.CTkScrollableFrame(tab, width=580, height=330, corner_radius=10)
+        self.app.frame_grid_games.pack(fill="both", expand=True, padx=10, pady=(5, 5))
 
     def buscar_dados_ra(self, user_db, nome_jogo, arquivos):
         import re
@@ -68,18 +236,43 @@ class GameLibraryManager:
             return re.sub(r'[^a-z0-9]', '', str(texto).lower())
 
         s_nome_jogo = simplificar(nome_jogo)
-        
+        melhor_dado = None
+        maior_score = -1
+
+        def avaliar_dado(data):
+            nonlocal melhor_dado, maior_score
+            if data:
+                tot = int(data.get("total_score", "0"))
+                if tot > maior_score:
+                    maior_score = tot
+                    melhor_dado = data
+
+        # 1. Correspondência Exata (Título)
         for key, data in user_db.items():
-            if simplificar(key) == s_nome_jogo:
-                return data
+            if simplificar(key) == s_nome_jogo: avaliar_dado(data)
                 
+        # 2. Correspondência Exata (ROM)
+        for rom_path in arquivos:
+            s_rom = simplificar(os.path.splitext(os.path.basename(rom_path))[0])
+            for key, data in user_db.items():
+                if simplificar(key) == s_rom: avaliar_dado(data)
+
+        # Se achou um match perfeito COM conquistas válidas, retorna imediatamente!
+        if melhor_dado and maior_score > 0: return melhor_dado
+
+        # 3. Correspondência Parcial do Título
+        for key, data in user_db.items():
+            s_key = simplificar(key)
+            if len(s_nome_jogo) > 3 and (s_nome_jogo in s_key or s_key in s_nome_jogo): avaliar_dado(data)
+
+        # 4. Correspondência Parcial pela ROM
         for rom_path in arquivos:
             s_rom = simplificar(os.path.splitext(os.path.basename(rom_path))[0])
             for key, data in user_db.items():
                 s_key = simplificar(key)
-                if len(s_key) > 3 and (s_key in s_rom or s_rom in s_key):
-                    return data
-        return None
+                if len(s_rom) > 3 and (s_key in s_rom or s_rom in s_key): avaliar_dado(data)
+                
+        return melhor_dado
         
     def toggle_filtro_favoritos(self):
         self.show_favorites_only = not self.show_favorites_only
@@ -159,9 +352,13 @@ class GameLibraryManager:
                 title = game.get("Title", "")
                 if not title: continue
                 
+                total_ach = str(game.get("NumPossibleAchievements", "0"))
+                # 👇 VACINA ANTI-GHOST DATA 👇
+                # Ignora jogos que retornam da API com "0" conquistas. Sem lixo no banco de dados!
+                if total_ach == "0": continue
+                
                 achieved = str(game.get("NumAchieved", "0"))
                 achieved_hc = str(game.get("NumAchievedHardcore", "0"))
-                total_ach = str(game.get("NumPossibleAchievements", "0"))
                 
                 score = str(game.get("ScoreAchieved", "0"))
                 score_hc = str(game.get("ScoreAchievedHardcore", "0"))
@@ -268,7 +465,7 @@ class GameLibraryManager:
             return
 
         win_disco = ctk.CTkToplevel(self.app)
-        win_disco.title("Selecionar Disco")
+        win_disco.title("💿 Selecionar Disco")
         win_disco.geometry("400x280")
         win_disco.attributes("-topmost", True)
         win_disco.grab_set()
@@ -281,7 +478,7 @@ class GameLibraryManager:
 
         for r in arquivos:
             basename = os.path.basename(r)
-            ctk.CTkRadioButton(win_disco, text=basename, variable=escolha_var, value=r).pack(anchor="w", padx=30, pady=5)
+            ctk.CTkRadioButton(win_disco, text=f"💿 {basename}", variable=escolha_var, value=r).pack(anchor="w", padx=30, pady=5)
 
         def confirmar_disco():
             rom_escolhida = escolha_var.get()
@@ -334,7 +531,6 @@ class GameLibraryManager:
             use_custom = getattr(self.app, 'switch_custom_paths', None) and self.app.switch_custom_paths.get() == 1
             custom_bios_path = self.app.entry_bios_path.get() if use_custom else ""
             
-            # Valida a BIOS
             valido, msg_erro = self.arcade_manager.validar_bios_para_rom(nome_arquivo, install_path, custom_bios_path)
             if not valido:
                 self.app.log(f"❌ Boot abortado: BIOS de Arcade ausente para {nome_arquivo}.")
@@ -343,7 +539,6 @@ class GameLibraryManager:
                 if hasattr(self.app, 'janela_bp'): self.app.janela_bp.jogo_em_execucao = False
                 return
 
-            # Valida a integridade (DAT Check)
             integridade_ok, msg_integridade = self.arcade_manager.verificar_integridade_rom(rom_path)
             if not integridade_ok:
                 self.app.log(f"❌ Boot abortado: ROM corrompida ou incompleta ({nome_arquivo}).")
@@ -378,7 +573,73 @@ class GameLibraryManager:
             self.app.log(f"⚠️ Aviso Netplay Firewall: {e}")
         
         self.app.log(f"🚀 Iniciando jogo: {os.path.basename(rom_path)}")
-        args_lancamento = [flycast_exe, rom_path]
+        args_lancamento = [flycast_exe]
+        
+        usou_controle_custom = False
+
+        # 🔍 Lendo os Arquivos de Configuração Específicos (Per-Game Configs)
+        if nome_jogo:
+            db_ra_path = os.path.join(install_path, "RAlocal.db")
+            if os.path.exists(db_ra_path):
+                try:
+                    with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                    per_game_config = ra_db.get("_PerGameVideo_", {}).get(nome_jogo, {})
+                    
+                    if per_game_config.get("enabled"):
+                        self.app.log(f"⚙️ Aplicando perfil de configurações (Per-Game) para '{nome_jogo}'.")
+                        
+                        wide_hack = "yes" if per_game_config.get("widescreen") else "no"
+                        args_lancamento.extend(["--config", f"rend:WidescreenGameHacks={wide_hack}"])
+                        
+                        res_str = per_game_config.get("resolution", "Global (Padrão)")
+                        if res_str != "Global (Padrão)":
+                            res_val = "480"
+                            if "720" in res_str: res_val = "720"
+                            elif "960" in res_str: res_val = "960"
+                            elif "1080" in res_str: res_val = "1080"
+                            elif "1440" in res_str: res_val = "1440"
+                            elif "2160" in res_str: res_val = "2160"
+                            args_lancamento.extend(["--config", f"rend:Resolution={res_val}"])
+                            
+                        if per_game_config.get("vmu_individual"):
+                            import re
+                            nome_seguro = re.sub(r'[\\/*?:"<>|]', "", nome_jogo).strip()
+                            vmu_dir = os.path.join(install_path, "vmu", f"VMU_{nome_seguro}")
+                            os.makedirs(vmu_dir, exist_ok=True)
+                            args_lancamento.extend(["--config", f"config:Dreamcast.VmuPath={vmu_dir}"])
+                            self.app.log(f"💾 VMU Individual ativado! Redirecionando Memory Card para: {vmu_dir}")
+                            
+                        # 👇 INJEÇÃO DO CONTROLE PER-GAME 👇
+                        perfil_controle = per_game_config.get("controller_profile", "Padrão Global")
+                        if perfil_controle != "Padrão Global":
+                            perfis_dir = os.path.join(install_path, "controller_profiles")
+                            perfil_path = os.path.join(perfis_dir, perfil_controle)
+                            mappings_dir = os.path.join(install_path, "mappings")
+                            backup_mappings_dir = os.path.join(install_path, "mappings_backup_global")
+                            
+                            if os.path.exists(perfil_path):
+                                self.app.log(f"🎮 Perfil de Controle '{perfil_controle}' detectado! Injetando na pasta mappings...")
+                                try:
+                                    import shutil
+                                    # 1. Salva os seus controles globais em um cofre seguro
+                                    if os.path.exists(mappings_dir) and not os.path.exists(backup_mappings_dir):
+                                        shutil.copytree(mappings_dir, backup_mappings_dir)
+                                    
+                                    # 2. Limpa a pasta do emulador para evitar conflito de IDs
+                                    os.makedirs(mappings_dir, exist_ok=True)
+                                    for f in os.listdir(mappings_dir):
+                                        os.remove(os.path.join(mappings_dir, f))
+                                        
+                                    # 3. Coloca apenas o controle que você quer usar!
+                                    shutil.copy2(perfil_path, os.path.join(mappings_dir, perfil_controle))
+                                    usou_controle_custom = True
+                                except Exception as e:
+                                    self.app.log(f"⚠️ Erro ao injetar controle: {e}")
+                            
+                except Exception as e:
+                    self.app.log(f"⚠️ Aviso: Falha ao ler configurações per-game: {e}")
+
+        args_lancamento.append(rom_path)
 
         def executar_processo():
             try:
@@ -428,6 +689,20 @@ class GameLibraryManager:
             except Exception as e:
                 self.app.log(f"❌ Erro ao rodar o emulador: {e}")
             finally:
+                # 👇 ROTINA DE LIMPEZA (RESTAURANDO OS CONTROLES GLOBAIS) 👇
+                if usou_controle_custom:
+                    try:
+                        import shutil
+                        backup_mappings_dir = os.path.join(install_path, "mappings_backup_global")
+                        mappings_dir = os.path.join(install_path, "mappings")
+                        if os.path.exists(backup_mappings_dir):
+                            self.app.log("♻️ Restaurando perfil de controles Global...")
+                            if os.path.exists(mappings_dir):
+                                shutil.rmtree(mappings_dir) # Remove o temporário
+                            shutil.move(backup_mappings_dir, mappings_dir) # Devolve os originais!
+                    except Exception as e:
+                        self.app.log(f"⚠️ Erro ao restaurar controles globais: {e}")
+
                 if from_bp:
                     full_original = self.app.switch_fullscreen.get() == 1 if hasattr(self.app, 'switch_fullscreen') else False
                     config_manager.atualizar_emu_cfg(install_path, vid_full=full_original)
@@ -455,7 +730,7 @@ class GameLibraryManager:
     def mostrar_info_jogo(self, nome_jogo, db_info):
         top = ctk.CTkToplevel(self.app)
         top.title(self.app._("lbl_info_title"))
-        top.geometry("680x660")
+        top.geometry("700x740")
         top.attributes("-topmost", True)
 
         usuario = getattr(self.app.entry_ra_user, 'get', lambda: "")().strip()
@@ -468,14 +743,36 @@ class GameLibraryManager:
         rom_path = arquivos_jogo[0] if arquivos_jogo else ""
         rom_basename = os.path.splitext(os.path.basename(rom_path))[0] if rom_path else nome_jogo
         nome_limpo = re.sub(r'\(.*?\)|\[.*?\]', '', nome_jogo).strip()
+        meta = dc_gamesdb.buscar_metadados(nome_jogo, rom_path, install_path, getattr(self.app, 'lang', 'pt'))
 
         frame_header_top = ctk.CTkFrame(top, fg_color="transparent")
         frame_header_top.pack(fill="x", padx=20, pady=(20, 10))
 
-        frame_capa = ctk.CTkFrame(frame_header_top, fg_color="transparent")
-        frame_capa.pack(side="left", padx=(0, 15))
+        # --- 1. COLUNA ESQUERDA (Títulos + Capa Grande Centralizada) ---
+        frame_esquerda = ctk.CTkFrame(frame_header_top, fg_color="transparent")
+        frame_esquerda.pack(side="left", fill="both", expand=True, padx=(0, 15))
 
-        # --- BUSCA DA CAPA CORRIGIDA ---
+        lbl_nome = ctk.CTkLabel(frame_esquerda, text=nome_jogo, font=ctk.CTkFont(size=24, weight="bold"), justify="center")
+        lbl_nome.pack(fill="x", pady=(0, 2))
+
+        data_bruta = db_info.get("release_date", "") if db_info else ""
+        if data_bruta and len(data_bruta) == 10 and data_bruta.count("-") == 2:
+            partes = data_bruta.split("-")
+            data_formatada = f"{partes[2]}/{partes[1]}/{partes[0]}"
+        else:
+            data_formatada = data_bruta if data_bruta else self.app._("lbl_unknown")
+
+        lbl_data = ctk.CTkLabel(frame_esquerda, text=f"{self.app._('lbl_release')} {data_formatada}", font=ctk.CTkFont(size=13, slant="italic"), text_color="gray", justify="center")
+        lbl_data.pack(fill="x")
+        
+        texto_empresa = meta["manufacturer"] if meta["manufacturer"] else self.app._('lbl_unknown')
+        lbl_empresa = ctk.CTkLabel(frame_esquerda, text=f"Empresa: {texto_empresa}", font=ctk.CTkFont(size=13, slant="italic"), text_color="gray", justify="center")
+        lbl_empresa.pack(fill="x", pady=(0, 15))
+
+        # Container da Capa Gigante
+        frame_capa = ctk.CTkFrame(frame_esquerda, fg_color="transparent")
+        frame_capa.pack(expand=True)
+
         if HAS_PIL:
             caminhos_img = []
             if db_info and db_info.get("boxart_path"):
@@ -487,11 +784,15 @@ class GameLibraryManager:
             ])
             
             capa_encontrada = False
+            tamanho_capa = 260  # <-- TAMANHO DA CAPA (Ajuste se quiser maior ou menor)
+            
             for img_p in caminhos_img:
                 if os.path.exists(img_p):
                     try:
-                        pil_img = Image.open(img_p).resize((100, 100), Image.Resampling.LANCZOS)
-                        ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(100, 100))
+                        pil_img = Image.open(img_p)
+                        # O thumbnail garante que ela fique grande sem esticar e perder a proporção
+                        pil_img.thumbnail((tamanho_capa, tamanho_capa), Image.Resampling.LANCZOS)
+                        ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=pil_img.size)
                         lbl_capa = ctk.CTkLabel(frame_capa, image=ctk_img, text="")
                         lbl_capa.pack()
                         capa_encontrada = True
@@ -510,42 +811,24 @@ class GameLibraryManager:
                 
                 if os.path.exists(no_cover_path):
                     try:
-                        pil_img = Image.open(no_cover_path).resize((100, 100), Image.Resampling.LANCZOS)
-                        ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(100, 100))
+                        pil_img = Image.open(no_cover_path)
+                        pil_img.thumbnail((tamanho_capa, tamanho_capa), Image.Resampling.LANCZOS)
+                        ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=pil_img.size)
                         lbl_capa_placeholder = ctk.CTkLabel(frame_capa, image=ctk_img, text="")
                         lbl_capa_placeholder.pack()
                         capa_encontrada = True
                     except: pass
                     
                 if not capa_encontrada:
-                    lbl_capa_placeholder = ctk.CTkLabel(frame_capa, text="🎮", width=100, height=100, fg_color="#1a1a1a", corner_radius=8, font=ctk.CTkFont(size=30))
+                    lbl_capa_placeholder = ctk.CTkLabel(frame_capa, text="🎮", width=tamanho_capa, height=tamanho_capa, fg_color="#1a1a1a", corner_radius=8, font=ctk.CTkFont(size=80))
                     lbl_capa_placeholder.pack()
 
-        frame_titulo_data = ctk.CTkFrame(frame_header_top, fg_color="transparent")
-        frame_titulo_data.pack(side="left", fill="both", expand=True)
-
-        lbl_nome = ctk.CTkLabel(frame_titulo_data, text=nome_jogo, font=ctk.CTkFont(size=20, weight="bold"), anchor="w", justify="left")
-        lbl_nome.pack(fill="x", pady=(5, 2))
-
-        data_bruta = db_info.get("release_date", "") if db_info else ""
-        if data_bruta and len(data_bruta) == 10 and data_bruta.count("-") == 2:
-            partes = data_bruta.split("-")
-            data_formatada = f"{partes[2]}/{partes[1]}/{partes[0]}"
-        else:
-            data_formatada = data_bruta if data_bruta else self.app._("lbl_unknown")
-
-        lbl_data = ctk.CTkLabel(frame_titulo_data, text=f"{self.app._('lbl_release')} {data_formatada}", font=ctk.CTkFont(size=12, slant="italic"), text_color="gray", anchor="w")
-        lbl_data.pack(fill="x")
-        
-        lbl_empresa = ctk.CTkLabel(frame_titulo_data, text=f"Empresa: {self.app._('lbl_unknown')}", font=ctk.CTkFont(size=12, slant="italic"), text_color="gray", anchor="w")
-        lbl_empresa.pack(fill="x")
-        threading.Thread(target=self.buscar_empresa_ra, args=(nome_jogo, lbl_empresa, usuario, api_key, install_path), daemon=True).start()
-
+        # --- 2. COLUNA DIREITA (STATS E BOTÕES) ---
         frame_stats = ctk.CTkFrame(frame_header_top, fg_color="#1a1a1a", corner_radius=8)
-        frame_stats.pack(side="right", anchor="center", padx=(10, 0), ipadx=10, ipady=8)
+        # O anchor="n" faz o painel grudar no topo da janela para alinhar com o título
+        frame_stats.pack(side="right", anchor="n", padx=(10, 0), ipadx=10, ipady=8)
 
         lbl_stats_title = ctk.CTkLabel(frame_stats, text="RetroAchievements", font=ctk.CTkFont(size=10, weight="bold"), text_color="gray")
-        lbl_stats_title.pack(anchor="center", pady=(0, 5))
 
         db_ra_path = os.path.join(install_path, "RAlocal.db")
         ra_db = {}
@@ -597,16 +880,31 @@ class GameLibraryManager:
         btn_netplay = ctk.CTkButton(frame_stats, text="🌐 Multiplayer (Netplay)", height=24, font=ctk.CTkFont(weight="bold"), fg_color="#FF4500", hover_color="#FF6347", command=lambda: netplay.NetplayManager(top, nome_jogo, rom_path, install_path, self))
         btn_netplay.pack(pady=(10, 0))
 
-        meta = dc_gamesdb.buscar_metadados(nome_jogo, rom_path, install_path, getattr(self.app, 'lang', 'pt'))
-        
+        # BOTÃO DE CHEATS
+        import cheats
+        btn_cheats = ctk.CTkButton(frame_stats, text="👾 Gerenciar Trapaças", height=24, font=ctk.CTkFont(weight="bold"), fg_color="#228B22", hover_color="#006400", command=lambda: cheats.VisualCheatManager(self.app, nome_jogo, rom_path))
+        btn_cheats.pack(pady=(10, 0))
+
+        # CONFIG PERSONALIZADO
+        btn_per_game = ctk.CTkButton(frame_stats, text="⚙️ Config Personalizada", height=24, font=ctk.CTkFont(weight="bold"), fg_color="#4682B4", hover_color="#5F9EA0", command=lambda n=nome_jogo: self.abrir_per_game_config(n))
+        btn_per_game.pack(pady=(10, 0))
+
         if meta["score"]:
             str_score = dc_gamesdb.gerar_estrelas(meta["score"])
             lbl_score = ctk.CTkLabel(frame_stats, text=f"Nota: {str_score}", font=ctk.CTkFont(size=12, weight="bold"), text_color="#FFD700")
             lbl_score.pack(anchor="center", pady=(5, 0))
             
-        if meta["manufacturer"]:
-            lbl_manuf = ctk.CTkLabel(frame_stats, text=f"🏢 Produtora: {meta['manufacturer']}", font=ctk.CTkFont(size=12))
-            lbl_manuf.pack(anchor="center")
+        # 👇 PRODUTORA E DESENVOLVEDORA SEPARADAS 👇
+        if meta.get("manufacturer"):
+            lbl_manuf = ctk.CTkLabel(frame_stats, text=f"🏢 Produtora: {meta['manufacturer']}", font=ctk.CTkFont(size=11))
+            lbl_manuf.pack(anchor="center", pady=(2, 0))
+            
+        if meta.get("dev"):
+            lbl_dev = ctk.CTkLabel(frame_stats, text=f"🛠️ Desenvolvedora: {meta['dev']}", font=ctk.CTkFont(size=11))
+            lbl_dev.pack(anchor="center", pady=(0, 5))
+        elif meta.get("manufacturer"): # Fallback inteligente se a DEV estiver vazia
+            lbl_dev = ctk.CTkLabel(frame_stats, text=f"🛠️ Desenvolvedora: {meta['manufacturer']}", font=ctk.CTkFont(size=11))
+            lbl_dev.pack(anchor="center", pady=(0, 5))
             
         if meta["player"] or meta["rating"]:
             txt_extra = []
@@ -615,7 +913,6 @@ class GameLibraryManager:
             lbl_extra = ctk.CTkLabel(frame_stats, text=" | ".join(txt_extra), font=ctk.CTkFont(size=11), text_color="gray")
             lbl_extra.pack(anchor="center")
 
-        # --- A MÁGICA DO SCRAPER INJETADA AQUI ---
         sinopse_texto = meta["story"]
         if "Nenhuma sinopse" in sinopse_texto or not sinopse_texto:
             db_path = os.path.join(install_path, "data", "metadata.json")
@@ -628,16 +925,16 @@ class GameLibraryManager:
                 except: pass
         # ----------------------------------------
 
-        tabview_info = ctk.CTkTabview(top, height=360)
+        tabview_info = ctk.CTkTabview(top, height=400)
         tabview_info.pack(fill="both", expand=True, padx=20, pady=(0, 20))
         tab_geral = tabview_info.add("Geral & Saves")
         tab_notas = tabview_info.add("📝 Diário de Bordo")
 
-        txt_desc = ctk.CTkTextbox(tab_geral, wrap="word", font=("Segoe UI", 13), height=90)
+        txt_desc = ctk.CTkTextbox(tab_geral, wrap="word", font=("Segoe UI", 13), height=140)
         txt_desc.pack(fill="x", padx=5, pady=(5, 10))
         txt_desc.insert("1.0", sinopse_texto)
         txt_desc.configure(state="disabled")
-        
+
         manual_path_found = None
         custom_manual = self.app.config_atual.get("custom_manual_path", "")
         manual_dir = custom_manual if custom_manual and os.path.exists(custom_manual) else os.path.join(install_path, "manuals")
@@ -739,6 +1036,110 @@ class GameLibraryManager:
         btn_salvar_notas.configure(command=lambda: self.salvar_notas_jogo(nome_jogo, txt_notas, btn_salvar_notas))
         btn_salvar_notas.pack(pady=(0, 5))
 
+    def abrir_per_game_config(self, nome_jogo):
+        install_path = self.app.entry_path.get()
+        db_path = os.path.join(install_path, "RAlocal.db")
+        
+        ra_db = {}
+        if os.path.exists(db_path):
+            try:
+                with open(db_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+            except Exception: pass
+            
+        # Mantemos a chave original do JSON para você não perder os dados já salvos
+        per_game_db = ra_db.setdefault("_PerGameVideo_", {})
+        config_jogo = per_game_db.get(nome_jogo, {})
+
+        win = ctk.CTkToplevel(self.app)
+        win.title(f"⚙️ Configurações Específicas: {nome_jogo}")
+        win.geometry("450x520") # 📏 Aumentado para 520 para caber o Switch da BIOS
+        win.attributes("-topmost", True)
+        win.grab_set()
+
+        ctk.CTkLabel(win, text="Configuração Exclusiva do Jogo", font=ctk.CTkFont(size=16, weight="bold"), text_color="#1E90FF").pack(pady=(15, 5))
+        ctk.CTkLabel(win, text="Define regras gráficas, controles, VMU e BIOS exclusivas.\nAo fechar o jogo, as configurações globais retornam automaticamente.", text_color="gray", justify="center", font=ctk.CTkFont(size=11)).pack(pady=(0, 15))
+
+        var_enable = ctk.BooleanVar(value=config_jogo.get("enabled", False))
+        var_wide = ctk.BooleanVar(value=config_jogo.get("widescreen", False))
+        var_res = ctk.StringVar(value=config_jogo.get("resolution", "Global (Padrão)"))
+        var_vmu = ctk.BooleanVar(value=config_jogo.get("vmu_individual", False))
+        var_hle = ctk.BooleanVar(value=config_jogo.get("bios_hle", False)) # 👇 NOVA VARIÁVEL HLE 👇
+        
+        perfis_dir = os.path.join(install_path, "controller_profiles")
+        os.makedirs(perfis_dir, exist_ok=True)
+        perfis_disponiveis = ["Padrão Global"]
+        try:
+            for f in os.listdir(perfis_dir):
+                if f.lower().endswith(".cfg"):
+                    perfis_disponiveis.append(f)
+        except Exception: pass
+        
+        var_ctrl = ctk.StringVar(value=config_jogo.get("controller_profile", "Padrão Global"))
+
+        sw_enable = ctk.CTkSwitch(win, text="Ativar Perfil Específico para este jogo", variable=var_enable, font=ctk.CTkFont(weight="bold"), progress_color="#228B22")
+        sw_enable.pack(anchor="center", pady=10)
+
+        frame_opts = ctk.CTkFrame(win, fg_color="#1a1a1a", corner_radius=8)
+        frame_opts.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # 👇 O TRUQUE: Sub-Frame transparente que centraliza magicamente todo o conteúdo! 👇
+        inner_frame = ctk.CTkFrame(frame_opts, fg_color="transparent")
+        inner_frame.pack(expand=True) # expand=True faz ele flutuar no meio absoluto do frame_opts
+
+        sw_wide = ctk.CTkSwitch(inner_frame, text="Forçar Widescreen (16:9)", variable=var_wide)
+        sw_wide.pack(anchor="w", pady=(0, 5))
+
+        sw_hle = ctk.CTkSwitch(inner_frame, text="Ativar BIOS HLE (UseReios)", variable=var_hle)
+        sw_hle.pack(anchor="w", pady=(5, 10))
+
+        ctk.CTkLabel(inner_frame, text="Resolução Nativa:").pack(anchor="w", pady=(0, 0))
+        combo_res = ctk.CTkComboBox(inner_frame, values=["Global (Padrão)", "640x480 (Nativo)", "960x720 (1.5x)", "1280x960 (2x)", "1440x1080 (3x)", "1920x1440 (4x)", "2880x2160 (6x)"], variable=var_res, state="readonly", width=220)
+        combo_res.pack(anchor="w", pady=(5, 5))
+
+        ctk.CTkLabel(inner_frame, text="🎮 Perfil de Controle:").pack(anchor="w", pady=(5, 0))
+        combo_ctrl = ctk.CTkComboBox(inner_frame, values=perfis_disponiveis, variable=var_ctrl, state="readonly", width=220)
+        combo_ctrl.pack(anchor="w", pady=(5, 5))
+
+        # O botão gerenciar desce pra ancorar no mesmo escopo
+        btn_vmu_manager = ctk.CTkButton(inner_frame, text="💾 Gerenciar VMU's", fg_color="#4169E1", hover_color="#1E90FF", width=220)
+        
+        def atualizar_estado_vmu(*args):
+            import vmu_manager
+            if var_vmu.get():
+                btn_vmu_manager.pack_forget() 
+            else:
+                btn_vmu_manager.pack(anchor="w", pady=(0, 15)) 
+                btn_vmu_manager.configure(
+                    command=lambda: vmu_manager.VMUXRayManager(win, install_path, modo_filtro="global")
+                )
+
+        var_vmu.trace_add("write", atualizar_estado_vmu)
+        
+        sw_vmu = ctk.CTkSwitch(inner_frame, text="VMU Individual por Jogo", variable=var_vmu)
+        sw_vmu.pack(anchor="w", pady=(5, 10))
+        
+        atualizar_estado_vmu()
+
+        def salvar():
+            per_game_db[nome_jogo] = {
+                "enabled": var_enable.get(),
+                "widescreen": var_wide.get(),
+                "resolution": var_res.get(),
+                "vmu_individual": var_vmu.get(),
+                "controller_profile": var_ctrl.get(),
+                "bios_hle": var_hle.get()
+            }
+            try:
+                with open(db_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+                self.app.mostrar_toast("Perfil Salvo", "Configurações específicas salvas com sucesso!", "success")
+                if hasattr(self.app, 'sfx'): self.app.sfx.play("save")
+            except Exception as e:
+                self.app.log(f"❌ Erro ao salvar config per-game: {e}")
+            win.destroy()
+
+        btn_salvar = ctk.CTkButton(win, text="💾 Salvar Configurações", font=ctk.CTkFont(weight="bold"), height=35, fg_color="#8B008B", hover_color="#A52A2A", command=salvar)
+        btn_salvar.pack(pady=15)
+    
     def exibir_janela_conquistas(self, nome_jogo):
         from launcher import VERSION
         usuario = self.app.entry_ra_user.get().strip()
@@ -809,7 +1210,48 @@ class GameLibraryManager:
             if not achievements:
                 self.app.after(0, lambda: lbl_status.configure(text="⚠️ Este jogo ainda não possui conquistas cadastradas na plataforma."))
                 return
-            
+
+            # 👇 A VACINA PURIFICADA: Atualiza o Banco de Dados com segurança no Background! 👇
+            try:
+                trofeus_totais = len(achievements)
+                trofeus_ganhos = sum(1 for ach in achievements.values() if ach.get("DateEarned"))
+                pontos_totais = sum(int(ach.get("Points", "0")) for ach in achievements.values())
+                pontos_ganhos = sum(int(ach.get("Points", "0")) for ach in achievements.values() if ach.get("DateEarned"))
+
+                db_path = os.path.join(install_path, "RAlocal.db")
+                ra_db = {}
+                if os.path.exists(db_path):
+                    with open(db_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                
+                user_db = ra_db.setdefault(usuario, {})
+                titulo_api = game_data.get("Title", nome_jogo)
+                
+                game_cache = user_db.get(titulo_api, {
+                    "achieved": "0", "achieved_hc": "0", "total_achievements": str(trofeus_totais),
+                    "score": "0", "score_hc": "0", "total_score": str(pontos_totais)
+                })
+                
+                game_cache["total_achievements"] = str(trofeus_totais)
+                game_cache["total_score"] = str(pontos_totais)
+                
+                is_hardcore = getattr(self.app, "switch_hardcore", ctk.BooleanVar(value=False)).get() == 1
+                if is_hardcore:
+                    game_cache["achieved_hc"] = str(trofeus_ganhos)
+                    game_cache["score_hc"] = str(pontos_ganhos)
+                else:
+                    game_cache["achieved"] = str(trofeus_ganhos)
+                    game_cache["score"] = str(pontos_ganhos)
+                    
+                user_db[titulo_api] = game_cache
+                with open(db_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+                
+                # Manda o comando para atualizar a UI estática de forma assíncrona
+                tag_modo = " (HC)" if is_hardcore else ""
+                self.app.after(0, lambda: self._desenhar_ra_labels(user_db, is_hardcore, tag_modo))
+            except Exception as e:
+                self.app.log(f"⚠️ Aviso: Não foi possível atualizar o cache local de conquistas: {e}")
+            # 👆 FIM DA VACINA 👆
+
             lista_achs = list(achievements.values())
             lista_achs.sort(key=lambda x: int(x.get("DisplayOrder", 0)))
             
@@ -823,6 +1265,7 @@ class GameLibraryManager:
                 cor_primaria = "#4169E1"
             
             def desenhar_ui():
+                # Esta função voltou a ser puramente para renderizar botões e textos!
                 trofeus_totais = len(lista_achs)
                 trofeus_ganhos = 0
                 pontos_totais = 0
@@ -840,15 +1283,13 @@ class GameLibraryManager:
                 frame_dash = ctk.CTkFrame(win_ra, fg_color="#1a1a1a", corner_radius=10)
                 frame_dash.pack(fill="x", padx=10, pady=(10, 5))
                 
-                lbl_resumo = ctk.CTkLabel(frame_dash, text=f"Progresso Geral: {int(progresso_pct * 100)}%", font=ctk.CTkFont(size=14, weight="bold"))
-                lbl_resumo.pack(anchor="w", padx=15, pady=(10, 0))
+                ctk.CTkLabel(frame_dash, text=f"Progresso Geral: {int(progresso_pct * 100)}%", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=15, pady=(10, 0))
                 
                 bar_progresso = ctk.CTkProgressBar(frame_dash, progress_color=cor_primaria, width=700)
                 bar_progresso.pack(fill="x", padx=15, pady=10)
                 bar_progresso.set(progresso_pct)
                 
-                lbl_stats = ctk.CTkLabel(frame_dash, text=f"🏆 Troféus: {trofeus_ganhos}/{trofeus_totais}   |   💎 Pontos: {pontos_ganhos}/{pontos_totais}", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray")
-                lbl_stats.pack(anchor="e", padx=15, pady=(0, 10))
+                ctk.CTkLabel(frame_dash, text=f"🏆 Troféus: {trofeus_ganhos}/{trofeus_totais}   |   💎 Pontos: {pontos_ganhos}/{pontos_totais}", font=ctk.CTkFont(size=12, weight="bold"), text_color="gray").pack(anchor="e", padx=15, pady=(0, 10))
                 
                 scroll = ctk.CTkScrollableFrame(win_ra, fg_color="transparent")
                 scroll.pack(fill="both", expand=True, padx=5, pady=5)
@@ -881,10 +1322,10 @@ class GameLibraryManager:
                     
                     if HAS_PIL and os.path.exists(badge_path):
                         try:
-                            pil_img = Image.open(badge_path).resize((64, 64), Image.Resampling.LANCZOS)
-                            ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(64, 64))
-                            lbl_img = ctk.CTkLabel(frame_ach, image=ctk_img, text="")
-                            lbl_img.pack(side="left", padx=10, pady=10)
+                            img = Image.open(badge_path).resize((64, 64), Image.Resampling.LANCZOS)
+                            ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(64, 64))
+                            self.img_refs.append(ctk_img)
+                            ctk.CTkLabel(frame_ach, image=ctk_img, text="").pack(side="left", padx=10, pady=10)
                         except: pass
                     else:
                         lbl_img = ctk.CTkLabel(frame_ach, text="🏆", font=ctk.CTkFont(size=30))
@@ -1265,6 +1706,26 @@ class GameLibraryManager:
         try: os.startfile(games_dir)
         except Exception: pass
         
+    def agendar_zoom(self, valor):
+        """O Efeito Debounce: Aguarda o usuário parar de arrastar o fader para aplicar o Zoom."""
+        if self._timer_zoom is not None:
+            self.app.after_cancel(self._timer_zoom)
+        self._timer_zoom = self.app.after(300, lambda: self.aplicar_zoom(valor))
+
+    def aplicar_zoom(self, valor):
+        self.tamanho_capa = int(valor)
+        
+        # SALVA A NOVA ESCOLHA SILENCIOSAMENTE NO ARQUIVO .JSON
+        self.app.config_atual["zoom_level"] = self.tamanho_capa
+        if hasattr(self.app, 'salvar_estado_atual'):
+            self.app.salvar_estado_atual()
+            
+        self.escanear_jogos()
+
+    def mudar_pagina(self, direcao):
+        self.pagina_atual += direcao
+        self.escanear_jogos()
+
     def escanear_jogos(self):
         import concurrent.futures
         
@@ -1295,6 +1756,18 @@ class GameLibraryManager:
         
         termo_busca = getattr(self.app, "entry_busca_jogos", None)
         filtro = termo_busca.get().lower() if termo_busca else ""
+
+        # CATEGORIA ESCOLHIDA 
+        categoria_tatica = getattr(self.app, "combo_categoria", None)
+        filtro_cat = categoria_tatica.get() if categoria_tatica else "📋 Todas as Categorias"
+
+        filtro_prod = getattr(self.app, "combo_produtora", None).get() if hasattr(self.app, "combo_produtora") else "🏢 Todas as Produtoras"
+        filtro_gen_ui = getattr(self.app, "combo_genero", None).get() if hasattr(self.app, "combo_genero") else "🎭 Todos os Gêneros"
+        filtro_ra = getattr(self.app, "combo_status_ra", None).get() if hasattr(self.app, "combo_status_ra") else "🎮 RA: Status Geral"
+        
+        # Converte o texto bonito da UI para a chave exata em inglês para cruzar com o XML
+        gen_alvo = self.mapa_generos.get(filtro_gen_ui, "").lower() if hasattr(self, 'mapa_generos') else ""
+        prod_alvo = filtro_prod.replace("🏢 ", "").lower() if filtro_prod != "🏢 Todas as Produtoras" else ""
 
         db_ra_path = os.path.join(install_path, "RAlocal.db")
         ra_db = {}
@@ -1432,6 +1905,32 @@ class GameLibraryManager:
                 if filtro_sys == 'dreamcast' and is_arcade: continue
                 if filtro_sys == 'arcade' and not is_arcade: continue
                 
+            # 👇 O MOTOR TÁTICO DE XML (PRODUTORA & GÊNERO) 👇
+            if prod_alvo or gen_alvo:
+                meta = dc_gamesdb.buscar_metadados(nome_exibicao, arquivos_jogo[0], install_path, getattr(self.app, 'lang', 'pt'))
+                
+                if prod_alvo:
+                    manuf = (meta.get("manufacturer") or "").lower()
+                    dev = (meta.get("dev") or "").lower()
+                    if prod_alvo not in manuf and prod_alvo not in dev:
+                        continue
+                        
+                if gen_alvo:
+                    genre_meta = (meta.get("genre") or "").lower()
+                    if gen_alvo not in genre_meta:
+                        continue
+                        
+            # 👇 O MOTOR TÁTICO DO RETROACHIEVEMENTS 👇
+            if filtro_ra != "🎮 RA: Status Geral":
+                data_ra = self.buscar_dados_ra(user_db, nome_exibicao, arquivos_jogo)
+                if not data_ra: continue 
+                
+                ach = int(data_ra.get('achieved_hc', '0')) if is_hardcore else int(data_ra.get('achieved', '0'))
+                tot_ach = int(data_ra.get('total_achievements', '0'))
+                
+                if filtro_ra == "🏆 RA: Com Conquistas" and ach == 0: continue
+                if filtro_ra == "🌀 RA: Platinados" and (ach < tot_ach or tot_ach == 0): continue
+
             jogos_filtrados.append(nome_exibicao)
 
         if not jogos_filtrados:
@@ -1439,124 +1938,135 @@ class GameLibraryManager:
             lbl.pack(pady=40)
             return
 
-        # 2. Operários de Imagem: Eles vão redimensionar as imagens no fundo sem congelar o app!
-        executor_imagens = concurrent.futures.ThreadPoolExecutor(max_workers=6)
+        # ==========================================
+        # 1. MATEMÁTICA DA PAGINAÇÃO
+        # ==========================================
+        total_jogos = len(jogos_filtrados)
+        total_paginas = max(1, (total_jogos + self.jogos_por_pagina - 1) // self.jogos_por_pagina)
 
-        # Estado para a Paginação (Lotes)
+        # Trava de segurança (caso o filtro reduza as páginas)
+        if self.pagina_atual >= total_paginas: self.pagina_atual = total_paginas - 1
+        if self.pagina_atual < 0: self.pagina_atual = 0
+
+        inicio_idx = self.pagina_atual * self.jogos_por_pagina
+        fim_idx = inicio_idx + self.jogos_por_pagina
+        jogos_da_pagina = jogos_filtrados[inicio_idx:fim_idx]
+
+        # ==========================================
+        # 2. CÁLCULO DE COLUNAS BASEADO NO ZOOM
+        # ==========================================
+        screen_width = self.app.winfo_screenwidth()
+        largura_card = self.tamanho_capa + 20 # 20px de margem
+        max_cols = max(2, (screen_width - 100) // largura_card)
+
+        executor_imagens = concurrent.futures.ThreadPoolExecutor(max_workers=6)
         estado_render = {"row": 0, "col": 0, "index": 0}
 
-        def carregar_imagem_async(caminhos_teste, lbl_widget, ref_jogo, xml_nome):
-            ctk_img = None
-            for p in caminhos_teste:
-                if os.path.exists(p):
-                    try:
-                        img = Image.open(p).resize((150, 150), Image.Resampling.LANCZOS)
-                        ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(150, 150))
-                        break
-                    except Exception: pass
-            
-            if ctk_img:
-                # O after(0) injeta a imagem de volta na Thread Principal com segurança
-                self.app.after(0, lambda: lbl_widget.configure(image=ctk_img, text="") if lbl_widget.winfo_exists() else None)
-            else:
-                # Se falhou, aciona o scraper invisível 
-                if HAS_PIL:
-                    self.auto_scraper.processar_rom_background(install_path, ref_jogo, nome_xml=xml_nome)
-                # Pinta o fallback na tela enquanto isso
-                if os.path.exists(path_final_no_cover):
-                    try:
-                        img_fb = Image.open(path_final_no_cover).resize((150, 150), Image.Resampling.LANCZOS)
-                        ctk_fb = ctk.CTkImage(light_image=img_fb, dark_image=img_fb, size=(150, 150))
-                        self.app.after(0, lambda: lbl_widget.configure(image=ctk_fb, text="") if lbl_widget.winfo_exists() else None)
-                    except: pass
-
         def renderizar_lote():
-            lote_tamanho = 6 # Renderiza 6 jogos por ciclo
-            limite = min(estado_render["index"] + lote_tamanho, len(jogos_filtrados))
+            lote_tamanho = 5 
+            limite = min(estado_render["index"] + lote_tamanho, len(jogos_da_pagina))
             
             for i in range(estado_render["index"], limite):
-                nome_exibicao = jogos_filtrados[i]
+                nome_exibicao = jogos_da_pagina[i]
                 arquivos_jogo = jogos_agrupados[nome_exibicao]
                 jogo_ref = os.path.basename(arquivos_jogo[0])
                 roms_path_ref = os.path.dirname(arquivos_jogo[0])
                 nome_limpo_ref = os.path.splitext(jogo_ref)[0]
                 db_info = game_db.get(jogo_ref)
+                                
+                try:
+                    # Verifica a data de criação (ou modificação) do arquivo da ROM
+                    data_adicao = os.path.getctime(arquivos_jogo[0])
+                    dias_na_biblioteca = (time.time() - data_adicao) / 86400 # 86400s = 1 dia
+                    is_novo = dias_na_biblioteca <= 7 # Ganha o selo se tiver 7 dias ou menos
+                except Exception:
+                    is_novo = False
                 
-                # --- Criação Visual Estática (Super Rápida) ---
-                card = ctk.CTkFrame(self.app.frame_grid_games, width=170, height=290, corner_radius=12, fg_color="#2b2b2b")
+                # O Card agora tem altura e largura dinâmicas baseadas no Zoom!
+                altura_card = self.tamanho_capa + 140
+                card = ctk.CTkFrame(self.app.frame_grid_games, width=largura_card, height=altura_card, corner_radius=12, fg_color="#2b2b2b")
                 card.grid(row=estado_render["row"], column=estado_render["col"], padx=10, pady=10, sticky="n")
                 card.grid_propagate(False)
 
-                # Capa nascendo temporariamente vazia ("Carregando")
-                texto_loading = "⏳\nCarregando..." if HAS_PIL else "🎮\nFLYCAST"
-                capa_lbl = ctk.CTkLabel(card, text=texto_loading, width=150, height=150, fg_color="#1a1a1a", corner_radius=8, font=ctk.CTkFont(size=14, weight="bold"))
+                texto_loading = "⏳" if HAS_PIL else "🎮"
+                capa_lbl = ctk.CTkLabel(card, text=texto_loading, width=self.tamanho_capa, height=self.tamanho_capa, fg_color="#1a1a1a", corner_radius=8)
                 capa_lbl.pack(pady=(10, 5), padx=10)
 
-                # Despacha o processamento pesado de imagem para o operário!
+                # 👇 A MÁGICA DO DUPLO CLIQUE (WINDOWS STYLE) 👇
+                # Preparamos o gatilho exato que o botão "Jogar" usa
+                gatilho_duplo_clique = lambda event, n=nome_exibicao, a=arquivos_jogo: self.selecionar_disco(n, a)
+                
+                # Amarramos o duplo clique (Botão esquerdo do mouse) no fundo do Card e na Capa
+                card.bind("<Double-Button-1>", gatilho_duplo_clique)
+                capa_lbl.bind("<Double-Button-1>", gatilho_duplo_clique)
+                
+                # Transforma o cursor na "mãozinha" para dar feedback tátil Premium
+                capa_lbl.configure(cursor="hand2")
+                card.configure(cursor="hand2")
+
+                # 👇 PASSO 2: O SELO FLUTUANTE 👇
+                if is_novo:
+                    lbl_badge_novo = ctk.CTkLabel(
+                        card, 
+                        text="✨ NOVO",
+                        font=ctk.CTkFont(size=11, weight="bold"),
+                        fg_color="#FF4500", # Laranja estilo Steam
+                        text_color="white",
+                        corner_radius=6,
+                        width=54,
+                        height=22
+                    )
+                    # O comando .place() flutua a etiqueta no canto superior esquerdo ignorando o layout!
+                    lbl_badge_novo.place(x=15, y=15)
+
                 if HAS_PIL:
                     caminhos_img = []
                     if db_info and db_info.get("boxart_path"): caminhos_img.append(os.path.join(boxart_dir, db_info["boxart_path"]))
                     caminhos_img.extend([
                         os.path.join(boxart_dir, f"{jogo_ref}.png"), os.path.join(boxart_dir, f"{jogo_ref}.jpg"), 
                         os.path.join(boxart_dir, f"{nome_limpo_ref}.png"), os.path.join(boxart_dir, f"{nome_limpo_ref}.jpg"),
-                        os.path.join(boxart_dir, f"{nome_exibicao}.png"), os.path.join(boxart_dir, f"{nome_exibicao}.jpg"),
-                        os.path.join(roms_path_ref, f"{nome_limpo_ref}.png"), os.path.join(roms_path_ref, f"{nome_limpo_ref}.jpg")
+                        os.path.join(boxart_dir, f"{nome_exibicao}.png")
                     ])
-                    executor_imagens.submit(carregar_imagem_async, caminhos_img, capa_lbl, jogo_ref, nome_exibicao)
+                    # Passamos o tamanho atual para a Thread cortar na medida exata
+                    executor_imagens.submit(carregar_imagem_async, caminhos_img, capa_lbl, jogo_ref, nome_exibicao, self.tamanho_capa)
                 
-                # Textos
                 nome_curto = nome_exibicao[:20] + "..." if len(nome_exibicao) > 20 else nome_exibicao
+                
                 lbl_titulo_card = ctk.CTkLabel(card, text=nome_curto, font=ctk.CTkFont(size=11, weight="bold"), text_color="white")
                 lbl_titulo_card.pack(pady=(0, 2))
+                
+                # 👇 DUPLO CLIQUE TAMBÉM NO TÍTULO 👇
+                lbl_titulo_card.bind("<Double-Button-1>", gatilho_duplo_clique)
+                lbl_titulo_card.configure(cursor="hand2")
+                
                 if len(nome_exibicao) > 20: ToolTip(lbl_titulo_card, nome_exibicao)
 
-                # RetroAchievements e Playtime Lookup (Dicionário local, super rápido)
-                data_ra = self.buscar_dados_ra(user_db, nome_exibicao, arquivos_jogo)
-                if data_ra:
-                    pts = data_ra.get('score_hc', '0') if is_hardcore else data_ra.get('score', '0')
-                    tot = data_ra.get('total_score', '0')
-                    ach = int(data_ra.get('achieved_hc', '0')) if is_hardcore else int(data_ra.get('achieved', '0'))
-                    tot_ach = int(data_ra.get('total_achievements', '0'))
-                    if ach == tot_ach and tot_ach > 0:
-                        texto_inicial_ra, cor_ra = f"🌀 PLATINA{tag_modo}", "#00BFFF"
-                    else:
-                        texto_inicial_ra, cor_ra = f"🏆 {pts}/{tot} pts{tag_modo}", "gray" if pts == "0" else "#00FF7F"
+                # Adaptação para telas pequenas/zoom grande (ocultar botões se ficar apertado)
+                if self.tamanho_capa < 120:
+                    pass # Oculta os labels de pontuação para economizar espaço
                 else:
-                    texto_inicial_ra, cor_ra = f"🏆 Buscando...", "#FFD700"
+                    lbl_ra = ctk.CTkLabel(card, text="🏆 Buscando...", font=ctk.CTkFont(size=10), text_color="#FFD700")
+                    lbl_ra.pack(pady=(0, 2))
+                    self.ra_labels[nome_exibicao] = (lbl_ra, nome_exibicao)
 
-                lbl_ra = ctk.CTkLabel(card, text=texto_inicial_ra, font=ctk.CTkFont(size=10), text_color=cor_ra)
-                lbl_ra.pack(pady=(0, 2))
-                self.ra_labels[nome_exibicao] = (lbl_ra, nome_exibicao)
-
-                total_segundos = playtime_db.get(nome_exibicao, 0)
-                horas, minutos = total_segundos // 3600, (total_segundos % 3600) // 60
-                str_tempo = f"⏱️ {horas}h {minutos}m" if horas > 0 else (f"⏱️ {minutos}m" if minutos > 0 else f"⏱️ {self.app._('playtime_new', default='Novo')}")
-
-                lbl_tempo = ctk.CTkLabel(card, text=str_tempo, font=ctk.CTkFont(size=10), text_color="gray")
-                lbl_tempo.pack(pady=(0, 2))
-
-                # Botões
+                # 👇 O BLOCO DE BOTÕES RESTAURADO AQUI!
                 btn_frame = ctk.CTkFrame(card, fg_color="transparent")
                 btn_frame.pack(pady=(2, 10))
-
+                
+                # 1. Botão Estrela (Favoritos)
                 cor_fav = "#FFD700" if nome_exibicao in favs else "gray"
-                btn_fav = ctk.CTkButton(btn_frame, text="⭐", width=26, height=26, fg_color="transparent", text_color=cor_fav, hover_color="#333333")
-                btn_fav.configure(command=lambda b=nome_exibicao, bw=btn_fav: self.toggle_favorito(b, bw))
-                btn_fav.pack(side="left", padx=(0, 5))
-                btn_fav._tooltip = ToolTip(btn_fav, "Adicionar aos Favoritos")
+                btn_fav = ctk.CTkButton(btn_frame, text="⭐", width=28, height=26, fg_color="transparent", border_width=1, text_color=cor_fav, hover_color="#444")
+                btn_fav.configure(command=lambda n=nome_exibicao, btn=btn_fav: self.toggle_favorito(n, btn))
+                btn_fav.pack(side="left", padx=(0, 2))
 
-                tema_atual = self.app.config_atual.get("tema", "Padrão DARK")
-                from launcher import THEMES
-                cor_primaria = THEMES.get(tema_atual, THEMES["Padrão DARK"]).get("primary", "#4169E1")
-                cor_hover = THEMES.get(tema_atual, THEMES["Padrão DARK"]).get("hover", "#1E90FF")
-                cor_texto = THEMES.get(tema_atual, THEMES["Padrão DARK"]).get("text", "white")
-
-                btn_play = ctk.CTkButton(btn_frame, text="▶️ Jogar", width=85, height=26, fg_color=cor_primaria, hover_color=cor_hover, text_color=cor_texto, command=lambda b=nome_exibicao, a=arquivos_jogo: self.selecionar_disco(b, a))
-                btn_play.pack(side="left", padx=(0, 5))
-
-                btn_info = ctk.CTkButton(btn_frame, text="ℹ️", width=26, height=26, fg_color="#555555", hover_color="#777777", command=lambda b=nome_exibicao, d=db_info: self.mostrar_info_jogo(b, d))
-                btn_info.pack(side="left")
-                btn_info._tooltip = ToolTip(btn_info, "Ver Detalhes, Diário e Saves")
+                # 2. Botão Jogar
+                btn_play = ctk.CTkButton(btn_frame, text="▶️ Jogar", width=70, height=26, command=lambda b=nome_exibicao, a=arquivos_jogo: self.selecionar_disco(b, a))
+                btn_play.pack(side="left", padx=2)
+                
+                # 3. Botão Info (Detalhes do Jogo & Trapaças!)
+          # 3. Botão Info (Detalhes do Jogo & Trapaças!)
+                btn_info = ctk.CTkButton(btn_frame, text="ℹ️", width=28, height=26, fg_color="transparent", border_width=1, text_color="white", hover_color="#444", command=lambda n=nome_exibicao, db=db_info: self.mostrar_info_jogo(n, db))
+                btn_info.pack(side="left", padx=(2, 0))
 
                 estado_render["col"] += 1
                 if estado_render["col"] >= max_cols:
@@ -1565,16 +2075,45 @@ class GameLibraryManager:
 
             estado_render["index"] = limite
             
-            # --- LOOP DE PAGINAÇÃO ---
-            # Agenda o próximo lote para 10ms (Isso deixa a UI "respirar" e processar cliques entre os lotes!)
-            if estado_render["index"] < len(jogos_filtrados):
-                self.app.after(10, renderizar_lote)
+            if estado_render["index"] < len(jogos_da_pagina):
+                self.app.after(5, renderizar_lote)
             else:
-                # Terminamos de renderizar a interface inteira! 
+                # ==========================================
+                # 3. RENDERIZAÇÃO DA BARRA DE PAGINAÇÃO
+                # ==========================================
+                frame_pag = ctk.CTkFrame(self.app.frame_grid_games, fg_color="transparent")
+                frame_pag.grid(row=estado_render["row"] + 1, column=0, columnspan=max_cols, pady=20)
+
+                btn_prev = ctk.CTkButton(frame_pag, text="⏪ Anterior", width=100, state="normal" if self.pagina_atual > 0 else "disabled", command=lambda: self.mudar_pagina(-1))
+                btn_prev.pack(side="left", padx=10)
+
+                lbl_pag = ctk.CTkLabel(frame_pag, text=f"Página {self.pagina_atual + 1} de {total_paginas}", font=ctk.CTkFont(weight="bold"))
+                lbl_pag.pack(side="left", padx=20)
+
+                btn_next = ctk.CTkButton(frame_pag, text="Próxima ⏩", width=100, state="normal" if self.pagina_atual < total_paginas - 1 else "disabled", command=lambda: self.mudar_pagina(1))
+                btn_next.pack(side="left", padx=10)
+
                 if self.ra_labels and not filtro:
                     threading.Thread(target=self.sincronizar_retroachievements, args=(usuario, api_key, is_hardcore, install_path), daemon=True).start()
 
-        # Dá a partida no motor paginado (Primeiro lote)
+        # Precisamos atualizar a função carregar_imagem_async para aceitar o tamanho!
+        # Precisamos atualizar a função carregar_imagem_async para aceitar o tamanho!
+        # Precisamos atualizar a função carregar_imagem_async para aceitar o tamanho!
+        def carregar_imagem_async(caminhos_teste, lbl_widget, ref_jogo, xml_nome, tamanho):
+            ctk_img = None
+            for p in caminhos_teste:
+                if os.path.exists(p):
+                    try:
+                        img = Image.open(p).resize((tamanho, tamanho), Image.Resampling.LANCZOS)
+                        ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(tamanho, tamanho))
+                        break
+                    except: pass
+            if ctk_img:
+                self.app.after(0, lambda: lbl_widget.configure(image=ctk_img, text="") if lbl_widget.winfo_exists() else None)
+            else:
+                # 👇 A CURA DA AMPULHETA: Bota um controlezinho genérico se falhar em achar a capa!
+                self.app.after(0, lambda: lbl_widget.configure(text="🎮", font=ctk.CTkFont(size=40)) if lbl_widget.winfo_exists() else None)
+
         renderizar_lote()
 
     def forcar_sincronizacao_flycast(self):
@@ -1671,3 +2210,5 @@ class GameLibraryManager:
                 self.app.after(0, lambda: self.app.mostrar_toast("Scraper Concluído!", "Banco de dados interno gerado magicamente.", "success"))
 
         threading.Thread(target=rotina_ghost, daemon=True).start()
+
+        

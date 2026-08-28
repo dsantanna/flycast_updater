@@ -184,18 +184,16 @@ def iniciar_gui():
             # --- CRIAÇÃO DAS ABAS ---
             self.tabview = ctk.CTkTabview(self)
             self.tabview.pack(pady=5, padx=15, fill="both", expand=True)
-            
             self.tab_jogos = self.tabview.add(self._("tab_games", default="🕹️ Launcher")) 
             self.tab_ra_global = self.tabview.add("🏆 Perfil e Conquistas (Global)")
             self.tab_atualizador = self.tabview.add(self._("tab_cloud", default="🚀 BIOS e Emu"))
             self.tab_config = self.tabview.add(self._("tab_emu", default="⚙️ Configurações"))
             self.tab_qol = self.tabview.add(self._("tab_qol", default="🌟 QoL"))
             self.tab_video = self.tabview.add(self._("tab_vid", default="🖥️ Vídeo"))
+            self.tab_audio = self.tabview.add("🔊 Áudio")
             self.tab_devices = self.tabview.add("🎮 Controles e VMU")
             self.tab_saves = self.tabview.add(self._("tab_saves", default="🔄 Saves"))
-            
             self.tab_tools = self.tabview.add("🛠️ Ferramentas") # <-- ABA CRIADA AQUI!
-            
             self.tab_logs = self.tabview.add(self._("tab_logs", default="📝 Logs"))
             
             # --- CONEXÃO COM O MOTOR MODULAR ---
@@ -207,15 +205,20 @@ def iniciar_gui():
             self.tools_manager = tools.ToolsManager(self) 
             self.radio = radio_flycast.RadioFlycast(self)            
             self.discord = discord_rpc.DiscordManager(self)
+            self.val_dsp = ctk.BooleanVar(value=True)
+            self.val_volume = ctk.IntVar(value=100)
+            self.val_latency = ctk.IntVar(value=64)
+            self.val_backend = ctk.StringVar(value="auto")
             self.after(3000, self.discord.conectar) 
 
             # --- CONSTRUÇÃO DO CONTEÚDO DAS ABAS ---
             self.construir_aba_nuvem()
-            self.construir_aba_jogos()   
+            self.game_manager.construir_interface(self.tab_jogos, ToolTip, self.filtrar_por_sistema)   
             self.ra_manager.construir_aba_global(self.tab_ra_global)
             self.construir_aba_emulador()
             self.construir_aba_qol()
             self.construir_aba_video()
+            self.construir_aba_audio()
             self.devices_manager.construir_aba_dispositivos(self.tab_devices)
             self.construir_aba_saves()
             
@@ -225,7 +228,16 @@ def iniciar_gui():
             self.frame_vmu_switches = ctk.CTkFrame(self.tab_devices, fg_color="transparent")
             self.frame_vmu_switches.pack(fill="x", padx=20, pady=(0, 20))
 
-            self.switch_vmu = ctk.CTkSwitch(self.frame_vmu_switches, text=self._("sw_vmu"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
+            # 👇 NOVA LÓGICA DO SWITCH GLOBAL (Oculta o botão na Área Vermelha!) 👇
+            def ao_trocar_vmu_global():
+                self.salvar_configuracoes_emulador(silencioso=True)
+                if hasattr(self, 'btn_gerenciar_vmu'):
+                    if self.switch_vmu.get() == 1:
+                        self.btn_gerenciar_vmu.pack_forget() # Evapora da Área Vermelha!
+                    else:
+                        self.btn_gerenciar_vmu.pack(side="right", padx=(10, 10)) # Volta para a tela!
+
+            self.switch_vmu = ctk.CTkSwitch(self.frame_vmu_switches, text=self._("sw_vmu"), command=ao_trocar_vmu_global)
             self.switch_vmu.grid(row=0, column=0, sticky="w", padx=(0, 20), pady=10)
 
             self.switch_osd_vmu = ctk.CTkSwitch(self.frame_vmu_switches, text=self._("sw_osd"), command=lambda: self.salvar_configuracoes_emulador(silencioso=True))
@@ -550,7 +562,7 @@ def iniciar_gui():
             
             self.combo_play_behavior = ctk.CTkComboBox(
                 self.scroll_emu, 
-                values=["Utilizar o Flycast Updater Launcher", "Abrir Bigpicture", "Abrir Flycast"], 
+                values=["Flycast Updater Game Launcher", "Modo Bigpicture", "Abrir Emulador Flycast"], 
                 width=300, 
                 state="readonly", 
                 command=lambda x: self.salvar_estado_atual()
@@ -711,78 +723,7 @@ def iniciar_gui():
             self.log("📺 Inicializando interface Big Picture (Tela Cheia)...")
             # Salva a referência da janela para podermos minimizá-la depois!
             self.janela_bp = bigpicture.ModoBigPicture(self, self.game_manager)
-
-        def construir_aba_jogos(self):
-            self.label_games_title = ctk.CTkLabel(self.tab_jogos, text=self._("lbl_games_title"), font=ctk.CTkFont(size=16, weight="bold"))
-            self.label_games_title.pack(anchor="w", padx=10, pady=(10, 2))
-            self.label_games_desc = ctk.CTkLabel(self.tab_jogos, text=self._("lbl_games_desc"), text_color="gray", justify="left")
-            self.label_games_desc.pack(anchor="w", padx=10, pady=(0, 5))
-
-            self.frame_dashboard = ctk.CTkFrame(self.tab_jogos, fg_color="#1a1a1a", corner_radius=10)
-            self.frame_dashboard.pack(fill="x", padx=10, pady=(0, 5))
-            self.frame_dashboard.columnconfigure(0, weight=1)
-            self.frame_dashboard.columnconfigure(1, weight=1)
-
-            self.lbl_dash_tempo = ctk.CTkLabel(self.frame_dashboard, text="⏱️ Tempo Total: 0h 0m", font=ctk.CTkFont(size=14, weight="bold"), text_color="#1E90FF")
-            self.lbl_dash_tempo.grid(row=0, column=0, pady=10, padx=10, sticky="w")
-
-            self.lbl_dash_ra = ctk.CTkLabel(self.frame_dashboard, text="🏆 Total RA: 0 pts", font=ctk.CTkFont(size=14, weight="bold"), text_color="#00FF7F")
-            self.lbl_dash_ra.grid(row=0, column=1, pady=10, padx=10, sticky="e")
-
-            self.frame_games_top = ctk.CTkFrame(self.tab_jogos, fg_color="transparent")
-            self.frame_games_top.pack(fill="x", padx=10, pady=0)
-
-            self.switch_cheats = ctk.CTkSwitch(self.frame_games_top, text=self._("sw_cheats"), command=self.qol_manager.ao_trocar_cheats)
-            self.switch_cheats.pack(side="left")
-
-            # --- NOVA BARRA DE FILTROS POR SISTEMA ---
-            self.filtro_sistema_atual = "todos" # Estado inicial do filtro
-            
-            self.frame_filtros_sys = ctk.CTkFrame(self.frame_games_top, fg_color="transparent")
-            self.frame_filtros_sys.pack(side="left", padx=(20, 0))
-
-            self.btn_sys_todos = ctk.CTkButton(self.frame_filtros_sys, text="Todos", width=60, height=26, font=ctk.CTkFont(weight="bold"), command=lambda: self.filtrar_por_sistema("todos"))
-            self.btn_sys_todos.pack(side="left", padx=2)
-
-            self.btn_sys_dc = ctk.CTkButton(self.frame_filtros_sys, text="Dreamcast", width=80, height=26, fg_color="transparent", border_width=1, text_color="gray", command=lambda: self.filtrar_por_sistema("dreamcast"))
-            self.btn_sys_dc.pack(side="left", padx=2)
-
-            self.btn_sys_arcade = ctk.CTkButton(self.frame_filtros_sys, text="Arcade", width=70, height=26, fg_color="transparent", border_width=1, text_color="gray", command=lambda: self.filtrar_por_sistema("arcade"))
-            self.btn_sys_arcade.pack(side="left", padx=2)
-            # ----------------------------------------
-
-            self.btn_filter_fav = ctk.CTkButton(self.frame_games_top, text="⭐", width=30, fg_color="transparent", border_width=1, text_color="gray", command=self.game_manager.toggle_filtro_favoritos)
-            self.btn_filter_fav.pack(side="left", padx=(15, 0))
-
-            self.btn_roleta = ctk.CTkButton(self.frame_games_top, text="🎲", width=30, fg_color="transparent", border_width=1, text_color="#FFAC1C", hover_color="#CC8A16", command=self.game_manager.sortear_jogo)
-            self.btn_roleta.pack(side="left", padx=(10, 0))
-            self.btn_roleta._tooltip = ToolTip(self.btn_roleta, "Estou com Sorte (Roleta)")
-
-            # --- BOTÃO DOS ATALHOS STEAM ---
-            self.btn_steam = ctk.CTkButton(self.frame_games_top, text="☁️ Steam", width=60, fg_color="transparent", border_width=1, text_color="#1E90FF", hover_color="#4169E1", command=self.game_manager.exportar_para_steam)
-            self.btn_steam.pack(side="left", padx=(10, 0))
-            self.btn_steam._tooltip = ToolTip(self.btn_steam, "Exportar Jogos para a Biblioteca Steam")
-
-            # --- BOTÃO DOS ATALHOS DESKTOP ---
-            self.btn_desktop = ctk.CTkButton(self.frame_games_top, text="🖥️ Desktop", width=70, fg_color="transparent", border_width=1, text_color="#00FF7F", hover_color="#2E8B57", command=self.game_manager.exportar_para_desktop)
-            self.btn_desktop.pack(side="left", padx=(10, 0))
-            self.btn_desktop._tooltip = ToolTip(self.btn_desktop, "Criar atalhos na Área de Trabalho")
-
-            self.btn_scan_games = ctk.CTkButton(self.frame_games_top, text=self._("btn_scan_games"), width=120, command=self.game_manager.escanear_jogos)
-            self.btn_scan_games.pack(side="right", padx=(10, 0))
-
-            # --- O NOVO BOTÃO BUSCAR CAPAS (MODO GHOST) ---
-            self.btn_buscar_capas = ctk.CTkButton(self.frame_games_top, text="🖼️ Buscar Capas", width=120, fg_color="#8B008B", hover_color="#5C005C", font=ctk.CTkFont(weight="bold"), command=self.game_manager.forcar_sincronizacao_flycast)
-            self.btn_buscar_capas.pack(side="right", padx=(10, 0))
-            self.btn_buscar_capas._tooltip = ToolTip(self.btn_buscar_capas, "Inicia o Flycast em segundo plano para extrair a base de dados.")
-
-            self.entry_busca_jogos = ctk.CTkEntry(self.frame_games_top, placeholder_text="🔍 Buscar jogo...", width=160)
-            self.entry_busca_jogos.pack(side="right")
-            self.entry_busca_jogos.bind("<KeyRelease>", lambda e: self.game_manager.escanear_jogos())
-
-            self.frame_grid_games = ctk.CTkScrollableFrame(self.tab_jogos, width=580, height=330, corner_radius=10)
-            self.frame_grid_games.pack(fill="both", expand=True, padx=10, pady=(5, 5))
-
+        
         def adicionar_diretorio_roms(self):
             dir_escolhido = ctk.filedialog.askdirectory()
             if dir_escolhido:
@@ -1099,6 +1040,104 @@ def iniciar_gui():
             self.btn_driver = ctk.CTkButton(self.frame_hw, text=self._("btn_driver"), width=200, height=28, fg_color="#4169E1", hover_color="#1E90FF", command=self.abrir_site_driver, state="disabled")
             self.btn_driver.pack(anchor="w", padx=10, pady=(0, 5))
 
+        # CONSTRUÇÃO DA TELA DE ÁUDIO E MÉTODOS
+        def construir_aba_audio(self):
+            self.label_audio_title = ctk.CTkLabel(self.tab_audio, text="🔊 Configurações de Áudio", font=ctk.CTkFont(size=16, weight="bold"))
+            self.label_audio_title.pack(anchor="w", padx=10, pady=(15, 5))
+
+            self.label_audio_desc = ctk.CTkLabel(self.tab_audio, text="Controle o processamento e volume nativo do emulador de forma global.", text_color="gray", justify="left")
+            self.label_audio_desc.pack(anchor="w", padx=10, pady=(0, 15))
+
+            frame_opts = ctk.CTkFrame(self.tab_audio, fg_color="transparent")
+            frame_opts.pack(fill="x", padx=10, pady=5)
+
+            # 1. DSP (Processamento Digital)
+            self.switch_dsp = ctk.CTkSwitch(frame_opts, text="Ativar DSP (Melhora a fidelidade sonora)", variable=self.val_dsp, font=ctk.CTkFont(weight="bold"), command=self.salvar_configuracoes_audio)
+            self.switch_dsp.pack(anchor="w", pady=(10, 20))
+
+            # 2. Volume Global
+            frame_vol = ctk.CTkFrame(frame_opts, fg_color="transparent")
+            frame_vol.pack(fill="x", pady=(5, 5))
+            
+            self.lbl_vol = ctk.CTkLabel(frame_vol, text=f"Nível de Volume: {self.val_volume.get()}%", font=ctk.CTkFont(weight="bold"))
+            self.lbl_vol.pack(anchor="w")
+            
+            self.slider_vol = ctk.CTkSlider(frame_opts, from_=0, to=100, variable=self.val_volume, command=self.atualizar_label_volume)
+            self.slider_vol.pack(fill="x", pady=(0, 20))
+            # O bind faz ele salvar no emu.cfg APENAS quando você solta o clique do mouse!
+            self.slider_vol.bind("<ButtonRelease-1>", lambda e: self.salvar_configuracoes_audio())
+
+            # 3. Latência (Buffer)
+            frame_lat = ctk.CTkFrame(frame_opts, fg_color="transparent")
+            frame_lat.pack(fill="x", pady=(5, 5))
+            
+            self.lbl_lat = ctk.CTkLabel(frame_lat, text=f"Latência (Atraso): {self.val_latency.get()} ms", font=ctk.CTkFont(weight="bold"))
+            self.lbl_lat.pack(anchor="w")
+            
+            self.slider_lat = ctk.CTkSlider(frame_opts, from_=12, to=512, number_of_steps=500, variable=self.val_latency, command=self.atualizar_label_latencia)
+            self.slider_lat.pack(fill="x", pady=(0, 20))
+            self.slider_lat.bind("<ButtonRelease-1>", lambda e: self.salvar_configuracoes_audio())
+
+            self.frame_divisor_audio = ctk.CTkFrame(self.tab_audio, height=2, fg_color="#444")
+            self.frame_divisor_audio.pack(fill="x", padx=10, pady=(10, 15))
+
+            # 4. Controlador de Áudio (Backend)
+            frame_backend = ctk.CTkFrame(self.tab_audio, fg_color="transparent")
+            frame_backend.pack(fill="x", padx=10, pady=5)
+            
+            ctk.CTkLabel(frame_backend, text="Controlador de Áudio:", font=ctk.CTkFont(weight="bold")).pack(side="left")
+            
+            opcoes_backend = ["auto", "directsound", "sdl2", "null"]
+            self.combo_backend = ctk.CTkComboBox(frame_backend, values=opcoes_backend, variable=self.val_backend, state="readonly", width=180, command=lambda x: self.salvar_configuracoes_audio())
+            self.combo_backend.pack(side="right")
+            self.combo_backend._tooltip = ToolTip(self.combo_backend, "DICA MUTE: Escolha 'null' para silenciar o emulador completamente na raiz.")
+
+        def atualizar_label_volume(self, v):
+            self.lbl_vol.configure(text=f"Nível de Volume: {int(v)}%")
+
+        def atualizar_label_latencia(self, v):
+            self.lbl_lat.configure(text=f"Latência (Atraso): {int(v)} ms")
+
+        def salvar_configuracoes_audio(self):
+            install_path = self.entry_path.get()
+            if not install_path or not os.path.exists(install_path): return
+            
+            caminhos_cfg = [os.path.join(install_path, "emu.cfg"), os.path.join(install_path, "data", "emu.cfg")]
+            cfg_editado = False
+            
+            import configparser
+            for p in caminhos_cfg:
+                if os.path.exists(p):
+                    try:
+                        config = configparser.RawConfigParser(strict=False)
+                        config.optionxform = str
+                        config.read(p, encoding='utf-8')
+                        
+                        # 👇 PROTEÇÃO: Garante que as abas existem no arquivo antes de injetar
+                        if not config.has_section('config'):
+                            config.add_section('config')
+                        if not config.has_section('audio'):
+                            config.add_section('audio')
+                            
+                        config.set('config', 'aica.DSPEnabled', 'yes' if self.val_dsp.get() else 'no')
+                        config.set('config', 'aica.Volume', str(self.val_volume.get()))
+                        # A Engenharia Reversa: Converte Milissegundos (Ex: 111ms) para Samples (4895)
+                        buffer_calculado = int(self.val_latency.get() * 44.1)
+                        config.set('config', 'aica.BufferSize', str(buffer_calculado))
+                        # O backend continua morando na aba de audio isolada
+                        config.set('audio', 'backend', self.val_backend.get())
+                        
+                        with open(p, 'w', encoding='utf-8') as f:
+                            config.write(f, space_around_delimiters=True)
+
+                        cfg_editado = True
+                    except Exception as e:
+                        self.log(f"⚠️ Erro ao salvar configs de áudio em {p}: {e}")
+            
+            if cfg_editado:
+                self.log("🔊 Áudio: Configurações injetadas no emu.cfg silenciosamente.")
+                if hasattr(self, 'sfx'): self.sfx.play("nav")
+                
         def construir_aba_saves(self):
             self.label_cloud = ctk.CTkLabel(self.tab_saves, text=self._("lbl_cloud"), font=ctk.CTkFont(weight="bold", size=14))
             self.label_cloud.pack(anchor="w", padx=10, pady=(15, 2))
@@ -1504,7 +1543,21 @@ def iniciar_gui():
                             if config.get('audio', 'VmuSound', fallback='no').lower() == 'yes': 
                                 if hasattr(self, 'switch_vmu_sound'): self.switch_vmu_sound.select()
                             
-                        if config.has_section('config'):
+                            if hasattr(self, 'val_backend'):
+                                self.val_backend.set(config.get('audio', 'backend', fallback='auto'))
+                            
+                            # LÊ O VOLUME E O DSP DO EMU.CFG 
+                            if hasattr(self, 'val_dsp'):
+                                self.val_dsp.set(config.get('config', 'aica.DSPEnabled', fallback='no').lower() == 'yes')
+                            if hasattr(self, 'val_volume'):
+                                self.val_volume.set(int(config.get('config', 'aica.Volume', fallback='100')))
+                                if hasattr(self, 'lbl_vol'): self.lbl_vol.configure(text=f"Nível de Volume: {self.val_volume.get()}%")
+                            if hasattr(self, 'val_latency'):
+                                raw_buffer = int(config.get('config', 'aica.BufferSize', fallback='2822'))
+                                lat_ms = int(round(raw_buffer / 44.1))
+                                self.val_latency.set(lat_ms)
+                                if hasattr(self, 'lbl_lat'): self.lbl_lat.configure(text=f"Latência (Atraso): {self.val_latency.get()} ms")
+                            
                             if config.has_option('config', 'pvr.rend'):
                                 api_rev_map = {"0": "OpenGL", "1": "DirectX 9", "2": "DirectX 11", "4": "Vulkan"}
                                 if hasattr(self, 'api_var'): self.api_var.set(api_rev_map.get(config.get('config', 'pvr.rend'), "DirectX 11"))
@@ -1534,6 +1587,12 @@ def iniciar_gui():
                                             break
                             except Exception: pass
                         self.log(f"✅ emu.cfg carregado e interface atualizada com sucesso.")
+                        # 👇 GARANTE QUE O BOTÃO NASÇA OCULTO SE O EMULADOR ESTIVER CONFIGURADO ASSIM 👇
+                        if hasattr(self, 'btn_gerenciar_vmu') and hasattr(self, 'switch_vmu'):
+                            if self.switch_vmu.get() == 1:
+                                self.btn_gerenciar_vmu.pack_forget()
+                        else:
+                            self.btn_gerenciar_vmu.pack(side="right", padx=(10, 10))
                         break
                     except Exception as e: 
                         self.log(f"⚠️ Erro ao carregar emu.cfg: {e}")

@@ -4,11 +4,13 @@ import json
 import time
 import customtkinter as ctk
 from PIL import Image
+
 # --- IMPORTS DE OUTROS MÓDULOS DO PROJETO ---
 import pygame 
 import radio_flycast
 import video_snaps
 import dc_gamesdb
+
 # --- A MÁGICA SECRETA DO WINDOWS PARA EVITAR ENTRADA DUPLA NO XIMPUT ---
 os.environ["SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"] = "1"
 
@@ -21,30 +23,23 @@ class ModoBigPicture(ctk.CTkToplevel):
         self.radio = radio_flycast.RadioFlycast()
         self.radio.carregar_playlist(self.app.entry_path.get())
         self.radio.play()
+        self.radio.is_playing = True
+        self.radio.is_paused = False
         
         self.jogos = sorted(list(self.game_manager.jogos_agrupados_cache.keys()))
         self.index_atual = 0
-        self.index_menu = 0 # 0=Play, 1=Manual, 2=Conquistas, 3=Netplay
+        self.index_menu = 0 # 0=Play, 1=VMU, 2=Manual, 3=Conquistas, 4=Netplay
         self.jogo_em_execucao = False 
         
         self.tipo_controle = "XBOX"
         self.is_dinput_ps = False
+        self.pil_atual = None
+        self.fade_after_id = None
         
         if not self.jogos:
             self.destroy()
             return
             
-        # --- MÁGICA: INICIA NO MONITOR SELECIONADO NA ABA VÍDEO ---
-        monitor_str = self.app.combo_monitor.get() if hasattr(self.app, 'combo_monitor') else ""
-        if hasattr(self.app, 'lista_monitores'):
-            for m in self.app.lista_monitores:
-                if m['nome'] == monitor_str:
-                    self.geometry(f"+{m['left']}+{m['top']}")
-                    self.update_idletasks() # Força a interface a se posicionar antes do Fullscreen!
-                    break
-        # -----------------------------------------------------------
-        
-        # --- MÁGICA DO MULTI-MONITOR BLINDADA ---
         self.title("Big Blue - TV Mode")
         self.configure(fg_color="#050508")
         self.attributes("-topmost", True)
@@ -56,17 +51,16 @@ class ModoBigPicture(ctk.CTkToplevel):
             for m in self.app.lista_monitores:
                 if m['nome'] == monitor_str:
                     try:
-                        # Extrai a resolução exata do nome "Monitor 2 (1920x1080)"
                         dim = m['nome'].split('(')[1].split(')')[0]
                         w, h = dim.split('x')
                         self.geometry(f"{w}x{h}+{m['left']}+{m['top']}")
-                        self.overrideredirect(True) # Arranca as bordas e domina o monitor escolhido!
+                        self.overrideredirect(True)
                         alinhado_secundario = True
                     except: pass
                     break
         
         if not alinhado_secundario:
-            self.attributes("-fullscreen", True) # Fallback seguro para o Monitor 1
+            self.attributes("-fullscreen", True)
         
         self.bind("<Escape>", lambda e: self.sair())
         self.bind("<Right>", self.proximo_jogo)
@@ -97,30 +91,32 @@ class ModoBigPicture(ctk.CTkToplevel):
             
         self.construir_interface()
 
-        # --- INIT DO MOTOR DE VÍDEO ---
         self.video_manager = video_snaps.VideoSnapManager(self.lbl_capa, delay_ms=800)
-        # Mapeia os botões para o Joystick
-        self.botoes_menu = [self.btn_play, self.btn_manual, self.btn_conquistas, self.btn_netplay]
+        self.botoes_menu = [self.btn_play, self.btn_vmu, self.btn_manual, self.btn_conquistas, self.btn_netplay]
         
         self.atualizar_tela()
         self.focus_force()
         self.verificar_controle()
 
-    # --- MÁGICA DO CONTROLE (MENU + BLOQUEIO DE FANTASMAS) ---
     def verificar_controle(self):
         if not self.leitura_controle_ativa or not self.winfo_exists(): return
-        
         agora = time.time()
         
-        # --- A MAGIA: I-FRAMES DE INVENCIBILIDADE ---
-        # Se a interface acabou de acordar, destrói qualquer input residual (Ghost Input)
+        # 👇 MOTOR DA PLAYLIST AUTOMÁTICA (Auto-DJ) 👇
+        try:
+            # Se a rádio deveria estar tocando, mas o motor de áudio reporta silêncio...
+            if self.radio.is_playing and not self.radio.is_paused:
+                if not pygame.mixer.music.get_busy():
+                    self.btn_radio_next() # Puxa a próxima faixa e atualiza o painel!
+        except Exception: pass
+        # 👆 -------------------------------------- 👆
+
         if agora < getattr(self, 'tempo_desbloqueio', 0):
             try: pygame.event.clear()
             except: pass
             self.after(50, self.verificar_controle)
             return
 
-        # O FANTASMA EXORCIZADO: Se o jogo tá rodando, descartamos a fila.
         if self.jogo_em_execucao or not self.winfo_viewable():
             try: pygame.event.clear()
             except: pass
@@ -165,16 +161,15 @@ class ModoBigPicture(ctk.CTkToplevel):
                         elif event.button == 4: 
                             novo_vol = max(0.0, self.slider_volume.get() - 0.1)
                             self.slider_volume.set(novo_vol)
-                            self.mudar_volume(novo_vol)
+                            self.radio.set_volume(novo_vol)
                         elif event.button == 5: 
                             novo_vol = min(1.0, self.slider_volume.get() + 0.1)
                             self.slider_volume.set(novo_vol)
-                            self.mudar_volume(novo_vol)
+                            self.radio.set_volume(novo_vol)
             except Exception: pass
             
         self.after(50, self.verificar_controle)
 
-    # --- NAVEGAÇÃO DO MENU LATERAL ---
     def navegar_menu(self, direcao):
         if hasattr(self.app, 'sfx'): self.app.sfx.play("hover")
         max_idx = len(self.botoes_menu) - 1
@@ -183,61 +178,95 @@ class ModoBigPicture(ctk.CTkToplevel):
             if self.index_menu < 0: self.index_menu = max_idx
             elif self.index_menu > max_idx: self.index_menu = 0
             
-            # Pula o Manual se ele estiver desabilitado!
-            if self.index_menu == 1 and self.botoes_menu[1].cget("state") == "disabled":
+            if self.index_menu == 2 and self.botoes_menu[2].cget("state") == "disabled":
                 continue
             break
         self.atualizar_foco_menu()
         
     def atualizar_foco_menu(self):
-        cores_normais = ["#228B22", "#4169E1", "#8B008B", "#FF4500"]
-        cores_hover = ["#32CD32", "#1E90FF", "#9400D3", "#FF6347"]
+        # O Motor do Glow Tátil (Bordas luminosas no botão focado)
+        cores_normais = ["#228B22", "#555555", "#4169E1", "#8B008B", "#FF4500"]
+        cores_hover = ["#32CD32", "#777777", "#1E90FF", "#9400D3", "#FF6347"]
         
         for i, btn in enumerate(self.botoes_menu):
-            is_disabled = (i == 1 and btn.cget("state") == "disabled")
+            is_disabled = (i == 2 and btn.cget("state") == "disabled")
             if is_disabled:
-                btn.configure(fg_color="#333333", border_width=0)
+                btn.configure(fg_color="#1a1a2e", border_width=0, text_color="#444455")
             else:
                 if i == self.index_menu:
-                    btn.configure(fg_color=cores_hover[i], border_width=3, border_color="white")
+                    btn.configure(fg_color=cores_hover[i], border_width=3, border_color="#FFFFFF", text_color="#FFFFFF")
                 else:
-                    btn.configure(fg_color=cores_normais[i], border_width=0)
+                    cor_base = cores_normais[i]
+                    if i == 1 and "Individual" in btn.cget("text"):
+                        cor_base = "#CD853F"
+                    btn.configure(fg_color=cor_base, border_width=1, border_color="#111111", text_color="#CCCCCC")
 
     def executar_acao_menu(self):
         if self.index_menu == 0: self.iniciar_jogo()
-        elif self.index_menu == 1: self.abrir_manual()
-        elif self.index_menu == 2: self.abrir_conquistas()
-        elif self.index_menu == 3: self.abrir_netplay()
+        elif self.index_menu == 1: self.toggle_vmu()
+        elif self.index_menu == 2: self.abrir_manual()
+        elif self.index_menu == 3: self.abrir_conquistas()
+        elif self.index_menu == 4: self.abrir_netplay()
+
+    def toggle_vmu(self):
+        nome_jogo = self.jogos[self.index_atual]
+        db_ra_path = os.path.join(self.app.entry_path.get(), "RAlocal.db")
+        ra_db = {}
+        if os.path.exists(db_ra_path):
+            try:
+                with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+            except: pass
+            
+        per_game_db = ra_db.setdefault("_PerGameVideo_", {})
+        config_jogo = per_game_db.get(nome_jogo, {})
+        
+        atual = config_jogo.get("vmu_individual", False)
+        novo_estado = not atual
+        config_jogo["vmu_individual"] = novo_estado
+        
+        if novo_estado:
+            config_jogo["enabled"] = True
+            
+        per_game_db[nome_jogo] = config_jogo
+        try:
+            with open(db_ra_path, "w", encoding="utf-8") as f: json.dump(ra_db, f, indent=4)
+            if hasattr(self.app, 'sfx'): self.app.sfx.play("save")
+        except: pass
+        
+        self.atualizar_tela()
 
     def simplificar(self, texto): return re.sub(r'[^a-z0-9]', '', str(texto).lower())
 
     def construir_interface(self):
         self.frame_main = ctk.CTkFrame(self, fg_color="transparent")
-        self.frame_main.pack(fill="both", expand=True, padx=50, pady=50)
+        self.frame_main.pack(fill="both", expand=True, padx=50, pady=(40, 20))
         
         self.frame_esq = ctk.CTkFrame(self.frame_main, fg_color="transparent", width=450)
         self.frame_esq.pack(side="left", fill="y", padx=(0, 40))
         
         self.lbl_capa = ctk.CTkLabel(self.frame_esq, text="")
-        self.lbl_capa.pack(pady=(20, 20))
+        self.lbl_capa.pack(pady=(10, 20))
         
-        self.btn_play = ctk.CTkButton(self.frame_esq, text="▶️ JOGAR", font=ctk.CTkFont(weight="bold", size=22), height=50, fg_color="#228B22", hover_color="#32CD32", command=self.iniciar_jogo)
+        self.btn_play = ctk.CTkButton(self.frame_esq, text="▶️ JOGAR", font=ctk.CTkFont(weight="bold", size=22), height=50, fg_color="#228B22", command=self.iniciar_jogo)
         self.btn_play.pack(fill="x", padx=20, pady=(0, 15))
 
-        self.btn_manual = ctk.CTkButton(self.frame_esq, text="📖 Ler Manual", font=ctk.CTkFont(weight="bold", size=18), height=45, fg_color="#4169E1", hover_color="#1E90FF", command=self.abrir_manual)
-        self.btn_manual.pack(fill="x", padx=20)
+        self.btn_vmu = ctk.CTkButton(self.frame_esq, text="💾 VMU: Global", font=ctk.CTkFont(weight="bold", size=18), height=45, fg_color="#555555", command=self.toggle_vmu)
+        self.btn_vmu.pack(fill="x", padx=20, pady=(0, 15))
 
-        self.btn_conquistas = ctk.CTkButton(self.frame_esq, text="🏆 Conquistas", font=ctk.CTkFont(weight="bold", size=18), height=45, fg_color="#8B008B", hover_color="#9400D3", command=self.abrir_conquistas)
-        self.btn_conquistas.pack(fill="x", padx=20, pady=(15, 0))
+        self.btn_manual = ctk.CTkButton(self.frame_esq, text="📖 Ler Manual", font=ctk.CTkFont(weight="bold", size=18), height=45, fg_color="#4169E1", command=self.abrir_manual)
+        self.btn_manual.pack(fill="x", padx=20, pady=(0, 15))
 
-        self.btn_netplay = ctk.CTkButton(self.frame_esq, text="🌐 Netplay", font=ctk.CTkFont(weight="bold", size=18), height=45, fg_color="#FF4500", hover_color="#FF6347", command=self.abrir_netplay)
-        self.btn_netplay.pack(fill="x", padx=20, pady=(15, 0))
+        self.btn_conquistas = ctk.CTkButton(self.frame_esq, text="🏆 Conquistas", font=ctk.CTkFont(weight="bold", size=18), height=45, fg_color="#8B008B", command=self.abrir_conquistas)
+        self.btn_conquistas.pack(fill="x", padx=20, pady=(0, 15))
+
+        self.btn_netplay = ctk.CTkButton(self.frame_esq, text="🌐 Netplay", font=ctk.CTkFont(weight="bold", size=18), height=45, fg_color="#FF4500", command=self.abrir_netplay)
+        self.btn_netplay.pack(fill="x", padx=20)
 
         self.frame_dir = ctk.CTkFrame(self.frame_main, fg_color="transparent")
         self.frame_dir.pack(side="right", fill="both", expand=True)
         
         self.lbl_nome = ctk.CTkLabel(self.frame_dir, text="", font=ctk.CTkFont(size=52, weight="bold"), text_color="#FFFFFF", anchor="w")
-        self.lbl_nome.pack(fill="x", pady=(20, 5))
+        self.lbl_nome.pack(fill="x", pady=(10, 5))
 
         self.frame_meta = ctk.CTkFrame(self.frame_dir, fg_color="transparent")
         self.frame_meta.pack(fill="x", pady=(0, 15))
@@ -254,40 +283,78 @@ class ModoBigPicture(ctk.CTkToplevel):
         self.lbl_meta_rating = ctk.CTkLabel(self.frame_meta, text="", font=ctk.CTkFont(size=14), text_color="#FF4500")
         self.lbl_meta_rating.pack(side="left")
 
-        self.frame_ra = ctk.CTkFrame(self.frame_dir, fg_color="#1a1a2e", corner_radius=10)
+        self.frame_ra = ctk.CTkFrame(self.frame_dir, fg_color="#12121A", corner_radius=10, border_width=1, border_color="#2a2a3a")
         self.frame_ra.pack(fill="x", pady=(0, 20))
         self.lbl_ra = ctk.CTkLabel(self.frame_ra, text="🏆 Buscando Conquistas...", font=ctk.CTkFont(size=18, weight="bold"), text_color="#FFD700")
         self.lbl_ra.pack(pady=15, padx=20, anchor="w")
         
-        self.textbox_desc = ctk.CTkTextbox(self.frame_dir, font=ctk.CTkFont(size=18), text_color="#CCCCCC", fg_color="#0F0F16", wrap="word")
-        self.textbox_desc.pack(fill="both", expand=True, pady=(0, 20))
+        self.textbox_desc = ctk.CTkTextbox(self.frame_dir, font=ctk.CTkFont(size=18), text_color="#CCCCCC", fg_color="#08080C", wrap="word", border_width=1, border_color="#1E1E28")
+        self.textbox_desc.pack(fill="both", expand=True, pady=(0, 10))
         
-        self.frame_rodape = ctk.CTkFrame(self, fg_color="#0F0F16", height=80, corner_radius=0)
+        # --- RODA PÉ E RÁDIO LUXO ---
+        self.frame_rodape = ctk.CTkFrame(self, fg_color="#08080C", height=90, corner_radius=0, border_width=1, border_color="#1E1E28")
         self.frame_rodape.pack(side="bottom", fill="x")
         
-        # MÁGICA: Instruções atualizadas para o novo menu e controle de volume!
         if self.tipo_controle == "PS": instrucoes = "⬅️ ➡️ Jogos   |   ⬆️ ⬇️ Menu   |   L1 / R1 Vol.   |   ✖ Confirma   |   ◯ Sair"
         elif self.tipo_controle == "8BITDO": instrucoes = "⬅️ ➡️ Jogos   |   ⬆️ ⬇️ Menu   |   L1 / R1 Vol.   |   Ⓑ Confirma   |   Ⓐ Sair"
         else: instrucoes = "⬅️ ➡️ Jogos   |   ⬆️ ⬇️ Menu   |   LB / RB Vol.   |   Ⓐ Confirma   |   Ⓑ Sair"
         
-        self.lbl_instrucoes = ctk.CTkLabel(self.frame_rodape, text=instrucoes, font=ctk.CTkFont(size=16, weight="bold"), text_color="#888888")
+        self.lbl_instrucoes = ctk.CTkLabel(self.frame_rodape, text=instrucoes, font=ctk.CTkFont(size=14, weight="bold"), text_color="#555566")
         self.lbl_instrucoes.pack(side="left", padx=50, pady=25)
         
-        self.frame_radio = ctk.CTkFrame(self.frame_rodape, fg_color="transparent")
-        self.frame_radio.pack(side="right", padx=50, pady=20)
+        # Dashboard Rádio Premium
+        self.frame_radio = ctk.CTkFrame(self.frame_rodape, fg_color="#12121A", corner_radius=15, border_width=1, border_color="#2a2a3a")
+        self.frame_radio.pack(side="right", padx=50, pady=15, ipadx=10, ipady=2)
         
-        ctk.CTkButton(self.frame_radio, text="⏮", width=40, command=self.radio.prev_track, fg_color="#333333").pack(side="left", padx=5)
-        ctk.CTkButton(self.frame_radio, text="▶️ Play", width=60, command=self.radio.play, fg_color="#228B22").pack(side="left", padx=5)
-        ctk.CTkButton(self.frame_radio, text="⏸ Pause", width=60, command=self.radio.pause, fg_color="#FF8C00").pack(side="left", padx=5)
-        ctk.CTkButton(self.frame_radio, text="⏭", width=40, command=self.radio.next_track, fg_color="#333333").pack(side="left", padx=5)
+        self.lbl_radio_track = ctk.CTkLabel(self.frame_radio, text="🎵 " + self.radio.obter_titulo_atual(), font=ctk.CTkFont(size=12, weight="bold"), text_color="#00BFFF")
+        self.lbl_radio_track.pack(side="top", pady=(2, 0))
         
-        ctk.CTkLabel(self.frame_radio, text="🔊", font=ctk.CTkFont(size=20)).pack(side="left", padx=(20, 5))
-        self.slider_volume = ctk.CTkSlider(self.frame_radio, from_=0.0, to=1.0, width=120, command=lambda v: self.radio.set_volume(v))
-        self.slider_volume.set(0.5)
+        frame_radio_btns = ctk.CTkFrame(self.frame_radio, fg_color="transparent")
+        frame_radio_btns.pack(side="top", pady=(0, 2))
+        
+        ctk.CTkButton(frame_radio_btns, text="⏮", width=30, height=24, fg_color="transparent", hover_color="#222", command=self.btn_radio_prev).pack(side="left", padx=2)
+        
+        # O botão Play agora brilha verde e vermelho dependendo do estado!
+        estado_btn = "⏸" if self.radio.is_playing and not self.radio.is_paused else "▶"
+        cor_txt_btn = "#00FF7F" if estado_btn == "⏸" else "#FF4C4C"
+        
+        self.btn_r_play = ctk.CTkButton(frame_radio_btns, text=estado_btn, width=30, height=24, fg_color="transparent", hover_color="#222", text_color=cor_txt_btn, command=self.btn_radio_play_pause)
+        self.btn_r_play.pack(side="left", padx=2)
+        
+        ctk.CTkButton(frame_radio_btns, text="⏭", width=30, height=24, fg_color="transparent", hover_color="#222", command=self.btn_radio_next).pack(side="left", padx=2)
+        
+        ctk.CTkLabel(frame_radio_btns, text="🔊", font=ctk.CTkFont(size=16)).pack(side="left", padx=(15, 5))
+        self.slider_volume = ctk.CTkSlider(frame_radio_btns, from_=0.0, to=1.0, width=100, height=12, progress_color="#00BFFF", button_color="#00BFFF", command=lambda v: self.radio.set_volume(v))
+        self.slider_volume.set(self.radio.volume_atual)
         self.slider_volume.pack(side="left", padx=(0, 5))
 
-    def mudar_volume(self, valor):
-        self.radio.set_volume(valor)
+    # --- FUNÇÕES DE CONTROLE DA RÁDIO DA INTERFACE ---
+    def atualizar_label_radio(self):
+        titulo = self.radio.obter_titulo_atual()
+        nome_curto = titulo[:25] + "..." if len(titulo) > 25 else titulo
+        self.lbl_radio_track.configure(text=f"🎵 {nome_curto}")
+        
+    def btn_radio_prev(self):
+        self.radio.prev_track()
+        self.atualizar_label_radio()
+        self.btn_r_play.configure(text="⏸", text_color="#00FF7F")
+        
+    def btn_radio_next(self):
+        self.radio.next_track()
+        self.atualizar_label_radio()
+        self.btn_r_play.configure(text="⏸", text_color="#00FF7F")
+
+    def btn_radio_play_pause(self):
+        if getattr(self.radio, 'is_paused', False) or not self.radio.is_playing:
+            self.radio.play()
+            self.radio.is_paused = False
+            self.radio.is_playing = True
+            self.btn_r_play.configure(text="⏸", text_color="#00FF7F")
+        else:
+            self.radio.pause()
+            self.radio.is_paused = True
+            self.btn_r_play.configure(text="▶", text_color="#FF4C4C")
+        self.atualizar_label_radio()
 
     def proximo_jogo(self, event=None):
         self.index_atual = (self.index_atual + 1) % len(self.jogos)
@@ -298,6 +365,28 @@ class ModoBigPicture(ctk.CTkToplevel):
         self.index_atual = (self.index_atual - 1) % len(self.jogos)
         if hasattr(self.app, 'sfx'): self.app.sfx.play("hover")
         self.atualizar_tela()
+
+    # --- O MOTOR DE FADE-IN CIRÚRGICO ---
+    def iniciar_fade(self, img_antiga, img_nova, step):
+        # Cancela um fade anterior se o jogador apertar pro lado muito rápido
+        if hasattr(self, 'fade_after_id') and self.fade_after_id:
+            self.after_cancel(self.fade_after_id)
+            
+        if step > 10:
+            ctk_img = ctk.CTkImage(light_image=img_nova, dark_image=img_nova, size=(400, 400))
+            self.lbl_capa.configure(image=ctk_img)
+            return
+            
+        alpha = step / 10.0
+        try:
+            # Mistura magicamente a capa velha com a nova
+            blended = Image.blend(img_antiga, img_nova, alpha)
+            ctk_img = ctk.CTkImage(light_image=blended, dark_image=blended, size=(400, 400))
+            self.lbl_capa.configure(image=ctk_img)
+        except Exception: pass
+            
+        # O FPS da animação: Chama a si mesmo a cada 15ms até atingir o Step 10
+        self.fade_after_id = self.after(15, self.iniciar_fade, img_antiga, img_nova, step + 1)
 
     def extrair_dados_ra(self, nome_jogo, rom_path):
         install_path = self.app.entry_path.get()
@@ -413,7 +502,6 @@ class ModoBigPicture(ctk.CTkToplevel):
 
     def rastrear_video(self, nome_jogo, rom_path):
         install_path = self.app.entry_path.get()
-        # Ele vai caçar o vídeo na pasta media/snaps!
         pastas_snaps = [
             os.path.join(install_path, "media", "snaps"),
             os.path.join(install_path, "data", "snaps"),
@@ -454,7 +542,6 @@ class ModoBigPicture(ctk.CTkToplevel):
         self.lbl_meta_player.configure(text=f"👥 {meta['player']}" if meta["player"] else "")
         self.lbl_meta_rating.configure(text=f"🔞 {meta['rating']}" if meta["rating"] else "")
         
-        # --- CONEXÃO COM O NOVO SCRAPER ---
         sinopse_texto = meta["story"]
         if "Nenhuma sinopse" in sinopse_texto or not sinopse_texto:
             db_path = os.path.join(self.app.entry_path.get(), "data", "metadata.json")
@@ -465,44 +552,77 @@ class ModoBigPicture(ctk.CTkToplevel):
                         rom_basename = os.path.splitext(os.path.basename(rom_path))[0]
                         if rom_basename in scraper_db:
                             sinopse_texto = scraper_db[rom_basename].get("sinopse", sinopse_texto)
+                            idioma_alvo = getattr(self.app, 'lang', 'pt')[:2]
+                            if idioma_alvo != 'en' and sinopse_texto:
+                                sinopse_texto = dc_gamesdb.traduzir_texto(sinopse_texto, idioma_alvo)
                 except: pass
-        # ----------------------------------
                 
+        self.textbox_desc.configure(state="normal")
+        self.textbox_desc.delete("1.0", "end")
+        self.textbox_desc.insert("1.0", sinopse_texto)
+        self.textbox_desc.configure(state="disabled")
+        
         capa_path = self.rastrear_capa(nome_jogo, rom_path)
         
-        if not capa_path or not os.path.exists(capa_path):
-            install_path = self.app.entry_path.get()
-            fallback_dest = os.path.join(install_path, "data", "boxart", "no_cover.jpg")
-            fallback_src1 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no_cover.jpg")
-            fallback_src2 = os.path.join(os.getcwd(), "no_cover.jpg")
-            
-            if os.path.exists(fallback_dest): capa_path = fallback_dest
-            elif os.path.exists(fallback_src1): capa_path = fallback_src1
-            elif os.path.exists(fallback_src2): capa_path = fallback_src2
-
+        # 👇 CRIANDO A IMAGEM PERFEITA COM FUNDO PRETO PARA O CROSSFADE 👇
+        bg_nova = Image.new("RGBA", (400, 400), (5, 5, 8, 255))
+        
         if capa_path and os.path.exists(capa_path):
             try:
-                img = Image.open(capa_path)
+                img = Image.open(capa_path).convert("RGBA")
                 w, h = img.size
                 ratio = min(400/w, 400/h)
                 new_w, new_h = int(w * ratio), int(h * ratio)
-                ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(new_w, new_h))
-                self.lbl_capa.configure(image=ctk_img, text="")
-            except:
-                self.lbl_capa.configure(image="", text="⚠️ Capa Corrompida", font=ctk.CTkFont(size=20))
-        else:
-            self.lbl_capa.configure(image="", text="🌀 Imagem Indisponível", font=ctk.CTkFont(size=24, weight="bold"), text_color="#1E90FF")
+                img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                
+                offset_x = (400 - new_w) // 2
+                offset_y = (400 - new_h) // 2
+                bg_nova.paste(img, (offset_x, offset_y), img)
+            except: pass
 
-        # --- GATILHO DA FASE 4: INVOCA O VÍDEO! ---
+        # Se for o primeiro load da tela, ele joga a capa direto.
+        if not hasattr(self, 'pil_atual') or self.pil_atual is None:
+            self.pil_atual = bg_nova
+            ctk_img = ctk.CTkImage(light_image=bg_nova, dark_image=bg_nova, size=(400, 400))
+            self.lbl_capa.configure(image=ctk_img, text="")
+        else:
+            # Transição Suave ativada!
+            self.iniciar_fade(self.pil_atual.copy(), bg_nova, 0)
+            self.pil_atual = bg_nova
+
+        # Vídeo Snap (O Fade é mais rápido que os 800ms de delay, então o vídeo entra perfeito depois)
         caminho_video = self.rastrear_video(nome_jogo, rom_path)
         if hasattr(self, 'video_manager'):
-            self.video_manager.focar_jogo(caminho_video, cover_image_obj=ctk_img)
+            # Enviamos None para o ctk_img pois ele será sobreposto suavemente
+            self.video_manager.focar_jogo(caminho_video, cover_image_obj=None)
+
+        # 🔍 LENDO O STATUS DE VMU DO BANCO DE DADOS
+        db_ra_path = os.path.join(self.app.entry_path.get(), "RAlocal.db")
+        is_vmu_ind = False
+        if os.path.exists(db_ra_path):
+            try:
+                with open(db_ra_path, "r", encoding="utf-8") as f: ra_db = json.load(f)
+                config_jogo = ra_db.get("_PerGameVideo_", {}).get(nome_jogo, {})
+                is_vmu_ind = config_jogo.get("vmu_individual", False)
+            except: pass
+            
+        if hasattr(self, 'btn_vmu'):
+            if is_vmu_ind:
+                self.btn_vmu.configure(text="💾 VMU: Individual", fg_color="#CD853F")
+            else:
+                self.btn_vmu.configure(text="💾 VMU: Global", fg_color="#555555")
 
         self.manual_atual = self.rastrear_manual(nome_jogo, rom_path)
-        if self.manual_atual: self.btn_manual.configure(state="normal", fg_color="#4169E1")
-        else: self.btn_manual.configure(state="disabled", fg_color="#333333")
+        if self.manual_atual: self.btn_manual.configure(state="normal")
+        else: self.btn_manual.configure(state="disabled")
         
-        if self.index_menu == 1 and self.btn_manual.cget("state") == "disabled":
+        idx_manual = 1
+        for i, btn in enumerate(self.botoes_menu):
+            if btn == self.btn_manual:
+                idx_manual = i
+                break
+                
+        if self.index_menu == idx_manual and self.btn_manual.cget("state") == "disabled":
             self.index_menu = 0
         self.atualizar_foco_menu()
 

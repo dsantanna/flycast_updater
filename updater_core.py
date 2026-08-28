@@ -7,7 +7,7 @@ import urllib.request
 import threading
 import tkinter.messagebox as mb
 
-VERSION = "6.3.1"
+VERSION = "6.4"
 REPO_UPDATER = "dsantanna/flycast_updater"
 
 # ==========================================

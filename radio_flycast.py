@@ -23,27 +23,43 @@ class RadioFlycast:
             if self.app: self.app.log(f"❌ Erro ao iniciar motor de áudio: {e}")
 
     def construir_player_ui(self, parent, row, column):
-        """Constrói o Mini-Player nativamente na interface"""
-        self.frame_player = ctk.CTkFrame(parent, fg_color="#1a1a1a", corner_radius=8)
-        self.frame_player.grid(row=row, column=column, padx=(10, 0), sticky="e")
+        """Constrói o Mini-Player nativamente na interface com visual Premium"""
+        # Aplicação do "Glass Dashboard" (Fundo escuro, bordas finas, alinhado com o Backup)
+        self.frame_player = ctk.CTkFrame(parent, fg_color="#12121A", corner_radius=10, border_width=1, border_color="#2a2a3a")
+        self.frame_player.grid(row=row, column=column, padx=(10, 0), sticky="e", ipadx=5, ipady=2)
         
-        self.lbl_now_playing = ctk.CTkLabel(self.frame_player, text="🎵 Rádio Parada", font=ctk.CTkFont(size=11), width=160, anchor="center")
-        self.lbl_now_playing.pack(side="top", padx=10, pady=(2, 0))
+        self.lbl_now_playing = ctk.CTkLabel(self.frame_player, text="🎵 Rádio Parada", font=ctk.CTkFont(size=11, weight="bold"), text_color="gray", width=160, anchor="center")
+        self.lbl_now_playing.pack(side="top", padx=10, pady=(4, 0))
 
         frame_controls = ctk.CTkFrame(self.frame_player, fg_color="transparent")
-        frame_controls.pack(side="top", pady=(0, 2))
+        frame_controls.pack(side="top", pady=(0, 4))
 
-        btn_prev = ctk.CTkButton(frame_controls, text="⏮", width=30, height=20, fg_color="transparent", hover_color="#333", command=self.ui_prev_track)
+        # Botões 100% transparentes e estilizados com neon
+        btn_prev = ctk.CTkButton(frame_controls, text="⏮", width=30, height=24, fg_color="transparent", hover_color="#222222", text_color="white", command=self.ui_prev_track)
         btn_prev.pack(side="left", padx=2)
 
-        self.btn_radio_play = ctk.CTkButton(frame_controls, text="▶", width=30, height=20, fg_color="transparent", hover_color="#333", command=self.ui_play_pause)
+        self.btn_radio_play = ctk.CTkButton(frame_controls, text="▶", width=30, height=24, fg_color="transparent", hover_color="#222222", text_color="#FF4C4C", command=self.ui_play_pause)
         self.btn_radio_play.pack(side="left", padx=2)
 
-        btn_stop = ctk.CTkButton(frame_controls, text="⏹", width=30, height=20, fg_color="transparent", hover_color="#333", command=self.ui_stop)
+        btn_stop = ctk.CTkButton(frame_controls, text="⏹", width=30, height=24, fg_color="transparent", hover_color="#222222", text_color="white", command=self.ui_stop)
         btn_stop.pack(side="left", padx=2)
 
-        btn_next = ctk.CTkButton(frame_controls, text="⏭", width=30, height=20, fg_color="transparent", hover_color="#333", command=self.ui_next_track)
+        btn_next = ctk.CTkButton(frame_controls, text="⏭", width=30, height=24, fg_color="transparent", hover_color="#222222", text_color="white", command=self.ui_next_track)
         btn_next.pack(side="left", padx=2)
+        
+        # Inicia o vigilante do Auto-DJ silenciosamente para a interface principal também!
+        if self.app:
+            self.app.after(1000, self._auto_dj_loop)
+
+    def _auto_dj_loop(self):
+        """Vigia a música e pula para a próxima quando acabar (Igual ao Big Picture)"""
+        if self.app and hasattr(self.app, 'winfo_exists') and self.app.winfo_exists():
+            try:
+                if self.is_playing and not self.is_paused:
+                    if not pygame.mixer.music.get_busy():
+                        self.ui_next_track()
+            except Exception: pass
+            self.app.after(1000, self._auto_dj_loop)
 
     def iniciar_radio(self):
         if not self.app: return
@@ -54,7 +70,7 @@ class RadioFlycast:
             self.is_paused = False
             self.app.log("📻 Rádio Ambiente (Modulada) iniciada.")
             self.atualizar_interface()
-            if self.btn_radio_play: self.btn_radio_play.configure(text="⏸")
+            if self.btn_radio_play: self.btn_radio_play.configure(text="⏸", text_color="#00FF7F")
 
     def toggle_radio(self):
         if not self.app: return
@@ -76,7 +92,6 @@ class RadioFlycast:
         self.app.salvar_estado_atual()
 
     def ui_play_pause(self):
-        # Se clicar no play, mas o switch global estiver desligado, ele liga sozinho!
         if getattr(self.app, 'switch_radio', None) and self.app.switch_radio.get() == 0:
             self.app.switch_radio.select()
             self.toggle_radio()
@@ -86,13 +101,13 @@ class RadioFlycast:
             if not self.is_paused:
                 self.pause()
                 self.is_paused = True
-                if self.btn_radio_play: self.btn_radio_play.configure(text="▶")
-                if self.lbl_now_playing: self.lbl_now_playing.configure(text="🎵 Rádio Pausada")
+                if self.btn_radio_play: self.btn_radio_play.configure(text="▶", text_color="#FF4C4C")
+                if self.lbl_now_playing: self.lbl_now_playing.configure(text="🎵 Rádio Pausada", text_color="#FFD700")
                 if self.app: self.app.log("📻 Rádio: Pausada.")
             else:
                 self.play()
                 self.is_paused = False
-                if self.btn_radio_play: self.btn_radio_play.configure(text="⏸")
+                if self.btn_radio_play: self.btn_radio_play.configure(text="⏸", text_color="#00FF7F")
                 self.atualizar_interface()
                 if self.app: self.app.log("📻 Rádio: Retomada.")
         else:
@@ -101,7 +116,7 @@ class RadioFlycast:
             self.play()
             self.is_playing = True
             self.is_paused = False
-            if self.btn_radio_play: self.btn_radio_play.configure(text="⏸")
+            if self.btn_radio_play: self.btn_radio_play.configure(text="⏸", text_color="#00FF7F")
             self.atualizar_interface()
             if self.app: self.app.log("📻 Rádio: Iniciada.")
 
@@ -110,20 +125,20 @@ class RadioFlycast:
         self.is_playing = False
         self.is_paused = False
         
-        if getattr(self.app, 'switch_radio', None) and self.app.switch_radio.get() == 1:
+        if getattr(self.app, 'switch_radio', None) and getattr(self.app.switch_radio, 'get', lambda: 0)() == 1:
             self.app.switch_radio.deselect()
             self.app.config_atual["radio_on"] = False
             self.app.salvar_estado_atual()
             
-        if self.btn_radio_play: self.btn_radio_play.configure(text="▶")
-        if self.lbl_now_playing: self.lbl_now_playing.configure(text="🎵 Rádio Parada")
+        if self.btn_radio_play: self.btn_radio_play.configure(text="▶", text_color="#FF4C4C")
+        if self.lbl_now_playing: self.lbl_now_playing.configure(text="🎵 Rádio Parada", text_color="gray")
         if self.app: self.app.log("📻 Rádio: Parada.")
 
     def ui_next_track(self):
         self.next_track()
         self.is_playing = True
         self.is_paused = False
-        if self.btn_radio_play: self.btn_radio_play.configure(text="⏸")
+        if self.btn_radio_play: self.btn_radio_play.configure(text="⏸", text_color="#00FF7F")
         self.atualizar_interface()
         if self.app: self.app.log("📻 Rádio: Próxima faixa.")
 
@@ -131,7 +146,7 @@ class RadioFlycast:
         self.prev_track()
         self.is_playing = True
         self.is_paused = False
-        if self.btn_radio_play: self.btn_radio_play.configure(text="⏸")
+        if self.btn_radio_play: self.btn_radio_play.configure(text="⏸", text_color="#00FF7F")
         self.atualizar_interface()
         if self.app: self.app.log("📻 Rádio: Faixa anterior.")
 
@@ -139,7 +154,7 @@ class RadioFlycast:
         if self.lbl_now_playing:
             titulo = self.obter_titulo_atual()
             nome_curto = titulo[:22] + "..." if len(titulo) > 22 else titulo
-            self.lbl_now_playing.configure(text=f"🎵 {nome_curto}")
+            self.lbl_now_playing.configure(text=f"🎵 {nome_curto}", text_color="#00BFFF")
             try:
                 from launcher import ToolTip
                 if hasattr(self.lbl_now_playing, '_tooltip'):

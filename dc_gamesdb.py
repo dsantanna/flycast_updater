@@ -8,16 +8,43 @@ import urllib.parse
 
 def traduzir_texto(texto, idioma_destino="pt"):
     if not texto or len(texto) < 5: return texto
+    
+    # Extrai só a raiz do idioma (ex: 'pt-br' vira 'pt') para não dar erro na API
+    idioma_alvo = idioma_destino[:2] if idioma_destino else "pt"
+    if idioma_alvo == "en": return texto
+    
     try:
-        # Motor de tradução silencioso via API pública do Google
-        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={idioma_destino}&dt=t&q={urllib.parse.quote(texto)}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=3) as response:
-            resultado = json.loads(response.read().decode('utf-8'))
-            texto_traduzido = "".join([frase[0] for frase in resultado[0] if frase[0]])
-            return texto_traduzido
-    except Exception:
-        # Se estiver offline ou a API falhar, devolve o texto original
+        import urllib.request, urllib.parse, json
+        
+        # 👇 MODO ESCOPETA: Fatiando o texto em blocos para burlar o bloqueio do Google 👇
+        frases = texto.split('. ')
+        pedacos = []
+        bloco = ""
+        for frase in frases:
+            # Mantém os blocos curtos e seguros (abaixo de 800 caracteres)
+            if len(bloco) + len(frase) < 800:
+                bloco += frase + ". "
+            else:
+                pedacos.append(bloco)
+                bloco = frase + ". "
+        if bloco: pedacos.append(bloco)
+        
+        texto_traduzido = ""
+        
+        # Dispara cada bloco silenciosamente e junta a tradução
+        for pedaco in pedacos:
+            if not pedaco.strip(): continue
+            url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={idioma_alvo}&dt=t&q={urllib.parse.quote(pedaco.strip())}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                resultado = json.loads(response.read().decode('utf-8'))
+                texto_traduzido += "".join([frase[0] for frase in resultado[0] if frase[0]]) + " "
+                
+        return texto_traduzido.strip()
+        
+    except Exception as e:
+        # Deixa o rastro do sangue no console para sabermos quem atirou
+        #print(f"⚠️ Radar de Tradução falhou: {e}") 
         return texto
 
 def simplificar(texto):
@@ -34,10 +61,9 @@ def gerar_estrelas(nota_str):
     except:
         return ""
 
-# --- ADICIONAMOS O PARÂMETRO 'idioma_app' ---
 def buscar_metadados(nome_jogo, rom_path, install_path, idioma_app="pt"):
     dados = {
-        "score": "", "manufacturer": "", "rating": "", "player": "", "story": ""
+        "score": "", "manufacturer": "", "dev": "", "rating": "", "player": "", "story": ""
     }
     
     try: base_embutida = sys._MEIPASS
@@ -91,6 +117,9 @@ def buscar_metadados(nome_jogo, rom_path, install_path, idioma_app="pt"):
                 
                 n_manuf = match_node.find('manufacturer')
                 if n_manuf is not None and n_manuf.text: dados["manufacturer"] = n_manuf.text
+
+                n_dev = match_node.find('dev')
+                if n_dev is not None and n_dev.text: dados["dev"] = n_dev.text
                 
                 n_rating = match_node.find('rating')
                 if n_rating is not None and n_rating.text: dados["rating"] = n_rating.text

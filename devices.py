@@ -160,9 +160,15 @@ class DevicesManager:
         self.frame_divisor_vmu = ctk.CTkFrame(self.scroll_devices, height=2, fg_color="#444")
         self.frame_divisor_vmu.pack(fill="x", padx=10, pady=(15, 10))
 
-    # =========================================================================
-    # DEMAIS MÉTODOS MANTIDOS INTACTOS (Mágica da Orientação a Objetos)
-    # =========================================================================
+        frame_vmu_manager = ctk.CTkFrame(self.scroll_devices, fg_color="#1a1a1a", corner_radius=8)
+        frame_vmu_manager.pack(fill="x", padx=10, pady=(0, 20))
+        
+        lbl_vmu_m_title = ctk.CTkLabel(frame_vmu_manager, text="💾 Gerenciador de Memory Card (VMU)", font=ctk.CTkFont(size=14, weight="bold"))
+        lbl_vmu_m_title.pack(side="left", padx=15, pady=15)
+
+        import vmu_manager
+        btn_vmu_manager = ctk.CTkButton(frame_vmu_manager, text="🔍 Abrir Raio-X do VMU", fg_color="#1E90FF", hover_color="#4169E1", font=ctk.CTkFont(weight="bold"), command=lambda: vmu_manager.VMUXRayManager(self.app, self.app.entry_path.get()))
+        btn_vmu_manager.pack(side="right", padx=15, pady=15)
 
     def injetar_controle(self):
         controle_selecionado = self.combo_ctrl.get()

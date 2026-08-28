@@ -2,6 +2,17 @@
        FLYCAST UPDATER - CHANGELOG
 ========================================
 
+Versão 6.4 (Big Blue - The Ultimate Library & Scraper Update)
+----------------------------------------
+- **Smart Playlists (Categorias Táticas):** Nova integração profunda com o banco de dados oficial (DC-gamedb.xml) que permite filtrar sua coleção instantaneamente. Crie combinações poderosas selecionando a Produtora (SEGA, Capcom, SNK, etc.), o Gênero e o Status atual da sua conta no RetroAchievements.
+- **Scraper Massivo (Caçador de Artes):** Um novo motor multithread injetado na aba de Ferramentas. Ele varre toda a sua biblioteca mapeada e se conecta ao CDN oficial em nuvem do Libretro para baixar, de uma só vez, as Capas (Boxarts), Logos e Snaps faltantes, utilizando heurística inteligente de regiões para burlar restrições de busca.
+- **Redesign Ergonômico do Launcher:** O painel de controle da grade de jogos foi reestruturado em duas fileiras táticas simétricas. A linha superior agora é dedicada exclusivamente à "Peneira de Filtros e Busca", enquanto a inferior concentra as "Ações e Ferramentas", cortando redundâncias visuais e elevando a UX.
+- **Fallback Visual (Cura do Bug da Ampulheta):** Implementado um sistema de segurança visual que substitui a ampulheta de carregamento infinito por um ícone genérico de controle (🎮) caso a arte do jogo seja declarada como inexistente nos servidores da nuvem.
+
+Versão 6.3.1 (Big Blue - The Ultimate QoL & Hardware Update)
+----------------------------------------
+- **Bugfix**: Corrigido o problema de atualização infinita. 
+
 Versão 6.3 (Big Blue - The Ultimate QoL & Hardware Update)
 ----------------------------------------
 - **Mapeador Visual de Controles (Plug & Play):** Adeus aos menus cinzas! Novo assistente visual interativo que lê as batidas do seu hardware em tempo real (via Pygame) e dita o ritmo da configuração ("Aperte o Botão A", "Mova o Analógico"). O sistema gera o arquivo `.cfg` nativo do Flycast silenciosamente nos bastidores.

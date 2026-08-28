@@ -394,14 +394,7 @@ def checar_status_backup(app_instance):
         app_instance.log(f"❌ Erro ao ler status da nuvem: {e}")
 
 def forcar_backup_nuvem(app_instance, event=None):
-    """
-    Gatilha o processo invisível de empacotamento e upload dos saves para a nuvem.
-    """
-    import os
-    import sys
-    import subprocess
     import threading
-    
     if app_instance.cloud_var.get() == "nenhum":
         app_instance.mostrar_toast("Nuvem Desativada", "Selecione um provedor na aba Saves primeiro.", "warning")
         return
@@ -413,14 +406,11 @@ def forcar_backup_nuvem(app_instance, event=None):
     
     def rotina():
         try:
-            exe_path = sys.executable if getattr(sys, 'frozen', False) else sys.argv[0]
-            if getattr(sys, 'frozen', False):
-                subprocess.run([exe_path, "-backup", "-silent"], creationflags=subprocess.CREATE_NO_WINDOW)
-            else:
-                subprocess.run([sys.executable, exe_path, "-backup", "-silent"], creationflags=subprocess.CREATE_NO_WINDOW)
+            # 👇 O MOTOR NATIVO: Abandona o Subprocess e usa a função limpa do Launcher! 👇
+            if hasattr(app_instance, 'save_manager'):
+                app_instance.save_manager.auto_sync_saves()
             
             app_instance.after(500, lambda: checar_status_backup(app_instance))
-            app_instance.after(0, lambda: app_instance.mostrar_toast("Save Completo", "Seus dados foram salvos na nuvem!", "success"))
         except Exception as e:
             app_instance.log(f"❌ Erro no backup forçado: {e}")
             app_instance.after(500, lambda: checar_status_backup(app_instance))

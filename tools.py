@@ -9,11 +9,12 @@ import tkinter.filedialog as fd
 import tkinter.messagebox as mb
 
 import texture_manager 
+#import shop    # LOJA EM CONSTRUÇÃO
 
 class ToolsManager:
     def __init__(self, app):
         self.app = app
-        
+        #self.shop_mgr = shop.HomebrewShop(self.app) # LOJA EM CONSTRUÇÃO
         # --- Variáveis do CHDMAN ---
         self.chdman_path = ""
         self.arquivos_para_converter = []
@@ -30,15 +31,19 @@ class ToolsManager:
         # Adicionando as sub-abas
         tab_texturas = self.tabview_tools.add("✨ Texturas HD e Mods")
         tab_chdman = self.tabview_tools.add("🗜️ Compressor CHDMAN")
+        tab_scraper = self.tabview_tools.add("🖼️ Caçador de Artes (Scraper)") # 👇 NOVA ABA
+        tab_radar = self.tabview_tools.add("📡 Radar de Integridade")
+        # tab_shop = self.tabview_tools.add("🌍 Homebrews & Indies")  # LOJA EM CONSTRUÇÃO
         
         # 1. Constrói o Gerenciador de Texturas
         self.texture_mgr.construir_interface(tab_texturas)
         
-        # ==========================================
         # 2. CONSTRUÇÃO DO CHDMAN NA SEGUNDA ABA
-        # ==========================================
         self.scroll_tools = ctk.CTkScrollableFrame(tab_chdman, fg_color="transparent")
         self.scroll_tools.pack(fill="both", expand=True)
+
+        # 3. Constrói o Radar
+        self.construir_aba_radar(tab_radar)
 
         # --- Cabeçalho ---
         lbl_title = ctk.CTkLabel(self.scroll_tools, text="🗜️ Compressor e Extrator de Imagens (CHDMAN)", font=ctk.CTkFont(size=16, weight="bold"))
@@ -126,9 +131,9 @@ class ToolsManager:
 
         self.app.after(300, self.auto_localizar_chdman)
 
-    # =========================================================================
-    # FUNÇÕES DO CHDMAN MANTIDAS INTACTAS
-    # =========================================================================
+        self.construir_aba_scraper(tab_scraper)
+        # self.shop_mgr.construir_interface(tab_shop) # LOJA EM CRONSTRUÇÃO
+
     def toggle_todas_checkboxes(self, estado):
         for var in self.vars_arquivos.values():
             var.set(estado)
@@ -396,3 +401,198 @@ class ToolsManager:
             self.app.after(1000, self.app.game_manager.escanear_jogos)
             
         self.app.after(0, lambda: self.app.mostrar_toast("Processo Finalizado", msg_final, "success" if erros == 0 else "warning"))
+
+        # ==========================================
+    # 3. CONSTRUÇÃO DO RADAR DE INTEGRIDADE
+    # ==========================================
+    def construir_aba_radar(self, tab):
+        self.scroll_radar = ctk.CTkScrollableFrame(tab, fg_color="transparent")
+        self.scroll_radar.pack(fill="both", expand=True)
+
+        lbl_title = ctk.CTkLabel(self.scroll_radar, text="📡 Radar de Integridade (Raio-X da Biblioteca)", font=ctk.CTkFont(size=16, weight="bold"))
+        lbl_title.pack(anchor="w", padx=10, pady=(10, 5))
+
+        desc = (
+            "Faça uma varredura tática em todas as suas pastas mapeadas. O Radar detecta ROMs de Arcade "
+            "corrompidas, arquivos sem capas (Metadados) e alerta sobre formatos pesados e não otimizados "
+            "(como .ZIPs gigantes que travam a leitura e deveriam ser convertidos para .CHD)."
+        )
+        lbl_desc = ctk.CTkLabel(self.scroll_radar, text=desc, text_color="gray", justify="left", wraplength=700)
+        lbl_desc.pack(anchor="w", padx=10, pady=(0, 15))
+
+        self.btn_iniciar_radar = ctk.CTkButton(self.scroll_radar, text="🔍 Iniciar Varredura Tática", width=250, height=35, font=ctk.CTkFont(weight="bold"), fg_color="#8B008B", hover_color="#5C005C", command=self.iniciar_radar)
+        self.btn_iniciar_radar.pack(pady=10)
+
+        self.lbl_status_radar = ctk.CTkLabel(self.scroll_radar, text="", text_color="cyan", font=ctk.CTkFont(weight="bold"))
+        self.lbl_status_radar.pack(pady=(0, 10))
+
+        self.frame_resultados_radar = ctk.CTkFrame(self.scroll_radar, fg_color="#1a1a1a", corner_radius=10, height=350)
+        self.frame_resultados_radar.pack(fill="both", expand=True, padx=10, pady=5)
+        self.frame_resultados_radar.pack_propagate(False) # Mantém a altura fixa mesmo vazio
+        
+        lbl_resultado_vazio = ctk.CTkLabel(self.frame_resultados_radar, text="Aguardando ordens para iniciar varredura...", text_color="gray", font=ctk.CTkFont(slant="italic"))
+        lbl_resultado_vazio.pack(pady=80)
+
+    def iniciar_radar(self):
+        if not self.app.rom_paths_list:
+            mb.showwarning("Aviso", "Nenhuma pasta de jogos configurada no emulador.", parent=self.app)
+            return
+
+        self.btn_iniciar_radar.configure(state="disabled", text="⏳ Escaneando...")
+        self.lbl_status_radar.configure(text="Inspecionando integridade das pastas. Isso pode levar alguns segundos...", text_color="#FFD700")
+        
+        for widget in self.frame_resultados_radar.winfo_children():
+            widget.destroy()
+
+        threading.Thread(target=self._processo_radar, daemon=True).start()
+
+    def _processo_radar(self):
+        alertas_arcade = []
+        alertas_formato = []
+        alertas_metadados = []
+
+        extensoes_rom = ('.cdi', '.gdi', '.chd', '.cue', '.zip', '.7z')
+        install_path = getattr(self.app.entry_path, 'get', lambda: "")().strip()
+        boxart_dir = os.path.join(install_path, "data", "boxart")
+        
+        # Ignoramos as bios e arquivos do sistema pra não gerar falso-positivo
+        arquivos_de_sistema = ['awbios.zip', 'naomi.zip', 'naomi2.zip', 'syssp.zip', 'hikaru.zip', 'flycast_backup.zip']
+        
+        for pasta in self.app.rom_paths_list:
+            if not os.path.exists(pasta): continue
+            
+            for root, _, files in os.walk(pasta):
+                for f in files:
+                    ext = f.lower()
+                    if ext.endswith(extensoes_rom):
+                        f_lower = f.lower()
+                        if f_lower in arquivos_de_sistema or f_lower.startswith(('gds-', 'gdl-', 'gdv-')):
+                            continue
+                            
+                        caminho_completo = os.path.join(root, f)
+                        nome_limpo = os.path.splitext(f)[0]
+                        is_arcade = hasattr(self.app.game_manager, 'arcade_manager') and self.app.game_manager.arcade_manager.is_arcade_rom(f)
+                        
+                        # 1. Verifica Formato Não Otimizado (.ZIP/.7Z Gigantes de Dreamcast)
+                        if ext.endswith(('.zip', '.7z')) and not is_arcade:
+                            tamanho_mb = os.path.getsize(caminho_completo) / (1024 * 1024)
+                            # Se for maior que 60MB e for arquivo de Dreamcast zipado, alerta!
+                            if tamanho_mb > 60:
+                                alertas_formato.append(f"⚠️ {f} ({int(tamanho_mb)}MB): Formato não otimizado para Dreamcast. Extraia e use o CHDMAN para compactar em .CHD.")
+                        
+                        # 2. Verifica Integridade Arcade
+                        if is_arcade:
+                            valido, msg = self.app.game_manager.arcade_manager.verificar_integridade_rom(caminho_completo)
+                            if not valido:
+                                alertas_arcade.append(f"❌ {f}: ROM de Arcade Corrompida ou Faltando arquivos.")
+                                
+                        # 3. Verifica Metadados/Capas
+                        capa_encontrada = False
+                        for p_img in [os.path.join(boxart_dir, f"{f}.png"), os.path.join(boxart_dir, f"{f}.jpg"), os.path.join(boxart_dir, f"{nome_limpo}.png"), os.path.join(boxart_dir, f"{nome_limpo}.jpg")]:
+                            if os.path.exists(p_img):
+                                capa_encontrada = True
+                                break
+                        if not capa_encontrada:
+                            alertas_metadados.append(f"🖼️ {f}: Arte de capa ausente no sistema.")
+
+        # Retorna para a Thread Principal para pintar os dados na tela
+        self.app.after(0, self._renderizar_resultados_radar, alertas_arcade, alertas_formato, alertas_metadados)
+
+    def _renderizar_resultados_radar(self, alertas_arcade, alertas_formato, alertas_metadados):
+        total_alertas = len(alertas_arcade) + len(alertas_formato) + len(alertas_metadados)
+        
+        self.btn_iniciar_radar.configure(state="normal", text="🔍 Refazer Varredura Tática")
+        
+        if total_alertas == 0:
+            self.lbl_status_radar.configure(text="✅ Tudo limpo! Sua biblioteca está em perfeitas condições.", text_color="#00FF7F")
+            lbl = ctk.CTkLabel(self.frame_resultados_radar, text="Nenhuma anomalia ou problema detectado.", text_color="gray", font=ctk.CTkFont(slant="italic"))
+            lbl.pack(pady=80)
+            if hasattr(self.app, 'sfx'): self.app.sfx.play("success")
+            return
+            
+        self.lbl_status_radar.configure(text=f"⚠️ Varredura concluída. {total_alertas} aviso(s) encontrado(s).", text_color="#FFD700")
+        
+        scroll_res = ctk.CTkScrollableFrame(self.frame_resultados_radar, fg_color="transparent")
+        scroll_res.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        def add_secao(titulo, alertas, cor):
+            if alertas:
+                ctk.CTkLabel(scroll_res, text=titulo, font=ctk.CTkFont(weight="bold", size=14), text_color=cor).pack(anchor="w", pady=(10, 5), padx=5)
+                for a in alertas:
+                    # Texto menorzinho para não estourar a tela se o caminho for longo
+                    ctk.CTkLabel(scroll_res, text=a, font=ctk.CTkFont(size=12), text_color="white", justify="left").pack(anchor="w", padx=15, pady=2)
+
+        # Imprime na ordem de prioridade (Críticos primeiro!)
+        add_secao("🔴 NÍVEL CRÍTICO: ROMs de Arcade Corrompidas", alertas_arcade, "#FF4C4C")
+        add_secao("🟡 NÍVEL DE AVISO: Formatos Pesados Não Otimizados", alertas_formato, "#FFD700")
+        add_secao("🔵 NÍVEL INFO: Metadados / Capas Ausentes", alertas_metadados, "#1E90FF")
+        
+        if hasattr(self.app, 'sfx'): 
+            if alertas_arcade: self.app.sfx.play("error")
+            else: self.app.sfx.play("nav")
+    # ==========================================
+    # CONSTRUÇÃO DO SCRAPER MASSIVO
+    # ==========================================
+    def construir_aba_scraper(self, tab):
+        scroll_scraper = ctk.CTkScrollableFrame(tab, fg_color="transparent")
+        scroll_scraper.pack(fill="both", expand=True)
+
+        lbl_title = ctk.CTkLabel(scroll_scraper, text="🖼️ Caçador de Artes e Mídias (Scraper Massivo)", font=ctk.CTkFont(size=16, weight="bold"))
+        lbl_title.pack(anchor="w", padx=10, pady=(10, 5))
+
+        desc = (
+            "Esta ferramenta de varredura profunda inspeciona toda a sua biblioteca de jogos e conecta-se "
+            "aos servidores do Libretro para baixar automaticamente Capas (Boxarts), Logos de Título e "
+            "Vídeos (Snaps) que estejam faltando.\n\n"
+            "O processo utiliza múltiplas conexões simultâneas e pula inteligentemente o que você já possui."
+        )
+        lbl_desc = ctk.CTkLabel(scroll_scraper, text=desc, text_color="gray", justify="left", wraplength=700)
+        lbl_desc.pack(anchor="w", padx=10, pady=(0, 20))
+
+        self.btn_iniciar_scraper = ctk.CTkButton(scroll_scraper, text="🎯 INICIAR VARREDURA MASSIVA", width=300, height=45, font=ctk.CTkFont(weight="bold", size=14), fg_color="#228B22", hover_color="#006400", command=self.iniciar_scraper_massa)
+        self.btn_iniciar_scraper.pack(pady=10)
+
+        self.lbl_status_scraper = ctk.CTkLabel(scroll_scraper, text="", text_color="cyan", font=ctk.CTkFont(weight="bold"))
+        self.lbl_status_scraper.pack(pady=(5, 10))
+
+        # A barra nasce oculta e só aparece durante o tiroteio
+        self.progress_scraper = ctk.CTkProgressBar(scroll_scraper, width=500, height=15, progress_color="#1E90FF")
+        self.progress_scraper.set(0)
+        
+    def iniciar_scraper_massa(self):
+        if not hasattr(self.app, 'game_manager') or not hasattr(self.app.game_manager, 'jogos_agrupados_cache'):
+            mb.showwarning("Biblioteca Vazia", "Nenhum jogo encontrado na memória. Faça um escaneamento da sua pasta de ROMs primeiro na aba Launcher.", parent=self.app)
+            return
+            
+        dicionario_jogos = self.app.game_manager.jogos_agrupados_cache
+        if not dicionario_jogos: return
+        
+        self.btn_iniciar_scraper.configure(state="disabled", text="⏳ Baixando Artes...")
+        self.lbl_status_scraper.configure(text="Conectando aos servidores. Por favor, aguarde...", text_color="#FFD700")
+        self.progress_scraper.pack(pady=10)
+        self.progress_scraper.set(0)
+        
+        def atualizar_progresso(processados, total):
+            if not self.app.winfo_exists(): return
+            pct = processados / total
+            self.progress_scraper.set(pct)
+            self.lbl_status_scraper.configure(text=f"Processando e baixando arquivos: {processados}/{total} jogos verificados...")
+
+        def finalizar_scraper(sucessos):
+            if not self.app.winfo_exists(): return
+            self.progress_scraper.pack_forget()
+            self.btn_iniciar_scraper.configure(state="normal", text="🎯 REFAZER VARREDURA MASSIVA")
+            self.lbl_status_scraper.configure(text=f"✅ Varredura Concluída! {sucessos} novos jogos receberam mídias.", text_color="#00FF7F")
+            self.app.mostrar_toast("Scraper Concluído", f"Foram baixadas novas artes e mídias para {sucessos} jogo(s)!", "success")
+            if hasattr(self.app, 'sfx'): self.app.sfx.play("save")
+            # Recarrega a grade do Launcher para as novas capas brotarem na tela!
+            self.app.game_manager.escanear_jogos()
+
+        install_path = self.app.entry_path.get()
+        # Manda a ordem de disparo pro motor no scraper.py
+        self.app.game_manager.auto_scraper.varredura_em_massa(
+            install_path=install_path,
+            dicionario_jogos=dicionario_jogos,
+            callback_progresso=atualizar_progresso,
+            callback_fim=finalizar_scraper
+        )

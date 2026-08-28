@@ -35,7 +35,15 @@ TRANSLATIONS = {
         "msg_api_desc": "Para exibir seus pontos na interface, o sistema precisa da sua Web API Key.\n\nPasso a Passo:\n1. Clique no botão abaixo para abrir o site do RetroAchievements.\n2. Faça o seu login normalmente.\n3. Na página que se abrir, acesse a aba 'Aplicações' no menu esquerdo.\n4. Copie o código longo listado em 'Web API Key'.\n5. Cole no campo do Flycast Updater e clique em Salvar.",
         "msg_bios_move_title": "BIOS Mal Posicionada", "msg_bios_move_desc": "Os arquivos da BIOS foram encontrados na pasta raiz do emulador.\nO padrão é armazená-los na pasta 'data'. Mover automaticamente?",
         "msg_bios_register_desc": "Deseja registrar essa pasta raiz nas opções do emulador para resolver o aviso?",
-        "msg_about_title": "Sobre / About", "msg_about_desc": "🌀 FLYCAST UPDATER - v{version}\n\n• Branch Master: Lançamentos estáveis / Stable releases.\n• Branch Dev: Lançamentos diários / Daily builds.\n\n🖧 USO PELO TERMINAL (CLI):\n-nogui, -dev, -master, -rollback, -silent, -reset\n"
+        "msg_about_title": "Sobre / About", "msg_about_desc": "🌀 FLYCAST UPDATER - v{version}\n\n• Branch Master: Lançamentos estáveis / Stable releases.\n• Branch Dev: Lançamentos diários / Daily builds.\n\n🖧 USO PELO TERMINAL (CLI):\n-nogui, -dev, -master, -rollback, -silent, -reset\n",
+        "genre_platform": "Plataforma", "genre_driving": "Corrida / Veículos", "genre_soccer": "Futebol", "genre_sports": "Esportes", 
+        "genre_strategy": "Estratégia", "genre_flying": "Voo / Avião", "genre_shooter": "Tiro em 3ª/1ª Pessoa", "genre_adventure": "Aventura", 
+        "genre_casino": "Cassino / Cartas", "genre_fighter": "Luta", "genre_shoot_em_up": "Navinha (Shoot 'Em Up)", "genre_tennis": "Tênis", 
+        "genre_puzzle": "Quebra-Cabeça", "genre_wrestling": "Luta Livre", "genre_action": "Ação", "genre_olympic": "Olimpíadas", 
+        "genre_basketball": "Basquete", "genre_role_playing": "RPG", "genre_biking": "Ciclismo", "genre_motorcycle": "Motociclismo", 
+        "genre_skateboarding": "Skate", "genre_pool_and_dart": "Sinuca e Dardos", "genre_pinball": "Pinball", "genre_game_show": "Game Show", 
+        "genre_simulation": "Simulação", "genre_gun": "Tiro (Light Gun)", "genre_miscellaneous": "Diversos", "genre_hockey": "Hóquei", 
+        "genre_football": "Futebol Americano", "genre_beat_em_up": "Beat 'Em Up (Briga de Rua)", "genre_rhythm": "Ritmo / Música"
     },
     "en": {
         "title_sub": "Update, Cloud and Configuration Manager", "btn_help": "❔ About", "tab_cloud": "🚀 BIOS & Emu", "tab_emu": "⚙️ Settings", "tab_qol": "🌟 QoL", "tab_vid": "🖥️ Video", "tab_ctrl": "🎮 Controllers", "tab_games": "🕹️ Launcher", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
@@ -69,7 +77,15 @@ TRANSLATIONS = {
         "msg_api_desc": "To display your points, the system needs your Web API Key.\n\nStep by Step:\n1. Click the button below to open the RetroAchievements site.\n2. Log in normally.\n3. Navigate to the 'Applications' tab on the left menu.\n4. Copy the long code listed under 'Web API Key'.\n5. Paste it in the Flycast Updater and click Save.",
         "msg_bios_move_title": "Displaced BIOS", "msg_bios_move_desc": "BIOS files were found in the emulator's root folder.\nThe standard is to store them in 'data'. Move automatically?",
         "msg_bios_register_desc": "Would you like to register this root folder in the emulator options to resolve the warning?",
-        "msg_about_title": "About / Sobre", "msg_about_desc": "🌀 FLYCAST UPDATER - v{version}\n\n• Branch Master: Stable releases.\n• Branch Dev: Daily builds.\n\n🖧 COMMAND LINE (CLI) USAGE:\n-nogui, -dev, -master, -rollback, -silent, -reset\n"
+        "msg_about_title": "About / Sobre", "msg_about_desc": "🌀 FLYCAST UPDATER - v{version}\n\n• Branch Master: Stable releases.\n• Branch Dev: Daily builds.\n\n🖧 COMMAND LINE (CLI) USAGE:\n-nogui, -dev, -master, -rollback, -silent, -reset\n",
+        "genre_platform": "Platform", "genre_driving": "Driving / Racing", "genre_soccer": "Soccer", "genre_sports": "Sports", 
+        "genre_strategy": "Strategy", "genre_flying": "Flying", "genre_shooter": "Shooter", "genre_adventure": "Adventure", 
+        "genre_casino": "Casino", "genre_fighter": "Fighting", "genre_shoot_em_up": "Shoot 'Em Up", "genre_tennis": "Tennis", 
+        "genre_puzzle": "Puzzle", "genre_wrestling": "Wrestling", "genre_action": "Action", "genre_olympic": "Olympic Games", 
+        "genre_basketball": "Basketball", "genre_role_playing": "RPG", "genre_biking": "Biking", "genre_motorcycle": "Motorcycle", 
+        "genre_skateboarding": "Skateboarding", "genre_pool_and_dart": "Pool and Dart", "genre_pinball": "Pinball", "genre_game_show": "Game Show", 
+        "genre_simulation": "Simulation", "genre_gun": "Light Gun", "genre_miscellaneous": "Miscellaneous", "genre_hockey": "Hockey", 
+        "genre_football": "American Football", "genre_beat_em_up": "Beat 'Em Up", "genre_rhythm": "Rhythm"
     },
     "es": {
         "title_sub": "Gestor de Actualizaciones, Nube y Config", "btn_help": "❔ Acerca de", "tab_cloud": "🚀 BIOS y Emu", "tab_emu": "⚙️ Ajustes", "tab_qol": "🌟 QoL", "tab_vid": "🖥️ Video", "tab_ctrl": "🎮 Controles", "tab_games": "🕹️ Launcher", "tab_saves": "🔄 Saves", "tab_logs": "📝 Logs",
