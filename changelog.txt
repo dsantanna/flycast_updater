@@ -2,6 +2,13 @@
        FLYCAST UPDATER - CHANGELOG
 ========================================
 
+Versão 6.5 (Big Blue - Hotfix & Hardware UI Update)
+----------------------------------------
+- **Vacina Anti-Crash Multi-Thread:** Implementado um sistema de fila segura (Safe Thread Queue) no núcleo do aplicativo para processamento assíncrono. Isso erradica definitivamente os congelamentos de interface (RuntimeError) ao baixar artes ou processar dados pesados em segundo plano.
+- **Refatoração Tática de Hardware:** A aba "Controles e VMU" foi completamente redesenhada e dividida em três sub-abas limpas: "Config de Controles", "Mapear Controles" e "Ferramentas de Hardware", organizando e isolando visualmente o fluxo de configuração do usuário.
+- **Arsenal Offline e Radar de Firmware:** O injetor de perfis nativos de controles (.cfg para PlayStation, Xbox, Switch e 8BitDo) foi reativado e isolado na aba de Ferramentas junto com o verificador de Firmware da 8BitDo, permitindo o setup instantâneo de joysticks sem depender de internet.
+
+
 Versão 6.4 (Big Blue - The Ultimate Library & Scraper Update)
 ----------------------------------------
 - **Smart Playlists (Categorias Táticas):** Nova integração profunda com o banco de dados oficial (DC-gamedb.xml) que permite filtrar sua coleção instantaneamente. Crie combinações poderosas selecionando a Produtora (SEGA, Capcom, SNK, etc.), o Gênero e o Status atual da sua conta no RetroAchievements.
