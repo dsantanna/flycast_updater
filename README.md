@@ -1,7 +1,7 @@
 🌀 Flycast Updater (v6.5 - Big Blue) - Windows
 
 🔥 THE ULTIMATE LIBRARY & SCRAPER UPDATE (v6.4.1)
-A versão 6.4.1 eleva a organização, estética e estabilidade da sua coleção no Big Blue ao nível máximo! A introdução das Smart Playlists (Filtros Táticos) permite um refinamento dinâmico da biblioteca por Produtora, Gênero e Status do RetroAchievements. Aliado a isso, o novo Scraper Massivo em Nuvem varre todo o seu HD e faz o download automático de Capas, Logos e Snaps em lote utilizando o CDN oficial, poupando horas de trabalho manual. Nesta versão de hotfix (6.4.1), blindamos o motor principal com uma Fila de Threads segura (anti-crash) e redesenhamos completamente o Módulo de Hardware para separar o setup dos seus controles de forma cirúrgica.
+A versão 6.5 eleva a organização, estética e estabilidade da sua coleção no Big Blue ao nível máximo! A introdução das Smart Playlists (Filtros Táticos) permite um refinamento dinâmico da biblioteca por Produtora, Gênero e Status do RetroAchievements. Aliado a isso, o novo Scraper Massivo em Nuvem varre todo o seu HD e faz o download automático de Capas, Logos e Snaps em lote utilizando o CDN oficial, poupando horas de trabalho manual. Nesta versão de hotfix (6.4.1), blindamos o motor principal com uma Fila de Threads segura (anti-crash) e redesenhamos completamente o Módulo de Hardware para separar o setup dos seus controles de forma cirúrgica.
 
 O Flycast Updater transcendeu completamente sua função original de atualizador. Hoje ele atua como a suíte definitiva de gerenciamento, integração em nuvem e interface gráfica avançada para elevar a sua experiência de emulação no Flycast (Sega Dreamcast / Naomi / Atomiswave) no Windows a um patamar profissional.
 
