@@ -49,45 +49,29 @@ class DevicesManager:
 
     def construir_aba_dispositivos(self, tab):
         # ==========================================
-        # CRIAÇÃO DAS SUB-ABAS
+        # CRIAÇÃO DAS SUB-ABAS TÁTICAS
         # ==========================================
         self.tabview_devices = ctk.CTkTabview(tab)
         self.tabview_devices.pack(fill="both", expand=True, padx=5, pady=0)
         
-        tab_geral = self.tabview_devices.add("⚙️ Hardware e Portas")
+        tab_config = self.tabview_devices.add("🕹️ Config de Controles")
         tab_mapper = self.tabview_devices.add("🎮 Mapear Controles")
+        tab_ferramentas = self.tabview_devices.add("🛠️ Ferramentas de Hardware")
         
-        # 1. Injetamos a interface do Mapeador na segunda sub-aba
+        # ------------------------------------------
+        # 1. ABA: MAPEAR CONTROLES (Injeção do módulo independente)
+        # ------------------------------------------
         self.control_mgr.construir_interface(tab_mapper)
         
-        # 2. Construímos todo o restante original na primeira sub-aba (tab_geral)
-        self.scroll_devices = ctk.CTkScrollableFrame(tab_geral, fg_color="transparent")
-        self.scroll_devices.pack(fill="both", expand=True)
-
-        # --- INJEÇÃO DE PERFIS DE CONTROLE ---
-        self.label_ctrl_title = ctk.CTkLabel(self.scroll_devices, text=self.app._("lbl_ctrl_title", default="Injeção de Perfis de Controle"), font=ctk.CTkFont(size=16, weight="bold"))
-        self.label_ctrl_title.pack(anchor="w", padx=10, pady=(10, 5))
-
-        self.label_ctrl_desc = ctk.CTkLabel(self.scroll_devices, text=self.app._("lbl_ctrl_desc", default="Selecione o modelo abaixo e injete na pasta mappings."), text_color="gray", justify="left")
-        self.label_ctrl_desc.pack(anchor="w", padx=10, pady=(0, 10))
-
-        self.frame_ctrl = ctk.CTkFrame(self.scroll_devices, fg_color="transparent")
-        self.frame_ctrl.pack(fill="x", padx=10, pady=(0, 15))
-
-        self.combo_ctrl = ctk.CTkComboBox(self.frame_ctrl, values=list(PERFIS_CONTROLES.keys()), width=350, state="readonly")
-        self.combo_ctrl.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        if list(PERFIS_CONTROLES.keys()):
-            self.combo_ctrl.set(list(PERFIS_CONTROLES.keys())[0])
-
-        self.btn_injetar_ctrl = ctk.CTkButton(self.frame_ctrl, text=self.app._("btn_inject", default="Injetar Perfil de Controle"), width=200, height=30, font=ctk.CTkFont(weight="bold"), fg_color="#8B008B", hover_color="#A52A2A", command=self.injetar_controle)
-        self.btn_injetar_ctrl.pack(side="right")
-
-        self.frame_divisor_ctrl = ctk.CTkFrame(self.scroll_devices, height=2, fg_color="#444")
-        self.frame_divisor_ctrl.pack(fill="x", padx=10, pady=(5, 15))
+        # ------------------------------------------
+        # 2. ABA: CONFIG DE CONTROLES (Hardware e Portas)
+        # ------------------------------------------
+        self.scroll_config = ctk.CTkScrollableFrame(tab_config, fg_color="transparent")
+        self.scroll_config.pack(fill="both", expand=True)
 
         # --- DISPOSITIVOS FÍSICOS REAIS ---
-        frame_fisicos_header = ctk.CTkFrame(self.scroll_devices, fg_color="transparent")
-        frame_fisicos_header.pack(fill="x", padx=10, pady=(0, 5))
+        frame_fisicos_header = ctk.CTkFrame(self.scroll_config, fg_color="transparent")
+        frame_fisicos_header.pack(fill="x", padx=10, pady=(10, 5))
         
         self.label_fisicos_title = ctk.CTkLabel(frame_fisicos_header, text="🎮 Dispositivos Mapeados (emu.cfg)", font=ctk.CTkFont(size=16, weight="bold"))
         self.label_fisicos_title.pack(side="left")
@@ -95,14 +79,14 @@ class DevicesManager:
         self.btn_rescan_fisicos = ctk.CTkButton(frame_fisicos_header, text="🔄 Rescanear", width=90, height=24, fg_color="#4169E1", hover_color="#1E90FF", font=ctk.CTkFont(weight="bold"), command=self.carregar_dispositivos)
         self.btn_rescan_fisicos.pack(side="right")
 
-        self.frame_fisicos_list = ctk.CTkFrame(self.scroll_devices, fg_color="#1a1a1a", corner_radius=10)
+        self.frame_fisicos_list = ctk.CTkFrame(self.scroll_config, fg_color="#1a1a1a", corner_radius=10)
         self.frame_fisicos_list.pack(fill="x", padx=10, pady=(0, 15))
 
         # --- DISPOSITIVOS VIRTUAIS DO DREAMCAST ---
-        self.label_devices_title = ctk.CTkLabel(self.scroll_devices, text="🖥️ Portas Virtuais do Dreamcast", font=ctk.CTkFont(size=16, weight="bold"))
+        self.label_devices_title = ctk.CTkLabel(self.scroll_config, text="🖥️ Portas Virtuais do Dreamcast", font=ctk.CTkFont(size=16, weight="bold"))
         self.label_devices_title.pack(anchor="w", padx=10, pady=(5, 5))
         
-        self.frame_devices_grid = ctk.CTkFrame(self.scroll_devices, fg_color="#1a1a1a", corner_radius=10)
+        self.frame_devices_grid = ctk.CTkFrame(self.scroll_config, fg_color="#1a1a1a", corner_radius=10)
         self.frame_devices_grid.pack(fill="x", padx=10, pady=5)
 
         portas = ["A", "B", "C", "D"]
@@ -144,12 +128,51 @@ class DevicesManager:
             "• Vibração: Conecte o 'Pacote de Vibração' no Slot 2 da Porta A para Force Feedback.\n"
             "• Arcades: Jogos como Marvel vs Capcom ficam excelentes com 'Controle de Arcade/Ascii'."
         )
-        self.lbl_devices_dica = ctk.CTkLabel(self.scroll_devices, text=texto_dica, text_color="gray", justify="left", font=ctk.CTkFont(size=12))
-        self.lbl_devices_dica.pack(anchor="w", padx=15, pady=(15, 0))
+        self.lbl_devices_dica = ctk.CTkLabel(self.scroll_config, text=texto_dica, text_color="gray", justify="left", font=ctk.CTkFont(size=12))
+        self.lbl_devices_dica.pack(anchor="w", padx=15, pady=(15, 20))
+
+        # ------------------------------------------
+        # 3. ABA: FERRAMENTAS E NUVEM (Utilitários)
+        # ------------------------------------------
+        self.scroll_ferramentas = ctk.CTkScrollableFrame(tab_ferramentas, fg_color="transparent")
+        self.scroll_ferramentas.pack(fill="both", expand=True)
+
+        # Injeta o painel da nuvem de controles aqui!
+        self.construir_arsenal_nuvem(self.scroll_ferramentas)
+
+        # ------------------------------------------
+        # 3. ABA: FERRAMENTAS (Utilitários Offline)
+        # ------------------------------------------
+        self.scroll_ferramentas = ctk.CTkScrollableFrame(tab_ferramentas, fg_color="transparent")
+        self.scroll_ferramentas.pack(fill="both", expand=True)
+
+        # --- ARSENAL OFFLINE DE CONTROLES ---
+        frame_offline = ctk.CTkFrame(self.scroll_ferramentas, fg_color="#1a1a1a", corner_radius=8)
+        frame_offline.pack(fill="x", padx=10, pady=10)
+
+        lbl_titulo = ctk.CTkLabel(frame_offline, text="💾 Arsenal Local (Perfis de Controle)", font=ctk.CTkFont(size=14, weight="bold"), text_color="#1E90FF")
+        lbl_titulo.pack(anchor="w", padx=15, pady=(10, 5))
+
+        lbl_desc = ctk.CTkLabel(frame_offline, text="Injete mapeamentos nativos no emulador. Funciona 100% offline.", text_color="gray", font=ctk.CTkFont(size=12))
+        lbl_desc.pack(anchor="w", padx=15, pady=(0, 10))
+
+        self.combo_ctrl_local = ctk.CTkComboBox(frame_offline, values=list(PERFIS_CONTROLES.keys()), state="readonly", width=280)
+        self.combo_ctrl_local.pack(side="left", padx=15, pady=(0, 15))
+        if list(PERFIS_CONTROLES.keys()):
+            self.combo_ctrl_local.set(list(PERFIS_CONTROLES.keys())[0])
+
+        self.btn_injetar_local = ctk.CTkButton(frame_offline, text="⚡ Injetar Perfil", font=ctk.CTkFont(weight="bold"), fg_color="#228B22", hover_color="#006400", command=self.injetar_controle_offline)
+        self.btn_injetar_local.pack(side="left", padx=(10, 15), pady=(0, 15))
+
+        self.frame_divisor_vmu = ctk.CTkFrame(self.scroll_ferramentas, height=2, fg_color="#444")
+        self.frame_divisor_vmu.pack(fill="x", padx=10, pady=(15, 10))
+        
+        self.frame_divisor_vmu = ctk.CTkFrame(self.scroll_ferramentas, height=2, fg_color="#444")
+        self.frame_divisor_vmu.pack(fill="x", padx=10, pady=(15, 10))
         
         # --- RADAR DE FIRMWARE 8BITDO ---
-        frame_8bitdo = ctk.CTkFrame(self.scroll_devices, fg_color="#1a1a1a", corner_radius=8)
-        frame_8bitdo.pack(fill="x", padx=10, pady=(15, 0))
+        frame_8bitdo = ctk.CTkFrame(self.scroll_ferramentas, fg_color="#1a1a1a", corner_radius=8)
+        frame_8bitdo.pack(fill="x", padx=10, pady=(5, 0))
         
         lbl_8bitdo_title = ctk.CTkLabel(frame_8bitdo, text="🛠️ Manutenção de Hardware", font=ctk.CTkFont(size=14, weight="bold"))
         lbl_8bitdo_title.pack(side="left", padx=15, pady=10)
@@ -157,11 +180,9 @@ class DevicesManager:
         btn_8bitdo_update = ctk.CTkButton(frame_8bitdo, text="🎮 Checar Firmware 8BitDo", fg_color="#8B008B", hover_color="#A52A2A", font=ctk.CTkFont(weight="bold"), command=self.checar_firmware_8bitdo)
         btn_8bitdo_update.pack(side="right", padx=15, pady=10)
         
-        self.frame_divisor_vmu = ctk.CTkFrame(self.scroll_devices, height=2, fg_color="#444")
-        self.frame_divisor_vmu.pack(fill="x", padx=10, pady=(15, 10))
-
-        frame_vmu_manager = ctk.CTkFrame(self.scroll_devices, fg_color="#1a1a1a", corner_radius=8)
-        frame_vmu_manager.pack(fill="x", padx=10, pady=(0, 20))
+        # --- GERENCIADOR DE VMU ---
+        frame_vmu_manager = ctk.CTkFrame(self.scroll_ferramentas, fg_color="#1a1a1a", corner_radius=8)
+        frame_vmu_manager.pack(fill="x", padx=10, pady=(15, 20))
         
         lbl_vmu_m_title = ctk.CTkLabel(frame_vmu_manager, text="💾 Gerenciador de Memory Card (VMU)", font=ctk.CTkFont(size=14, weight="bold"))
         lbl_vmu_m_title.pack(side="left", padx=15, pady=15)
@@ -169,7 +190,72 @@ class DevicesManager:
         import vmu_manager
         btn_vmu_manager = ctk.CTkButton(frame_vmu_manager, text="🔍 Abrir Raio-X do VMU", fg_color="#1E90FF", hover_color="#4169E1", font=ctk.CTkFont(weight="bold"), command=lambda: vmu_manager.VMUXRayManager(self.app, self.app.entry_path.get()))
         btn_vmu_manager.pack(side="right", padx=15, pady=15)
+        self.iniciar_radar_8bitdo_background()
 
+    def construir_arsenal_nuvem(self, parent_frame):
+        frame_nuvem = ctk.CTkFrame(parent_frame, fg_color="#1a1a1a", corner_radius=8)
+        frame_nuvem.pack(fill="x", padx=10, pady=10)
+
+        lbl_titulo = ctk.CTkLabel(frame_nuvem, text="☁️ Arsenal em Nuvem (Perfis de Controle)", font=ctk.CTkFont(size=14, weight="bold"), text_color="#1E90FF")
+        lbl_titulo.pack(anchor="w", padx=15, pady=(10, 5))
+
+        lbl_desc = ctk.CTkLabel(frame_nuvem, text="Baixe e injete mapeamentos perfeitos (.cfg) direto da nossa base de dados oficial.", text_color="gray", font=ctk.CTkFont(size=12))
+        lbl_desc.pack(anchor="w", padx=15, pady=(0, 10))
+
+        # Dicionário tático: Aponta para o seu repositório no GitHub
+        self.perfis_nuvem = {
+            "🎮 8BitDo Ultimate (XInput)": "https://raw.githubusercontent.com/dsantanna/flycast_updater/main/mappings/8bitdo_ultimate.cfg",
+            "🎮 8BitDo SN30 / Pro Controller": "https://raw.githubusercontent.com/dsantanna/flycast_updater/main/mappings/8bitdo_sn30.cfg",
+            "🎮 PlayStation 4 / 5 (DualSense)": "https://raw.githubusercontent.com/dsantanna/flycast_updater/main/mappings/ps5_dualsense.cfg",
+            "🎮 Nintendo Switch Pro Controller": "https://raw.githubusercontent.com/dsantanna/flycast_updater/main/mappings/switch_pro.cfg",
+            "🎮 Xbox Series X/S Controller": "https://raw.githubusercontent.com/dsantanna/flycast_updater/main/mappings/xbox_series.cfg"
+        }
+
+        self.combo_nuvem = ctk.CTkComboBox(frame_nuvem, values=list(self.perfis_nuvem.keys()), state="readonly", width=280)
+        self.combo_nuvem.pack(side="left", padx=15, pady=(0, 15))
+        self.combo_nuvem.set(list(self.perfis_nuvem.keys())[0])
+
+        self.btn_baixar_perfil = ctk.CTkButton(frame_nuvem, text="⬇️ Baixar e Injetar", font=ctk.CTkFont(weight="bold"), fg_color="#228B22", hover_color="#006400", command=self.injetar_perfil_nuvem)
+        self.btn_baixar_perfil.pack(side="left", padx=(10, 15), pady=(0, 15))
+
+    def injetar_perfil_nuvem(self):
+        import urllib.request
+        import threading
+        
+        perfil_selecionado = self.combo_nuvem.get()
+        url_cfg = self.perfis_nuvem.get(perfil_selecionado)
+        install_path = self.app.entry_path.get()
+        
+        if not install_path or not os.path.exists(install_path):
+            mb.showerror("Erro de Rota", "A base do emulador não foi configurada.", parent=self.app)
+            return
+
+        mappings_dir = os.path.join(install_path, "mappings")
+        os.makedirs(mappings_dir, exist_ok=True)
+        
+        # Extrai o nome do arquivo da URL (ex: 8bitdo_ultimate.cfg)
+        nome_arquivo = url_cfg.split("/")[-1]
+        caminho_destino = os.path.join(mappings_dir, nome_arquivo)
+
+        self.btn_baixar_perfil.configure(state="disabled", text="⏳ Injetando...")
+
+        def rotina_download():
+            try:
+                req = urllib.request.Request(url_cfg, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=5) as response, open(caminho_destino, 'wb') as out_file:
+                    out_file.write(response.read())
+                
+                self.app.log(f"🎮 Central de Comandos: Perfil '{perfil_selecionado}' injetado em {mappings_dir}!")
+                self.app.after(0, lambda: self.app.mostrar_toast("Injeção Concluída", f"O perfil de controle foi instalado com sucesso!", "success"))
+                if hasattr(self.app, 'sfx'): self.app.sfx.play("save")
+            except Exception as e:
+                self.app.log(f"❌ Erro ao puxar perfil da nuvem: {e}")
+                self.app.after(0, lambda: self.app.mostrar_toast("Erro de Conexão", "Não foi possível localizar o perfil na nuvem no momento.", "error"))
+            finally:
+                self.app.after(0, lambda: self.btn_baixar_perfil.configure(state="normal", text="⬇️ Baixar e Injetar"))
+
+        threading.Thread(target=rotina_download, daemon=True).start()
+    
     def injetar_controle(self):
         controle_selecionado = self.combo_ctrl.get()
         perfil = PERFIS_CONTROLES.get(controle_selecionado)
@@ -401,9 +487,85 @@ class DevicesManager:
         url_suporte = "https://support.8bitdo.com/firmware-updater.html"
         webbrowser.open(url_suporte)
         
+        # Puxa o dado mais fresco que o robô guardou
+        versao_salva = self.app.config_atual.get("8bitdo_last_version", "Desconhecida")
+        
         msg = (
+            f"📡 Última versão detectada pelo Radar: v{versao_salva}\n\n"
             "Para garantir a menor latência e a melhor compatibilidade dos seus controles 8BitDo, "
             "é recomendado rodar o 'Upgrade Tool' periodicamente.\n\n"
             "O site oficial foi aberto no seu navegador!"
         )
         mb.showinfo("Atualização de Hardware", msg, parent=self.app)
+
+    def injetar_controle_offline(self):
+        controle_selecionado = self.combo_ctrl_local.get()
+        perfil = PERFIS_CONTROLES.get(controle_selecionado)
+        if not perfil: return
+
+        install_path = self.app.entry_path.get()
+        if not install_path or not os.path.exists(install_path):
+            mb.showerror("Erro", "Configure a pasta de instalação do emulador primeiro.", parent=self.app)
+            return
+
+        # Caminho oficial do Flycast para mapeamentos
+        mappings_dir = os.path.join(install_path, "mappings")
+        os.makedirs(mappings_dir, exist_ok=True)
+        
+        arquivo_destino = os.path.join(mappings_dir, perfil["arquivo"])
+        try:
+            with open(arquivo_destino, "w", encoding="utf-8") as f:
+                f.write(perfil["conteudo"])
+            self.app.log(f"🎮 Injeção Offline: '{perfil['arquivo']}' injetado em /mappings/ com sucesso.")
+            self.app.mostrar_toast("Controle Injetado", "O perfil de controle local foi aplicado com sucesso e está pronto para uso!", "success")
+            if hasattr(self.app, 'sfx'): self.app.sfx.play("save")
+        except Exception as e:
+            self.app.log(f"❌ Erro ao injetar o controle local: {e}")
+            self.app.mostrar_toast("Falha na Injeção", f"Não foi possível aplicar o controle: {e}", "error")
+
+    def iniciar_radar_8bitdo_background(self):
+        # Trava de segurança: Roda apenas 1 vez por sessão para não spammar o servidor
+        if getattr(self, 'radar_8bitdo_rodou', False): return
+        self.radar_8bitdo_rodou = True
+
+        def rotina_espionagem():
+            import urllib.request
+            import re
+            
+            try:
+                url = "https://support.8bitdo.com/firmware-updater.html"
+                # Disfarce tático (User-Agent) para passar pelo firewall do site
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+                
+                with urllib.request.urlopen(req, timeout=8) as response:
+                    html = response.read().decode('utf-8', errors='ignore')
+                
+                # O Cão de Caça: Fareja qualquer padrão parecido com "V3.2.0" ou "v2.01" no código do site
+                versoes = re.findall(r'[Vv](\d+\.\d+(?:\.\d+)?)', html)
+                if not versoes: return
+                
+                # Pega a versão mais alta que encontrar no código
+                versao_recente = sorted(versoes, key=lambda x: [int(i) for i in x.split('.')])[-1]
+                
+                # Checa na sua maleta de configurações se já conhecemos essa versão
+                versao_salva = self.app.config_atual.get("8bitdo_last_version", "")
+                
+                # Se for diferente e não for a primeira vez rodando... ALERTA!
+                if versao_recente != versao_salva and versao_salva != "":
+                    mensagem = f"Nova versão de Firmware/Upgrade Tool da 8BitDo detectada (v{versao_recente}). Atualize seus controles!"
+                    # Espera uns segundinhos para a interface carregar antes de soltar o Toast
+                    self.app.after(4000, lambda: self.app.mostrar_toast("Radar 8BitDo 📡", mensagem, "info"))
+                    if hasattr(self.app, 'sfx'): self.app.after(4000, lambda: self.app.sfx.play("nav"))
+                
+                # Salva a nova versão silenciosamente (Se for a primeira vez, ele só guarda a informação)
+                if versao_recente != versao_salva:
+                    self.app.config_atual["8bitdo_last_version"] = versao_recente
+                    if hasattr(self.app, 'salvar_estado_atual'):
+                        self.app.after(0, self.app.salvar_estado_atual)
+                        
+            except Exception as e:
+                self.app.log(f"⚠️ Radar 8BitDo falhou silenciosamente (Sem internet ou site offline): {e}")
+
+        import threading
+        # Dispara o espião nas sombras (daemon=True garante que ele morre se você fechar o app)
+        threading.Thread(target=rotina_espionagem, daemon=True).start()

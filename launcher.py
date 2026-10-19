@@ -1,4 +1,4 @@
-import os, sys, json, subprocess, time, urllib.request, urllib.parse, datetime, threading, configparser, zipfile, shutil, re
+import os, sys, json, subprocess, time, urllib.request, urllib.parse, datetime, threading, queue, configparser, zipfile, shutil, re
 import tkinter as tk 
 import tkinter.messagebox as mb
 import webbrowser
@@ -114,6 +114,36 @@ def iniciar_gui():
             self.config_atual = config_manager.carregar_configuracao()
             self.lang = self.config_atual.get("language", "pt")
 
+            # ==========================================
+            # 💉 VACINA ANTI-CRASH MULTI-THREAD
+            # ==========================================
+            self.fila_interface = queue.Queue()
+            self._after_original = self.after
+
+            def after_seguro(ms, func=None, *args):
+                # Se a ordem já vem da thread principal, atira normalmente!
+                if threading.current_thread() is threading.main_thread():
+                    return self._after_original(ms, func, *args)
+                else:
+                    # Se vier das sombras (Threads secundárias), coloca na fila segura
+                    self.fila_interface.put((ms, func, args))
+                    return None
+
+            # Substitui a função original pela nossa versão blindada
+            self.after = after_seguro
+
+            # O Cão de Guarda: Processa tudo o que está na fila ordenadamente
+            def processar_fila():
+                while not self.fila_interface.empty():
+                    ms, func, args = self.fila_interface.get()
+                    if func:
+                        self._after_original(ms, func, *args)
+                # Volta a verificar a fila a cada 50 milissegundos
+                self._after_original(50, processar_fila)
+
+            # Inicia a patrulha da fila
+            processar_fila()
+
             if HAS_PYGAME:
                 try: pygame.mixer.init()
                 except Exception: pass
@@ -123,7 +153,7 @@ def iniciar_gui():
             self.geometry("800x980") 
             self.minsize(800, 600)
             self.resizable(True, True) 
-
+          
             def forcar_maximizacao():
                 try: self.state('zoomed')
                 except Exception: self.attributes('-zoomed', True)
@@ -1599,9 +1629,6 @@ def iniciar_gui():
             
             if hasattr(self, 'devices_manager'):
                 self.devices_manager.carregar_dispositivos()
-            
-            if hasattr(self, 'devices_manager'):
-                self.devices_manager.carregar_dispositivos()
 
         def salvar_configuracoes_emulador(self, silencioso=True):
             ra_on = self.switch_ra.get() == 1
@@ -1654,13 +1681,7 @@ def iniciar_gui():
 
             btn_nao = ctk.CTkButton(frame_botoes, text="Não, salvar assim mesmo", width=180, fg_color="#8B0000", hover_color="#A52A2A", command=ao_nao)
             btn_nao.pack(side="left", padx=15)
-
-        # A sua função original que faz o trabalho sujo de salvar no emu.cfg fica aqui!
-        def _efetivar_salvamento_emu(self, silencioso=True):
-            install_path = self.entry_path.get()
-            ra_on = self.switch_ra.get() == 1
-            # ... todo o resto do seu código original de salvamento segue intacto daqui pra baixo ...
-                
+    
         def _efetivar_salvamento_emu(self, silencioso=True):
             install_path = self.entry_path.get()
             ra_on = self.switch_ra.get() == 1
