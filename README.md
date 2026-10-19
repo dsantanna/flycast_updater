@@ -5,7 +5,7 @@ A versão 6.5 eleva a organização, estética e estabilidade da sua coleção n
 
 O Flycast Updater transcendeu completamente sua função original de atualizador. Hoje ele atua como a suíte definitiva de gerenciamento, integração em nuvem e interface gráfica avançada para elevar a sua experiência de emulação no Flycast (Sega Dreamcast / Naomi / Atomiswave) no Windows a um patamar profissional.
 
-🛠️ Novidades da Versão 6.4.1 (Hotfixes & Funcionalidades)
+🛠️ Novidades da Versão 6.5 (Hotfixes & Funcionalidades)
 
 Fila Segura de Threads (Anti-Crash): O núcleo da interface foi blindado. Processamentos pesados do Scraper em massa não causam mais o congelamento da interface (RuntimeError), garantindo renderizações suaves na grade de jogos.
 
